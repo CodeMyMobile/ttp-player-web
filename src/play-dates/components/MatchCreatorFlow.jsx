@@ -42,6 +42,7 @@ import {
 } from "../utils/matchOptions";
 import { combineDateAndTimeToIso } from "../utils/datetime";
 import { getAvatarInitials, getAvatarUrlFromPlayer } from "../utils/avatar";
+import { getPlayerSearchName, getPlayerSearchRating } from "../utils/playerSearch";
 import {
   loadRecentLocations as loadStoredLocations,
   recordRecentLocation as persistRecentLocation,
@@ -212,16 +213,15 @@ const formatPhoneDisplay = (value) => {
 
 const normalizePlayer = (player) => {
   const id = Number(player?.user_id ?? player?.id);
-  const name = player?.full_name || player?.name || player?.email || "Player";
-  const ntrp = player?.skill_level || player?.ntrp || "";
+  const name = getPlayerSearchName(player);
+  const ntrp = getPlayerSearchRating(player);
   const lastPlayed =
     player?.last_match_at || player?.last_played_at || player?.last_active_at;
   return {
     id,
     name,
-    email: player?.email || "",
     ntrp,
-    avatar: getAvatarInitials(name, player?.email),
+    avatar: getAvatarInitials(name, String(id || "")),
     avatarUrl: getAvatarUrlFromPlayer(player),
     lastPlayed: formatRelativeDate(lastPlayed),
     raw: player,
@@ -1956,7 +1956,7 @@ const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, onCreateGrou
                         type="text"
                         value={notifySearch}
                         onChange={(e) => setNotifySearch(e.target.value)}
-                        placeholder="Search by name or email..."
+                        placeholder="Search by player name..."
                         className="w-full rounded-[10px] border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-[13px] text-slate-900 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-100"
                       />
                     </div>
@@ -2327,7 +2327,7 @@ const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, onCreateGrou
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by name or email..."
+                  placeholder="Search by player name..."
                   className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-transparent"
                 />
               </div>

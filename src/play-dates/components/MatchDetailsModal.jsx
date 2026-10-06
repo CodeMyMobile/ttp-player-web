@@ -39,6 +39,7 @@ import {
 } from "../services/matches";
 import { rejectInvite } from "../services/invites";
 import { isMatchArchivedError } from "../utils/archive";
+import { getPlayerSearchName } from "../utils/playerSearch";
 import {
   countUniqueMatchOccupants,
   getParticipantPhone,
@@ -3212,7 +3213,7 @@ const MatchDetailsModal = ({
                   <div className="absolute z-10 mt-2 max-h-56 w-full overflow-y-auto rounded-xl border border-violet-100 bg-white shadow-xl">
                     {notifyResults.map((player) => {
                       const id = Number(player.user_id ?? player.id);
-                      const name = player.full_name || player.name || player.email || `Player ${id}`;
+                      const name = getPlayerSearchName(player);
                       return (
                         <button
                           key={id || name}
@@ -3232,7 +3233,7 @@ const MatchDetailsModal = ({
                 <div className="flex flex-wrap gap-2">
                   {notifySelected.map((player) => {
                     const id = Number(player.user_id ?? player.id);
-                    const name = player.full_name || player.name || player.email || `Player ${id}`;
+                    const name = getPlayerSearchName(player);
                     return (
                       <span
                         key={id || name}

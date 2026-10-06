@@ -15,6 +15,7 @@ import {
 } from "./services/matches";
 import { listNotifications } from "./services/notifications";
 import { getStoredAuthToken } from "./services/authToken";
+import { getPlayerSearchId } from "./utils/playerSearch";
 import ProfileManager from "./components/ProfileManager";
 import BrowseScreen from "./components/browse/BrowseScreen";
 import NotificationsFeed, {
@@ -5041,7 +5042,7 @@ const TennisMatchApp = ({
           ? existingPlayerIds
           : new Set(existingPlayerIds || []);
       return suggestedPlayers.filter((player) => {
-        const pid = Number(player.user_id);
+        const pid = Number(getPlayerSearchId(player));
         if (!Number.isFinite(pid) || pid <= 0) return false;
         if (blockedIds.has(pid)) return false;
         if (selectedPlayers.has(pid)) return false;
@@ -5056,7 +5057,7 @@ const TennisMatchApp = ({
 
     const handleAddSuggestedPlayer = useCallback(
       (player) => {
-        const pid = Number(player.user_id);
+        const pid = Number(getPlayerSearchId(player));
         if (!Number.isFinite(pid) || pid <= 0) return;
         setSelectedPlayers((prev) => {
           if (prev.has(pid)) return prev;
@@ -5123,11 +5124,11 @@ const TennisMatchApp = ({
         : new Set(existingPlayerIds || []);
     const selectedPlayerList = Array.from(selectedPlayers.values());
     const pendingPlayerInvites = selectedPlayerList.filter((player) => {
-      const pid = Number(player.user_id);
+      const pid = Number(getPlayerSearchId(player));
       return Number.isFinite(pid) && !normalizedExistingIds.has(pid);
     });
     const alreadyInvitedSelections = selectedPlayerList.filter((player) => {
-      const pid = Number(player.user_id);
+      const pid = Number(getPlayerSearchId(player));
       return Number.isFinite(pid) && normalizedExistingIds.has(pid);
     });
     const manualInviteContacts = Array.from(manualContacts.values());
@@ -5253,7 +5254,7 @@ const TennisMatchApp = ({
                       <ul className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-100">
                         {players.map((player) => {
                           const name = player.full_name || "Unknown player";
-                          const pid = Number(player.user_id);
+                          const pid = Number(getPlayerSearchId(player));
                           const selected = Number.isFinite(pid) && selectedPlayers.has(pid);
                           return (
                             <li key={player.user_id}>
@@ -5331,7 +5332,7 @@ const TennisMatchApp = ({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {players.map((player) => {
                         const name = player.full_name || "Unknown player";
-                        const pid = Number(player.user_id);
+                        const pid = Number(getPlayerSearchId(player));
                         const selected = Number.isFinite(pid) && selectedPlayers.has(pid);
                         return (
                           <button
@@ -5435,7 +5436,7 @@ const TennisMatchApp = ({
                   <ul className="space-y-3">
                     {topSuggestions.map((player) => {
                       const name = player.full_name || "Unknown player";
-                      const pid = Number(player.user_id);
+                      const pid = Number(getPlayerSearchId(player));
                       const selected = Number.isFinite(pid) && selectedPlayers.has(pid);
                       return (
                         <li
@@ -5649,7 +5650,7 @@ const TennisMatchApp = ({
                             onClick={() =>
                               setSelectedPlayers((prev) => {
                                 const next = new Map(prev);
-                                const normalizedId = Number(player.user_id);
+                                const normalizedId = Number(getPlayerSearchId(player));
                                 if (Number.isFinite(normalizedId)) {
                                   next.delete(normalizedId);
                                 }
