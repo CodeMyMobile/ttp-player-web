@@ -3903,7 +3903,7 @@ const TennisMatchApp = ({
         matchData.playerCount === 2 &&
         ((Array.isArray(matchData.timeOptions) && matchData.timeOptions.length > 0) ||
           (Array.isArray(matchData.locationOptions) && matchData.locationOptions.length > 0));
-      const backendPlayerLimit = hasSelectableSlotOptions ? 1 : matchData.playerCount;
+      const backendPlayerLimit = matchData.playerCount;
 
       const basePayload = {
         status,
@@ -3927,6 +3927,7 @@ const TennisMatchApp = ({
           basePayload,
           buildSlotOptionPayloadFields({
             playerLimit: 1,
+            matchFormat: matchData.format,
             preferredTime: isoDate,
             preferredLocation: {
               location_text: matchData.location,

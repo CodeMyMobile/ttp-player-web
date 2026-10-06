@@ -853,6 +853,7 @@ const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, onCreateGrou
         payload,
         buildSlotOptionPayloadFields({
           playerLimit: matchData.totalPlayers,
+          matchFormat: matchData.format,
           preferredTime: isoStart,
           preferredLocation: {
             location_text: matchData.location,

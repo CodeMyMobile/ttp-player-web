@@ -79,6 +79,7 @@ export function buildMatchPayload(card, { type } = {}) {
       payload,
       buildSlotOptionPayloadFields({
         playerLimit: card.totalPlayers,
+        matchFormat: card.format,
         preferredTime: isoStart,
         preferredLocation: {
           location_text: card.location,
@@ -133,7 +134,7 @@ export function buildMatchPayloadFromCard(card, ctx = {}) {
       location: card.location,
       latitude: card.latitude,
       longitude: card.longitude,
-      totalPlayers: hasSlotOptions ? 1 : card.count,
+      totalPlayers: card.count,
       format: card.format,
       notes: "",
       timeOptions: card.timeOptions,

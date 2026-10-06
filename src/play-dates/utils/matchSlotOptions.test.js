@@ -10,7 +10,8 @@ import {
 
 test("singles options payload keeps preferred scalar and sends alternatives only", () => {
   const payload = buildSlotOptionPayloadFields({
-    playerLimit: 1,
+    playerLimit: 2,
+    matchFormat: "Singles",
     preferredTime: "2026-08-01T18:00:00.000Z",
     preferredLocation: {
       location_text: "Penmar Recreation Center",
@@ -36,6 +37,7 @@ test("doubles payload never sends selectable slot options", () => {
   assert.deepEqual(
     buildSlotOptionPayloadFields({
       playerLimit: 4,
+      matchFormat: "Doubles",
       preferredTime: "2026-08-01T18:00:00.000Z",
       preferredLocation: { location_text: "Penmar" },
       timeOptions: ["2026-08-02T18:00:00.000Z"],
@@ -84,12 +86,12 @@ test("offered slots read normalized camelCase option aliases", () => {
 });
 
 test("unresolved singles slot match reads normalized camelCase resolved flag", () => {
-  assert.equal(isUnresolvedSinglesSlotMatch({ playerLimit: 1, slotResolved: false }), true);
+  assert.equal(isUnresolvedSinglesSlotMatch({ playerLimit: 2, slotResolved: false }), true);
 });
 
 test("unresolved singles slot match uses authoritative raw fields", () => {
-  assert.equal(isUnresolvedSinglesSlotMatch({ player_limit: 1, slot_resolved: false }), true);
-  assert.equal(isUnresolvedSinglesSlotMatch({ player_limit: 4, slot_resolved: false }), false);
+  assert.equal(isUnresolvedSinglesSlotMatch({ player_limit: 2, slot_resolved: false }), true);
+  assert.equal(isUnresolvedSinglesSlotMatch({ player_limit: 4, slot_resolved: false }), true);
   assert.equal(isUnresolvedSinglesSlotMatch({ player_limit: 1, slot_resolved: true }), false);
 });
 
