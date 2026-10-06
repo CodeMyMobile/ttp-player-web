@@ -302,7 +302,7 @@ export const createMatch = async ({
     payload.match_visibility = "hidden";
   }
 
-  if (matchType === "open" && normalizedRosterSize === 1) {
+  if (matchType === "open" && `${matchFormat || ""}`.trim().toLowerCase() === "singles") {
     if (Array.isArray(timeOptions) && timeOptions.length > 0) {
       payload.time_options = timeOptions.map(toIsoString).filter(Boolean);
     }

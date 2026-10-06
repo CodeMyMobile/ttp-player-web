@@ -16,6 +16,7 @@ import MainLayout from "../components/MainLayout";
 import { createMatch, getMatchById } from "../api/matches";
 import type { MatchDraftDetails } from "../types/matchPlay";
 import { getStoredAuthToken } from "../services/authToken";
+import { resolvePlayersNeededForFormat, resolveRosterSizeForFormat } from "../utils/matchRoster";
 
 import "./CreateMatchPage.css";
 import "./CreatePrivateMatchInvitePage.css";
@@ -98,10 +99,16 @@ const CreateMatchReviewPage = () => {
   }, [matchDraft?.date, matchDraft?.time]);
 
   const durationMinutes = matchDraft?.duration === "60" ? 60 : matchDraft?.duration === "90" ? 90 : 120;
+  const selectedFormat = settings?.format ?? privateFormat;
+  const requestedRosterSize = (matchDraft?.playersNeeded ?? 3) + 1;
+  const rosterSize = resolveRosterSizeForFormat(selectedFormat, requestedRosterSize);
+  const playersNeeded = matchDraft
+    ? resolvePlayersNeededForFormat(selectedFormat, matchDraft.playersNeeded)
+    : 0;
   const playersNeededLabel = matchDraft
     ? matchDraft.isUnlimitedPlayers
       ? "Unlimited players"
-      : `${matchDraft.playersNeeded} players needed`
+      : `${playersNeeded} players needed`
     : "Players TBD";
 
   const visibilityLabel = matchDraft?.matchType === "private" ? "Private invitations" : "Open listing";
@@ -113,7 +120,7 @@ const CreateMatchReviewPage = () => {
         : "Visible in match search and to players nearby.";
 
   const formattedSkill = matchDraft?.matchType === "private" ? "Private roster" : settings?.skillLevel ?? "All levels";
-  const formattedFormat = formatMatchFormat(settings?.format ?? privateFormat);
+  const formattedFormat = formatMatchFormat(selectedFormat);
   const formattedNotes = settings?.notes || "";
   const courtLabel = settings?.courtNumber ? `Court ${settings.courtNumber}` : "Court TBA";
   const matchTypeLabel = matchDraft?.matchType === "private" ? "Private match" : "Open match";
@@ -148,7 +155,6 @@ const CreateMatchReviewPage = () => {
         throw new Error("Please sign in to publish this match.");
       }
 
-      const rosterSize = (matchDraft.playersNeeded ?? 3) + 1;
       const response = await createMatch({
         privacy: matchDraft.matchType,
         startDateTime: startIso,
@@ -189,7 +195,10 @@ const CreateMatchReviewPage = () => {
 
       navigate("/matches/create/published", {
         state: {
-          matchDraft,
+          matchDraft: {
+            ...matchDraft,
+            playersNeeded,
+          },
           settings,
           invitedPlayers,
           privateFormat,

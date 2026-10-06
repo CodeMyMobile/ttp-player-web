@@ -96,14 +96,17 @@ const uniqueLocations = (values = []) => {
   return result;
 };
 
+const isSinglesFormat = (value) => `${value || ""}`.trim().toLowerCase() === "singles";
+
 export const buildSlotOptionPayloadFields = ({
   playerLimit,
+  matchFormat,
   preferredTime,
   preferredLocation,
   timeOptions = [],
   locationOptions = [],
 } = {}) => {
-  if (Number(playerLimit) !== 1) return {};
+  if (!isSinglesFormat(matchFormat) && Number(playerLimit) !== 1) return {};
 
   const preferredIso = parseIso(preferredTime);
   const preferredLocationOption = normalizeLocationOption(preferredLocation);
@@ -166,5 +169,4 @@ export const buildOfferedSlotOptions = (match = {}) => {
 };
 
 export const isUnresolvedSinglesSlotMatch = (match = {}) =>
-  Number((match || {}).player_limit ?? (match || {}).playerLimit) === 1 &&
   ((match || {}).slot_resolved ?? (match || {}).slotResolved) === false;

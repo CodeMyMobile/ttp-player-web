@@ -42,7 +42,7 @@ test("createMatch sends slot option arrays for singles option events", async () 
       privacy: "open",
       startDateTime: "2026-08-01T18:00:00.000Z",
       locationText: "Penmar",
-      rosterSize: 1,
+      rosterSize: 2,
       matchFormat: "Singles",
       timeOptions: ["2026-08-02T18:00:00.000Z"],
       locationOptions: [{ location_text: "Ocean View", latitude: 34.01, longitude: -118.48 }],
@@ -51,6 +51,7 @@ test("createMatch sends slot option arrays for singles option events", async () 
     globalThis.fetch = previousFetch;
   }
 
+  assert.equal(requestBody?.player_limit, 2);
   assert.deepEqual(requestBody?.time_options, ["2026-08-02T18:00:00.000Z"]);
   assert.deepEqual(requestBody?.location_options, [
     { location_text: "Ocean View", latitude: 34.01, longitude: -118.48 },

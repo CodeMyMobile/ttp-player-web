@@ -18,6 +18,7 @@ import {
 
 import MainLayout from "../components/MainLayout";
 import type { MatchDraftDetails } from "../types/matchPlay";
+import { resolvePlayersNeededForFormat } from "../utils/matchRoster";
 
 import "./CreateMatchPage.css";
 import "./CreatePrivateMatchInvitePage.css";
@@ -102,7 +103,8 @@ const CreateMatchPublishConfirmationPage = () => {
   const locationName = matchDraft?.location || "TBD";
   const visibilityValue = settings?.visibility === "hidden" ? "Hidden link" : "Public link";
   const formattedSkill = matchDraft?.matchType === "private" ? "Private roster" : settings?.skillLevel ?? "All levels";
-  const formattedFormat = formatMatchFormat(settings?.format ?? privateFormat);
+  const selectedFormat = settings?.format ?? privateFormat;
+  const formattedFormat = formatMatchFormat(selectedFormat);
   const courtLabel = settings?.courtNumber ? `Court ${settings.courtNumber}` : "Court TBA";
   const formattedNotes = settings?.notes || "";
   const shareLinkLabel = shareLink || "Link available after publish";
@@ -110,7 +112,7 @@ const CreateMatchPublishConfirmationPage = () => {
   const playersNeededText = matchDraft
     ? matchDraft.isUnlimitedPlayers
       ? "Unlimited spots open"
-      : `${matchDraft.playersNeeded} more needed`
+      : `${resolvePlayersNeededForFormat(selectedFormat, matchDraft.playersNeeded)} more needed`
     : "Roster TBD";
 
   const eventLocation = `${locationName}`;

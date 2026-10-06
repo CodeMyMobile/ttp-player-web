@@ -134,12 +134,13 @@ test("verifiedOnly coerces to boolean on both keys", () => {
 test("singles payload includes selectable alternative times and locations", () => {
   const card = {
     ...baseCard(),
-    totalPlayers: 1,
+    totalPlayers: 2,
     format: "Singles",
     timeOptions: ["2026-06-21T18:00:00.000Z"],
     locationOptions: [{ location_text: "Ocean View Courts", latitude: 34.01, longitude: -118.48 }],
   };
   const payload = buildMatchPayload(card, { type: "open" });
+  assert.equal(payload.player_limit, 2);
   assert.deepEqual(payload.time_options, ["2026-06-21T18:00:00.000Z"]);
   assert.deepEqual(payload.location_options, [
     { location_text: "Ocean View Courts", latitude: 34.01, longitude: -118.48 },
@@ -265,7 +266,7 @@ test("card Round-robin with custom count maps format + player_limit", () => {
   assert.equal(payload.player_limit, 6);
 });
 
-test("card open Singles with slot options maps to one respondent slot and carries alternatives", () => {
+test("card open Singles with slot options keeps a two-player roster and carries alternatives", () => {
   const card = {
     ...baseFlowCard(),
     format: "Singles",
@@ -280,7 +281,7 @@ test("card open Singles with slot options maps to one respondent slot and carrie
     playerRating: null,
     shareChoice: "broadcast",
   });
-  assert.equal(payload.player_limit, 1);
+  assert.equal(payload.player_limit, 2);
   assert.deepEqual(payload.time_options, ["2026-06-21T18:00:00.000Z"]);
   assert.deepEqual(payload.location_options, [
     { location_text: "Ocean View Courts", latitude: 34.01, longitude: -118.48 },
@@ -299,7 +300,7 @@ test("card open Singles accepts time-only slot options on the preferred date", (
     playerRating: null,
     shareChoice: "broadcast",
   });
-  assert.equal(payload.player_limit, 1);
+  assert.equal(payload.player_limit, 2);
   assert.deepEqual(payload.time_options, [
     new Date(2026, 5, 20, 19, 30, 0, 0).toISOString(),
   ]);
