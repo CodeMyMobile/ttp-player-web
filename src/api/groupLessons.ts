@@ -318,7 +318,7 @@ export const holdsGroupSpot = (
   const normalizedMethod = String(paymentMethod ?? "").toLowerCase();
   const normalizedSource = String(reservation?.paymentSource ?? "").toLowerCase();
   const creditStatus = String(reservation?.creditStatus ?? reservation?.credit_status ?? "").toLowerCase();
-  const reservedMethods = new Set(["pay_on_court", "comped", "credit", "credits"]);
+  const reservedMethods = new Set(["pay_on_court", "comped", "card", "credit", "credits"]);
 
   return numericStatus === 1 ||
     numericPaymentStatus === 1 ||
