@@ -98,6 +98,7 @@ test("holdsGroupSpot counts explicit reservations but not invite-only pending ro
   assert.equal(holdsGroupSpot(1, 1, "card"), true);
   assert.equal(holdsGroupSpot(1, 0, "pay_on_court"), true);
   assert.equal(holdsGroupSpot(1, 0, "card"), true);
+  assert.equal(holdsGroupSpot(0, 0, "card"), true);
   assert.equal(holdsGroupSpot(0, 0, undefined), false);
   assert.equal(holdsGroupSpot(undefined, undefined, undefined), false);
   assert.equal(holdsGroupSpot(0, 0, undefined, { stripePaymentIntentId: "pi_pending" }), true);
