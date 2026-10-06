@@ -30,6 +30,7 @@ import {
 import { buildRecentPartnerSuggestions } from "../utils/inviteSuggestions";
 import PlayerAvatar from "./PlayerAvatar";
 import { getAvatarInitials, getAvatarUrlFromPlayer } from "../utils/avatar";
+import { getPlayerSearchId } from "../utils/playerSearch";
 
 const InviteScreen = ({
   matchId,
@@ -251,7 +252,7 @@ const InviteScreen = ({
         ? existingPlayerIds
         : new Set(existingPlayerIds || []);
     return suggestedPlayers.filter((player) => {
-      const pid = Number(player.user_id);
+      const pid = Number(getPlayerSearchId(player));
       if (!Number.isFinite(pid) || pid <= 0) return false;
       if (blockedIds.has(pid)) return false;
       if (selectedPlayers.has(pid)) return false;
@@ -266,7 +267,7 @@ const InviteScreen = ({
 
   const handleAddSuggestedPlayer = useCallback(
     (player) => {
-      const pid = Number(player.user_id);
+      const pid = Number(getPlayerSearchId(player));
       if (!Number.isFinite(pid) || pid <= 0) return;
       setSelectedPlayers((prev) => {
         if (prev.has(pid)) return prev;
@@ -551,7 +552,7 @@ const InviteScreen = ({
                     <ul className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-100">
                       {players.map((player) => {
                         const name = player.full_name || "Unknown player";
-                        const pid = Number(player.user_id);
+                        const pid = Number(getPlayerSearchId(player));
                         const selected = Number.isFinite(pid) && selectedPlayers.has(pid);
                         const avatarUrl = getAvatarUrlFromPlayer(player);
                         const avatarInitials = getAvatarInitials(name, "UP");
@@ -626,7 +627,7 @@ const InviteScreen = ({
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {players.map((player) => {
                       const name = player.full_name || "Unknown player";
-                      const pid = Number(player.user_id);
+                      const pid = Number(getPlayerSearchId(player));
                       const selected = Number.isFinite(pid) && selectedPlayers.has(pid);
                       return (
                         <button
@@ -728,7 +729,7 @@ const InviteScreen = ({
                 <ul className="space-y-3">
                   {topSuggestions.map((player) => {
                     const name = player.full_name || "Unknown player";
-                    const pid = Number(player.user_id);
+                    const pid = Number(getPlayerSearchId(player));
                     const selected = Number.isFinite(pid) && selectedPlayers.has(pid);
                     return (
                       <li

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import api, { unwrap } from "../../services/api";
 import { searchPlayers } from "../../services/matches";
+import { getPlayerSearchName, getPlayerSearchRating } from "../../play-dates/utils/playerSearch";
 import type { CurrentUser, Player, Court, SubmitPayload } from "./scoring";
 import { CURRENT_USER } from "./fixtures";
 
@@ -9,7 +10,6 @@ interface ApiPlayer {
   user_id?: number | string;
   full_name?: string | null;
   name?: string | null;
-  email?: string | null;
   usta_rating?: string | number | null;
   uta_rating?: string | number | null;
 }
@@ -118,8 +118,8 @@ const PLAYER_COLORS = [
 
 const normalizePlayer = (player: ApiPlayer, index: number): Player => {
   const id = player.user_id ?? player.id ?? "";
-  const name = player.full_name || player.name || player.email || "Player";
-  const rating = player.usta_rating ?? player.uta_rating ?? "N/A";
+  const name = getPlayerSearchName(player);
+  const rating = getPlayerSearchRating(player) || "N/A";
 
   return {
     id: String(id),

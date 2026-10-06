@@ -43,6 +43,7 @@ import {
   RECENT_PLAYERS_EVENT,
 } from "../utils/recentPlayers";
 import { getAvatarInitials, getAvatarUrlFromPlayer } from "../utils/avatar";
+import { getPlayerSearchName, getPlayerSearchRating } from "../utils/playerSearch";
 
 // Clamp to backend skill vocabulary (utils/matchOptions.js tops out at "4.5+").
 const NTRP = ["2.5", "3.0", "3.5", "4.0", "4.5+"];
@@ -65,14 +66,13 @@ const SHARE_MESSAGE = buildAvailabilityShareMessage();
 
 const normalizePlayer = (player) => {
   const id = Number(player?.user_id ?? player?.id);
-  const name = player?.full_name || player?.name || player?.email || "Player";
-  const ntrp = player?.skill_level || player?.ntrp || "";
+  const name = getPlayerSearchName(player);
+  const ntrp = getPlayerSearchRating(player);
   return {
     id,
     name,
-    email: player?.email || "",
     ntrp,
-    avatar: getAvatarInitials(name, player?.email),
+    avatar: getAvatarInitials(name, String(id || "")),
     avatarUrl: getAvatarUrlFromPlayer(player),
     raw: player,
   };
@@ -1606,7 +1606,7 @@ const InviteScreen = ({
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by name or email…"
+              placeholder="Search by player name…"
               className="min-w-0 flex-1 bg-transparent text-[14.5px] font-semibold outline-none"
             />
           </div>

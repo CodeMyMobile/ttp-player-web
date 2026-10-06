@@ -3,6 +3,7 @@ import { X, Loader2, UserRound, Info, Users, Plus, Trash2 } from "lucide-react";
 import { getPersonalDetails } from "../services/auth";
 import { formatPhoneNumber, formatPhoneDisplay } from "../services/phone";
 import { searchPlayers } from "../services/matches";
+import { getPlayerSearchName } from "../utils/playerSearch";
 import {
   createMatchGroup,
   deleteMatchGroup,
@@ -659,7 +660,7 @@ const ProfileManager = ({
                     <div className="absolute z-10 mt-2 max-h-52 w-full overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl">
                       {groupPlayerResults.map((player) => {
                         const id = normalizePlayerId(player);
-                        const name = player.full_name || player.name || player.email || `Player ${id}`;
+                        const name = getPlayerSearchName(player);
                         return (
                           <button
                             key={id || name}
@@ -679,7 +680,7 @@ const ProfileManager = ({
                   <div className="flex flex-wrap gap-2">
                     {selectedGroupPlayers.map((player) => {
                       const id = normalizePlayerId(player);
-                      const name = player.full_name || player.name || player.email || `Player ${id}`;
+                      const name = getPlayerSearchName(player);
                       return (
                         <span
                           key={id || name}
