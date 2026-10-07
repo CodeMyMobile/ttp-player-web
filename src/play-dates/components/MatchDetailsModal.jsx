@@ -2487,7 +2487,7 @@ const MatchDetailsModal = ({
           !isArchived &&
           !isCancelled;
         const phoneLink =
-          isHost && player.phoneDisplay && player.phoneHref ? (
+          player.phoneDisplay && player.phoneHref ? (
             <a
               href={player.phoneHref}
               aria-label={`Call ${player.name}`}
