@@ -4,6 +4,7 @@ import { getPersonalDetails } from "../services/auth";
 import { formatPhoneNumber, formatPhoneDisplay } from "../services/phone";
 import { searchPlayers } from "../services/matches";
 import { getPlayerSearchName } from "../utils/playerSearch";
+import { normalizeSharePhone, SHARE_PHONE_LABEL } from "../utils/privacy";
 import {
   createMatchGroup,
   deleteMatchGroup,
@@ -41,6 +42,7 @@ const emptyDetails = {
   usta_rating: "",
   uta_rating: "",
   about_me: "",
+  share_phone: false,
 };
 
 const formatRatingOptionValue = (value) => {
@@ -167,6 +169,7 @@ const ProfileManager = ({
         usta_rating: formatRatingOptionValue(data?.usta_rating),
         uta_rating: formatRatingOptionValue(data?.uta_rating),
         about_me: data?.about_me || "",
+        share_phone: normalizeSharePhone(data?.share_phone),
       };
       setDetails(normalizedDetails);
       setPhoneInput(formatPhoneDisplay(data?.phone) || "");
@@ -329,6 +332,7 @@ const ProfileManager = ({
         fullName: details.full_name?.trim() || null,
         mobile: sanitizedPhone ? sanitizedPhone : null,
         about_me: aboutMe || null,
+        share_phone: details.share_phone,
       };
 
       if (normalizedUstaRating !== undefined) {
@@ -436,6 +440,23 @@ const ProfileManager = ({
                   We'll use this number to share match reminders.
                 </p>
               </div>
+
+              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={details.share_phone}
+                  onChange={(event) =>
+                    setDetails((prev) => ({ ...prev, share_phone: event.target.checked }))
+                  }
+                  className="mt-0.5 h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                />
+                <span>
+                  <span className="block font-bold">{SHARE_PHONE_LABEL}</span>
+                  <span className="mt-1 block text-xs font-medium text-gray-500">
+                    Pending invitees, spectators, and other players cannot see your number.
+                  </span>
+                </span>
+              </label>
 
               <div className="space-y-3">
                 <label className="text-sm font-black text-gray-700 uppercase tracking-wider">
