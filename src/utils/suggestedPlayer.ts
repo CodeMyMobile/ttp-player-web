@@ -14,6 +14,7 @@ export type SuggestedPlayerRecord = {
   availability?: string[] | string;
   playerLocations?: string[] | string;
   playerCourtLocations?: string[] | string;
+  courts?: string[] | string;
   lookingFor?: string[] | string;
   gender?: string;
   about_me?: string;
@@ -59,7 +60,7 @@ export const isMeaningfulBio = (value: unknown): boolean => {
 export const mapSuggestedPlayer = (record: SuggestedPlayerRecord): DirectoryPlayer => {
   const availability = ensureStringArray(record.availability, toCanonicalAvailability);
   const playerLocations = ensureStringArray(record.playerLocations);
-  const courtLocations = ensureStringArray(record.playerCourtLocations);
+  const courtLocations = ensureStringArray(record.playerCourtLocations ?? record.courts);
   const lookingFor = ensureStringArray(record.lookingFor);
   const location = playerLocations[0] ?? courtLocations[0] ?? "Location unavailable";
   const initialsSource = record.full_name ?? record.email ?? "TTP Player";

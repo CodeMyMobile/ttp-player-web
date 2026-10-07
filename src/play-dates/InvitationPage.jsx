@@ -1228,9 +1228,9 @@ export default function InvitationPage() {
     setPhase("auth");
     setError("");
     setShowForgotPassword(false);
-    setForgotEmail(signInEmail || inviteeEmail || "");
+    setForgotEmail(signInEmail || "");
     scrollAuthSectionIntoView();
-  }, [inviteeEmail, scrollAuthSectionIntoView, signInEmail]);
+  }, [scrollAuthSectionIntoView, signInEmail]);
 
   const openSignUp = useCallback(() => {
     setAuthMode("signUp");
@@ -1896,7 +1896,7 @@ export default function InvitationPage() {
                 onClick={() => {
                   setShowForgotPassword(true);
                   setError("");
-                  setForgotEmail(signInEmail || inviteeEmail || "");
+                  setForgotEmail(signInEmail || "");
                 }}
                 className="text-xs font-semibold text-emerald-600 transition-colors hover:text-emerald-700"
               >
