@@ -8,6 +8,15 @@ test("build emits homepage SEO metadata from the apex domain", async () => {
   assert.match(html, /name="description" content="Find certified tennis coaches, players, and flexible leagues in West Los Angeles with The Tennis Plan\."/);
   assert.match(html, /rel="canonical" href="https:\/\/thetennisplan\.com\/"/);
   assert.match(html, /property="og:url" content="https:\/\/thetennisplan\.com\/"/);
+  assert.match(html, /property="og:image" content="https:\/\/thetennisplan\.com\/og-image\.png"/);
+  assert.match(html, /property="og:image:width" content="1200"/);
+  assert.match(html, /property="og:image:height" content="630"/);
+  assert.match(html, /property="og:image:alt" content="The Tennis Plan: Find your tennis community\."/);
+  assert.match(html, /name="twitter:card" content="summary_large_image"/);
+  assert.match(html, /name="twitter:title" content="Tennis Coaches &amp; Community in West LA \| The Tennis Plan"/);
+  assert.match(html, /name="twitter:description" content="Find certified tennis coaches, players, and flexible leagues in West Los Angeles with The Tennis Plan\."/);
+  assert.match(html, /name="twitter:image" content="https:\/\/thetennisplan\.com\/og-image\.png"/);
+  await readFile(new URL("../dist/og-image.png", import.meta.url));
   assert.match(html, /name="robots" content="index, follow"/);
   const head = html.slice(0, html.indexOf("</head>"));
   assert.doesNotMatch(head, /app\.thetennisplan\.com/);
