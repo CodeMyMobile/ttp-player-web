@@ -49,6 +49,7 @@ export const updatePlayerPersonalDetails = async ({
   mobile,
   about_me,
   profile_picture,
+  share_phone,
 }) => {
   const authHeader = normalizeAuthToken(player, {
     defaultScheme: "token",
@@ -88,6 +89,7 @@ export const updatePlayerPersonalDetails = async ({
     phone: mobile,
     about_me,
     profile_picture,
+    share_phone,
   }).reduce((acc, [key, value]) => {
     if (value !== undefined) {
       acc[key] = value;

@@ -424,11 +424,7 @@ export default function InvitationPage() {
     };
   }, []);
 
-  const inviteeEmail = preview?.invitee?.email || "";
-  const inviteeRequiresAccountClaim = useMemo(() => {
-    if (!inviteeEmail) return false;
-    return inviteeEmail.toLowerCase().endsWith("@ttpplaydates.com");
-  }, [inviteeEmail]);
+  const inviteeRequiresAccountClaim = preview?.requires_account_claim === true;
 
   const isArchivedMatch = (preview?.match?.status === "archived") || archivedNotice;
 
@@ -1232,9 +1228,9 @@ export default function InvitationPage() {
     setPhase("auth");
     setError("");
     setShowForgotPassword(false);
-    setForgotEmail(signInEmail || inviteeEmail || "");
+    setForgotEmail(signInEmail || "");
     scrollAuthSectionIntoView();
-  }, [inviteeEmail, scrollAuthSectionIntoView, signInEmail]);
+  }, [scrollAuthSectionIntoView, signInEmail]);
 
   const openSignUp = useCallback(() => {
     setAuthMode("signUp");
@@ -1900,7 +1896,7 @@ export default function InvitationPage() {
                 onClick={() => {
                   setShowForgotPassword(true);
                   setError("");
-                  setForgotEmail(signInEmail || inviteeEmail || "");
+                  setForgotEmail(signInEmail || "");
                 }}
                 className="text-xs font-semibold text-emerald-600 transition-colors hover:text-emerald-700"
               >

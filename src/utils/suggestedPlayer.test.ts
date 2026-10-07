@@ -41,3 +41,10 @@ test("the mapper no longer substitutes a placeholder sentence", () => {
     "I play doubles",
   );
 });
+
+test("the mapper accepts the privacy-safe courts field", () => {
+  assert.equal(
+    mapSuggestedPlayer({ userId: 1, full_name: "A B", courts: ["Central Courts"] }).favoriteCourt,
+    "Central Courts",
+  );
+});

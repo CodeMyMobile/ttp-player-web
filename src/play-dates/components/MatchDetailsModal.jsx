@@ -40,6 +40,7 @@ import {
 import { rejectInvite } from "../services/invites";
 import { isMatchArchivedError } from "../utils/archive";
 import { getPlayerSearchName } from "../utils/playerSearch";
+import { phoneContactHref } from "../utils/privacy";
 import {
   countUniqueMatchOccupants,
   getParticipantPhone,
@@ -1967,10 +1968,7 @@ const MatchDetailsModal = ({
       const phoneDisplay = phoneDigits
         ? formatPhoneDisplay(phoneRaw) || phoneDigits
         : "";
-      const phoneValue = phoneDigits
-        ? normalizePhoneValue(phoneRaw) || phoneDigits
-        : "";
-      const phoneHref = phoneValue ? `tel:${phoneValue}` : "";
+      const phoneHref = phoneContactHref(phoneRaw);
       return {
         id,
         playerId,
@@ -2489,7 +2487,7 @@ const MatchDetailsModal = ({
           !isArchived &&
           !isCancelled;
         const phoneLink =
-          isHost && player.phoneDisplay && player.phoneHref ? (
+          player.phoneDisplay && player.phoneHref ? (
             <a
               href={player.phoneHref}
               aria-label={`Call ${player.name}`}
