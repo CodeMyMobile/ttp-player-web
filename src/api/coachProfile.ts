@@ -6,6 +6,8 @@ export type CoachProfileRecord = CoachProfile & {
   fullName?: string;
   profilePicture?: string;
   allow_pay_on_court?: boolean;
+  stripe_account_id?: string | null;
+  charges_enabled?: boolean;
 };
 
 export type FetchCoachProfileOptions = {
