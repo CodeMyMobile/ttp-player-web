@@ -424,11 +424,7 @@ export default function InvitationPage() {
     };
   }, []);
 
-  const inviteeEmail = preview?.invitee?.email || "";
-  const inviteeRequiresAccountClaim = useMemo(() => {
-    if (!inviteeEmail) return false;
-    return inviteeEmail.toLowerCase().endsWith("@ttpplaydates.com");
-  }, [inviteeEmail]);
+  const inviteeRequiresAccountClaim = preview?.requires_account_claim === true;
 
   const isArchivedMatch = (preview?.match?.status === "archived") || archivedNotice;
 
