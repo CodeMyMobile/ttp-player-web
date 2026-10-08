@@ -24,7 +24,18 @@ import {
   rejectInviteByToken,
 } from "./services/invites";
 import { forgotPassword, login, refreshSession, signup } from "./services/auth";
-import { getMatch } from "./services/matches";
+import {
+  getMatch,
+  joinMatch,
+  joinMatchWaitlist,
+  leaveMatchWaitlist,
+} from "./services/matches";
+import {
+  formatWaitlistCount,
+  formatWaitlistStanding,
+  getMatchWaitlistState,
+  readMatchWaitlist,
+} from "./utils/matchWaitlist";
 import { ARCHIVE_FILTER_VALUE, isMatchArchivedError } from "./utils/archive";
 import {
   uniqueAcceptedInvitees,
@@ -147,7 +158,20 @@ function StatusCard({ emoji, title, message }) {
   );
 }
 
-function FullInviteStatus({ match, preview, onBrowseMatches }) {
+function FullInviteStatus({
+  match,
+  preview,
+  onBrowseMatches,
+  waitlist = null,
+  canUseWaitlist = false,
+  waitlistAction = null,
+  waitlistError = "",
+  onJoinWaitlist,
+  onLeaveWaitlist,
+  onClaimSpot,
+}) {
+  const showWaitlist = Boolean(waitlist?.supported);
+  const seatFree = showWaitlist && (waitlist.seatHeld || waitlist.canClaim || waitlist.awaitingOrganiser);
   const sourceMatch = match || preview?.match || {};
   const capacity = sourceMatch.capacity || {};
   const startDate = sourceMatch.start_date_time
@@ -236,10 +260,14 @@ function FullInviteStatus({ match, preview, onBrowseMatches }) {
           🎾
         </div>
         <h1 className="mb-1.5 text-[26px] font-extrabold leading-tight text-slate-800">
-          This match is full
+          {seatFree ? "A spot has opened" : "This match is full"}
         </h1>
         <p className="mx-auto max-w-sm text-sm leading-6 text-slate-500">
-          All spots have been taken. Check out other matches near you below.
+          {seatFree
+            ? "It is being held for players on the waitlist."
+            : showWaitlist && canUseWaitlist
+            ? "All spots have been taken. You can wait for one to open, or check out other matches below."
+            : "All spots have been taken. Check out other matches near you below."}
         </p>
       </section>
 
@@ -254,7 +282,7 @@ function FullInviteStatus({ match, preview, onBrowseMatches }) {
             </p>
           </div>
           <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-bold text-red-600">
-            <span aria-hidden="true">●</span> Full
+            <span aria-hidden="true">●</span> {seatFree ? "Waitlist" : "Full"}
           </span>
         </div>
         {detailItems.length ? (
@@ -292,11 +320,62 @@ function FullInviteStatus({ match, preview, onBrowseMatches }) {
               </span>
             </div>
             <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-              <div className="h-full w-full rounded-full bg-red-500" />
+              <div
+                className="h-full rounded-full bg-red-500"
+                style={{ width: `${(Math.min(occupied, playerLimit) / playerLimit) * 100}%` }}
+              />
             </div>
           </div>
         ) : null}
       </section>
+
+      {showWaitlist && (
+        <section className={`${cardClass} mb-3.5 space-y-3 px-[18px] py-4 text-center`}>
+          {waitlist.isWaitlisted ? (
+            <>
+              <p className="text-[15px] font-extrabold text-slate-800">
+                {formatWaitlistStanding(waitlist.position, waitlist.count)}
+              </p>
+              <p className="text-[13px] leading-5 text-slate-500">
+                {waitlist.canClaim
+                  ? "A spot is open. The first to claim it gets it."
+                  : waitlist.awaitingOrganiser
+                  ? "A spot has opened. The host is choosing who gets it."
+                  : "If a spot opens, the host chooses who gets it."}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-[15px] font-extrabold text-slate-800">
+                {formatWaitlistCount(waitlist.count) || "No one on the waitlist yet"}
+              </p>
+              {canUseWaitlist && (
+                <p className="text-[13px] leading-5 text-slate-500">
+                  {seatFree
+                    ? "The host chooses who gets the open spot."
+                    : "If a spot opens, the host chooses who gets it."}
+                </p>
+              )}
+            </>
+          )}
+          {canUseWaitlist && waitlist.canClaim && (
+            <PrimaryButton onClick={onClaimSpot} disabled={Boolean(waitlistAction)}>
+              {waitlistAction === "claim" ? "Claiming spot..." : "Claim this spot"}
+            </PrimaryButton>
+          )}
+          {canUseWaitlist && waitlist.canJoin && (
+            <PrimaryButton onClick={onJoinWaitlist} disabled={Boolean(waitlistAction)}>
+              {waitlistAction === "join" ? "Joining waitlist..." : "Join waitlist"}
+            </PrimaryButton>
+          )}
+          {canUseWaitlist && waitlist.canLeave && (
+            <SecondaryButton onClick={onLeaveWaitlist} disabled={Boolean(waitlistAction)}>
+              {waitlistAction === "leave" ? "Leaving waitlist..." : "Leave waitlist"}
+            </SecondaryButton>
+          )}
+          {waitlistError && <ErrorText>{waitlistError}</ErrorText>}
+        </section>
+      )}
 
       <h2 className="mb-2 w-full text-[13px] font-bold text-slate-800">
         Other matches near you
@@ -354,6 +433,8 @@ export default function InvitationPage() {
   const [successModal, setSuccessModal] = useState(null);
   const [toast, setToast] = useState(null);
   const [matchDetails, setMatchDetails] = useState(null);
+  const [waitlistAction, setWaitlistAction] = useState(null);
+  const [waitlistError, setWaitlistError] = useState("");
   const [refreshingSession, setRefreshingSession] = useState(false);
   const [joining, setJoining] = useState(false);
   const [declining, setDeclining] = useState(false);
@@ -1552,11 +1633,44 @@ export default function InvitationPage() {
     );
   const viewerHasJoined = viewerInviteJoined || viewerInRoster;
 
+  const isFullInvite = isFullInviteStatus(normalizedPreviewStatus, previewWithRoster, match);
+  // Holding the invite is what gives access to a private match's waitlist.
+  const waitlistState = getMatchWaitlistState({
+    waitlist: readMatchWaitlist(match),
+    isFull: isFullInvite,
+    isHost: false,
+    isJoined: viewerHasJoined,
+    isActive: !isArchivedMatch,
+    hasAccess: true,
+  });
+
+  const runWaitlistAction = async (action, request, failureMessages) => {
+    if (waitlistAction) return;
+    setWaitlistError("");
+    setWaitlistAction(action);
+    try {
+      await request();
+    } catch (err) {
+      const code = (err?.data?.error || "").toString().toLowerCase();
+      setWaitlistError(failureMessages[code] || failureMessages.default);
+    }
+    try {
+      // Either way the standing shown may be out of date, so read it again.
+      const refreshed = await loadSuccessMatch(match.id);
+      if (refreshed) setMatchDetails(refreshed);
+    } catch (refreshError) {
+      console.error("Failed to refresh match after a waitlist change", refreshError);
+    } finally {
+      setWaitlistAction(null);
+    }
+  };
+
   // An already-joined viewer should still see their match card, not the
-  // full-match dead end, even if the match has since filled.
+  // full-match dead end, even if the match has since filled. A spot held for
+  // the waitlist is not one this invite can accept, so it lands here too.
   if (
     !viewerHasJoined &&
-    isFullInviteStatus(normalizedPreviewStatus, previewWithRoster, match)
+    (isFullInvite || waitlistState.seatHeld || waitlistState.isWaitlisted)
   )
     return (
       <InvitationLayout
@@ -1567,6 +1681,30 @@ export default function InvitationPage() {
           match={match}
           preview={previewWithRoster}
           onBrowseMatches={() => navigate("/", { replace: false })}
+          waitlist={waitlistState}
+          canUseWaitlist={hasStoredSession}
+          waitlistAction={waitlistAction}
+          waitlistError={waitlistError}
+          onJoinWaitlist={() =>
+            runWaitlistAction("join", () => joinMatchWaitlist(match.id, { inviteToken: token }), {
+              match_not_full: "A spot just opened up. You can join the match now.",
+              already_joined: "You're already on the roster for this match.",
+              invite_required: "This invite can't be used for the waitlist. Ask the host for a new one.",
+              default: "We couldn't add you to the waitlist. Try again in a moment.",
+            })
+          }
+          onLeaveWaitlist={() =>
+            runWaitlistAction("leave", () => leaveMatchWaitlist(match.id), {
+              default: "We couldn't take you off the waitlist. Try again in a moment.",
+            })
+          }
+          onClaimSpot={() =>
+            runWaitlistAction("claim", () => joinMatch(match.id), {
+              match_full: "Someone else got there first. You're still on the waitlist.",
+              waitlist_not_open: "The host is choosing who gets this spot.",
+              default: "We couldn't claim the spot. Try again in a moment.",
+            })
+          }
         />
       </InvitationLayout>
     );

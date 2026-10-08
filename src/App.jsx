@@ -13,6 +13,7 @@ import PlayDatesResetPasswordPage from "./play-dates/pages/ResetPassword";
 import PlayDatesCreateMatchPage from "./play-dates/pages/CreateMatchPage";
 import PlayDatesCourtFinderPage from "./play-dates/pages/CourtFinder";
 import PlayDatesMatchSuccessPreview from "./play-dates/pages/MatchSuccessPreview";
+import PlayDatesMatchWaitlistPreview from "./play-dates/pages/MatchWaitlistPreview";
 import {
   QueryClientProvider as PlayDatesQueryClientProvider,
   createQueryClient as createPlayDatesQueryClient,
@@ -534,6 +535,16 @@ const AppRoutes = () => (
         element={(
           <PlayDatesPublicPageRoute>
             <PlayDatesMatchSuccessPreview />
+          </PlayDatesPublicPageRoute>
+        )}
+      />
+    ) : null}
+    {import.meta.env.DEV ? (
+      <Route
+        path="/__preview/match-waitlist"
+        element={(
+          <PlayDatesPublicPageRoute>
+            <PlayDatesMatchWaitlistPreview />
           </PlayDatesPublicPageRoute>
         )}
       />
