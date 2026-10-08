@@ -2573,7 +2573,9 @@ const MatchDetailsModal = ({
     }
     try {
       setWaitlistAction("join");
-      const response = await joinMatchWaitlist(match.id);
+      const response = await joinMatchWaitlist(match.id, {
+        inviteToken: viewerInviteToken,
+      });
       if (
         typeof response?.waitlist_count === "number" &&
         typeof response?.waitlist_position === "number"

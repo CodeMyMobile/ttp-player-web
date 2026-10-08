@@ -415,11 +415,14 @@ export const removeParticipant = (matchId, playerId) =>
 
 // Waitlist — contract in docs/match-waitlist-backend-brief.md. Claiming a spot
 // the organizer has opened to the waitlist is a plain joinMatch.
-export const joinMatchWaitlist = (matchId) =>
+// A private match's waitlist needs an invite. One sent to the player directly is
+// found server-side; a shared link is not tied to anyone, so pass its token.
+export const joinMatchWaitlist = (matchId, { inviteToken } = {}) =>
   unwrap(
     api(`/matches/${matchId}/waitlist`, {
       method: "POST",
       authSchemePreference: "token",
+      json: inviteToken ? { invite_token: inviteToken } : {},
     })
   );
 

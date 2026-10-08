@@ -1686,9 +1686,10 @@ export default function InvitationPage() {
           waitlistAction={waitlistAction}
           waitlistError={waitlistError}
           onJoinWaitlist={() =>
-            runWaitlistAction("join", () => joinMatchWaitlist(match.id), {
+            runWaitlistAction("join", () => joinMatchWaitlist(match.id, { inviteToken: token }), {
               match_not_full: "A spot just opened up. You can join the match now.",
               already_joined: "You're already on the roster for this match.",
+              invite_required: "This invite can't be used for the waitlist. Ask the host for a new one.",
               default: "We couldn't add you to the waitlist. Try again in a moment.",
             })
           }
