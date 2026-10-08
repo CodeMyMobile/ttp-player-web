@@ -18,6 +18,7 @@ import MainLayout from "../components/MainLayout";
 import { colors, typography } from "../lib/theme";
 import { getStoredAuthToken } from "../services/authToken";
 import { getMatchHostId } from "../play-dates/utils/matchHost";
+import { readMatchWaitlist } from "../play-dates/utils/matchWaitlist";
 import {
   buildPlayedWithHostSet,
   hasPlayedWithHost,
@@ -1052,10 +1053,13 @@ const BrowseMatchesPage = () => {
                 const totalSpots = computedTotal > 0 ? computedTotal : playersJoined;
                 const spotsAvailable = Math.max(totalSpots - playersJoined, 0);
                 const playersNeeded = match.playersNeeded ?? spotsAvailable;
+                const waitlistCount = readMatchWaitlist(match.raw).count;
                 const availabilityLabel =
                   totalSpots > 0
                     ? spotsAvailable === 0
-                      ? "Match is full"
+                      ? waitlistCount > 0
+                        ? `Match is full · ${waitlistCount} waiting`
+                        : "Match is full"
                       : `${spotsAvailable} spot${spotsAvailable === 1 ? "" : "s"} available`
                     : "Spots available";
                 const playersLabel =

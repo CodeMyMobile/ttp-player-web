@@ -413,6 +413,45 @@ export const removeParticipant = (matchId, playerId) =>
     })
   );
 
+// Waitlist — contract in docs/match-waitlist-backend-brief.md. Claiming a spot
+// the organizer has opened to the waitlist is a plain joinMatch.
+export const joinMatchWaitlist = (matchId) =>
+  unwrap(
+    api(`/matches/${matchId}/waitlist`, {
+      method: "POST",
+      authSchemePreference: "token",
+    })
+  );
+
+export const leaveMatchWaitlist = (matchId) =>
+  unwrap(
+    api(`/matches/${matchId}/waitlist`, {
+      method: "DELETE",
+      authSchemePreference: "token",
+    })
+  );
+
+export const promoteWaitlistEntry = (matchId, playerId) =>
+  unwrap(
+    api(`/matches/${matchId}/waitlist/${playerId}/promote`, {
+      method: "POST",
+    })
+  );
+
+export const removeWaitlistEntry = (matchId, playerId) =>
+  unwrap(
+    api(`/matches/${matchId}/waitlist/${playerId}`, {
+      method: "DELETE",
+    })
+  );
+
+export const openMatchToWaitlist = (matchId) =>
+  unwrap(
+    api(`/matches/${matchId}/waitlist/open`, {
+      method: "POST",
+    })
+  );
+
 export const sendInvites = (matchId, { playerIds = [], phoneNumbers = [] } = {}) =>
   unwrap(
     api(`/matches/${matchId}/invites`, {

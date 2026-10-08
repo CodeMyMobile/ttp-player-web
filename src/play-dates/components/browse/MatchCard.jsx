@@ -72,7 +72,9 @@ const MatchCard = ({ match, handleViewDetails, userNtrp, formatMatchTimeLabel, f
         ? `${match.occupied}/${match.playerLimit}`
         : `${match.occupied} in`
       : isFull
-      ? "Full"
+      ? match.waitlistCount > 0
+        ? `Full · ${match.waitlistCount} waiting`
+        : "Full"
       : `${spotsAvailable} left`;
   const spotsTone =
     spotsAvailable == null || isFull

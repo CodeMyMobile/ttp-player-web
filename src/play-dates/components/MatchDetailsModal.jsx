@@ -30,15 +30,26 @@ import {
   deleteMatchNotification,
   getShareLink,
   joinMatch,
+  joinMatchWaitlist,
   leaveMatch,
+  leaveMatchWaitlist,
   listMatchNotifications,
   notifyMatchPlayers,
+  openMatchToWaitlist,
+  promoteWaitlistEntry,
   removeParticipant,
+  removeWaitlistEntry,
   searchPlayers,
   updateMatch,
 } from "../services/matches";
 import { rejectInvite } from "../services/invites";
 import { isMatchArchivedError } from "../utils/archive";
+import {
+  formatWaitlistCount,
+  formatWaitlistStanding,
+  getMatchWaitlistState,
+  readMatchWaitlist,
+} from "../utils/matchWaitlist";
 import { getPlayerSearchName } from "../utils/playerSearch";
 import { phoneContactHref } from "../utils/privacy";
 import {
@@ -878,6 +889,8 @@ const MatchDetailsModal = ({
   const [editSaving, setEditSaving] = useState(false);
   const [cancellingMatch, setCancellingMatch] = useState(false);
   const [decliningInvite, setDecliningInvite] = useState(false);
+  const [waitlistAction, setWaitlistAction] = useState(null);
+  const [waitlistOverride, setWaitlistOverride] = useState(null);
   const [recentLocations, setRecentLocations] = useState(() => loadStoredLocations());
   const [showSavedLocations, setShowSavedLocations] = useState(false);
   const [matchNotifications, setMatchNotifications] = useState([]);
@@ -1269,6 +1282,64 @@ const MatchDetailsModal = ({
   const matchId = match?.id ?? null;
   const canManageInvites = Boolean(onManageInvites) && isHost && matchId;
   const canLeaveMatch = isJoined && !isHost && !isArchived && !isCancelled;
+
+  // The join response carries the player's new standing; it stands in until
+  // the reloaded match payload arrives and replaces it.
+  useEffect(() => {
+    setWaitlistOverride(null);
+  }, [match]);
+
+  const waitlistState = useMemo(
+    () =>
+      getMatchWaitlistState({
+        waitlist: readMatchWaitlist(
+          waitlistOverride ? { ...match, ...waitlistOverride } : match,
+        ),
+        isFull,
+        isHost,
+        isJoined,
+        // A filled singles match reads "confirmed" and is still waited on.
+        isActive:
+          !isArchived &&
+          !isCancelled &&
+          (isUpcoming || match?.status === "confirmed"),
+        hasAccess: isOpenMatch || Boolean(viewerInvite),
+      }),
+    [
+      isArchived,
+      isCancelled,
+      isFull,
+      isHost,
+      isJoined,
+      isOpenMatch,
+      isUpcoming,
+      match,
+      viewerInvite,
+      waitlistOverride,
+    ],
+  );
+  const waitlistEntries = useMemo(
+    () =>
+      (waitlistState.entries || []).map((entry, index) => {
+        const profile = entry?.profile || {};
+        const playerId = getParticipantPlayerId(entry);
+        const joinedOn = formatInviteDate(entry?.created_at ?? entry?.createdAt);
+        return {
+          key: playerId ?? `waitlist-${index}`,
+          playerId,
+          name:
+            profile.full_name ||
+            profile.fullName ||
+            entry?.full_name ||
+            entry?.name ||
+            (playerId ? `Player ${playerId}` : `Player ${index + 1}`),
+          avatar: getParticipantProfileImage(entry),
+          rating: profile.usta_rating || profile.rating || null,
+          joinedLabel: joinedOn ? `Joined ${joinedOn}` : "",
+        };
+      }),
+    [waitlistState.entries],
+  );
 
   const handleManageInvites = useCallback(() => {
     if (!canManageInvites || !matchId) return;
@@ -2381,10 +2452,10 @@ const MatchDetailsModal = ({
         normalizedMessage.includes("full")
       ) {
         setStatus("full");
-        onToast?.(
-          "This match is already full. We'll let you know if a spot opens up.",
-          "error",
-        );
+        onToast?.("This match is already full.", "error");
+      } else if (errorCode === "waitlist_hold") {
+        onToast?.("That spot is being held for the waitlist.", "error");
+        reloadMatchQuietly();
       } else if (
         errorCode === "already_joined" ||
         normalizedMessage.includes("already joined")
@@ -2470,6 +2541,175 @@ const MatchDetailsModal = ({
       }
     } finally {
       setLeaving(false);
+    }
+  };
+
+  const reloadMatchQuietly = async () => {
+    try {
+      await onMatchRefresh?.();
+      if (onReloadMatch && onUpdateMatch) {
+        const updated = await onReloadMatch(match.id, { includeArchived: false });
+        if (updated) {
+          onUpdateMatch(updated);
+        }
+      }
+    } catch (error) {
+      // The action itself went through; a failed refresh only leaves the view stale.
+      console.warn("Failed to refresh match after a waitlist change", error);
+    }
+  };
+
+  const getWaitlistErrorCode = (error) =>
+    (error?.response?.data?.error || error?.data?.error || "")
+      .toString()
+      .trim()
+      .toLowerCase();
+
+  const handleJoinWaitlist = async () => {
+    if (!match?.id || waitlistAction) return;
+    if (!currentUser?.id) {
+      onRequireSignIn?.();
+      return;
+    }
+    try {
+      setWaitlistAction("join");
+      const response = await joinMatchWaitlist(match.id);
+      if (
+        typeof response?.waitlist_count === "number" &&
+        typeof response?.waitlist_position === "number"
+      ) {
+        setWaitlistOverride({
+          waitlist_count: response.waitlist_count,
+          waitlist_position: response.waitlist_position,
+        });
+      }
+      onToast?.("You're on the waitlist.");
+      await reloadMatchQuietly();
+    } catch (error) {
+      const code = getWaitlistErrorCode(error);
+      if (code === "match_not_full") {
+        onToast?.("A spot just opened up. You can join the match now.", "info");
+      } else if (code === "already_waitlisted") {
+        onToast?.("You're already on the waitlist.", "info");
+      } else if (code === "already_joined") {
+        onToast?.("You're already on the roster for this match.", "info");
+      } else if (code === "invite_required") {
+        onToast?.("Private matches require an invite.", "error");
+      } else if (isMatchArchivedError(error)) {
+        onToast?.("This match has already started.", "error");
+      } else {
+        onToast?.("Couldn't join the waitlist. Please try again.", "error");
+      }
+      await reloadMatchQuietly();
+    } finally {
+      setWaitlistAction(null);
+    }
+  };
+
+  const handleLeaveWaitlist = async () => {
+    if (!match?.id || waitlistAction) return;
+    if (!window.confirm("Leave the waitlist? You'll lose your place.")) return;
+    try {
+      setWaitlistAction("leave");
+      await leaveMatchWaitlist(match.id);
+      setWaitlistOverride({
+        waitlist_count: Math.max(waitlistState.count - 1, 0),
+        waitlist_position: null,
+      });
+      onToast?.("You're off the waitlist.");
+      await reloadMatchQuietly();
+    } catch {
+      onToast?.("Couldn't leave the waitlist. Please try again.", "error");
+    } finally {
+      setWaitlistAction(null);
+    }
+  };
+
+  const handleClaimSpot = async () => {
+    if (!match?.id || waitlistAction) return;
+    try {
+      setWaitlistAction("claim");
+      await joinMatch(match.id);
+      setStatus("success");
+      await reloadMatchQuietly();
+    } catch (error) {
+      const code = getWaitlistErrorCode(error);
+      if (code === "match_full") {
+        onToast?.("Someone else got there first. You're still on the waitlist.", "error");
+      } else if (code === "waitlist_not_open") {
+        onToast?.("The organizer is choosing who gets this spot.", "error");
+      } else if (isMatchArchivedError(error)) {
+        onToast?.("This match has already started.", "error");
+      } else {
+        onToast?.("Couldn't claim the spot. Please try again.", "error");
+      }
+      await reloadMatchQuietly();
+    } finally {
+      setWaitlistAction(null);
+    }
+  };
+
+  const handlePromoteFromWaitlist = async (entry) => {
+    if (!match?.id || !isHost || waitlistAction) return;
+    if (!window.confirm(`Give ${entry.name} the open spot? We'll let them know.`)) return;
+    try {
+      setWaitlistAction(`promote:${entry.key}`);
+      await promoteWaitlistEntry(match.id, entry.playerId);
+      onToast?.(`${entry.name} is in.`);
+    } catch (error) {
+      onToast?.(
+        getWaitlistErrorCode(error) === "match_full"
+          ? "There's no open spot to give right now."
+          : "Couldn't promote this player. Please try again.",
+        "error",
+      );
+    } finally {
+      await reloadMatchQuietly();
+      setWaitlistAction(null);
+    }
+  };
+
+  const handleRemoveFromWaitlist = async (entry) => {
+    if (!match?.id || !isHost || waitlistAction) return;
+    if (!window.confirm(`Remove ${entry.name} from the waitlist?`)) return;
+    try {
+      setWaitlistAction(`remove:${entry.key}`);
+      await removeWaitlistEntry(match.id, entry.playerId);
+      onToast?.("Removed from the waitlist");
+    } catch {
+      onToast?.("Couldn't remove this player. Please try again.", "error");
+    } finally {
+      await reloadMatchQuietly();
+      setWaitlistAction(null);
+    }
+  };
+
+  const handleOpenToWaitlist = async () => {
+    if (!match?.id || !isHost || waitlistAction) return;
+    if (
+      !window.confirm(
+        "Text everyone on the waitlist? The first to claim the spot gets it.",
+      )
+    ) {
+      return;
+    }
+    try {
+      setWaitlistAction("open");
+      await openMatchToWaitlist(match.id);
+      onToast?.("Everyone on the waitlist has been texted.");
+    } catch (error) {
+      const code = getWaitlistErrorCode(error);
+      onToast?.(
+        code === "match_full"
+          ? "There's no open spot right now."
+          : code === "waitlist_empty"
+          ? "Nobody is on the waitlist any more."
+          : "Couldn't open the spot to the waitlist. Please try again.",
+        "error",
+      );
+    } finally {
+      await reloadMatchQuietly();
+      setWaitlistAction(null);
     }
   };
 
@@ -2702,6 +2942,77 @@ const MatchDetailsModal = ({
           </div>
         ))}
       </div>
+    </section>
+  );
+
+  const renderWaitlist = () => (
+    <section className="space-y-3 rounded-2xl border border-violet-100 bg-violet-50 p-4">
+      <div className="flex items-center gap-2">
+        <ClipboardList className="h-4 w-4 text-violet-600" />
+        <p className="text-sm font-black text-violet-900">
+          Waitlist ({waitlistEntries.length})
+        </p>
+      </div>
+      <p className="text-xs font-semibold text-violet-700">
+        {waitlistState.isOpenToWaitlist
+          ? "Open to the waitlist. The first to claim the spot gets it, or you can still promote someone yourself."
+          : waitlistState.hostCanPromote
+          ? "A spot is open. Promote someone, or open it to everyone waiting."
+          : "Only you can see who is waiting. Promote someone when a spot opens."}
+      </p>
+      <div className="space-y-2">
+        {waitlistEntries.map((entry) => (
+          <div
+            key={entry.key}
+            className="flex items-center gap-3 rounded-xl border border-violet-100 bg-white px-3 py-2"
+          >
+            <PlayerAvatar
+              name={entry.name}
+              imageUrl={entry.avatar}
+              fallback={getAvatarInitials(entry.name)}
+              variant="indigo"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-black text-gray-900">{entry.name}</p>
+              {(entry.rating || entry.joinedLabel) && (
+                <p className="text-xs font-semibold text-gray-500">
+                  {[entry.rating ? `Rating ${entry.rating}` : "", entry.joinedLabel]
+                    .filter(Boolean)
+                    .join(" \u2022 ")}
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => handlePromoteFromWaitlist(entry)}
+              disabled={!waitlistState.hostCanPromote || Boolean(waitlistAction)}
+              className="rounded-xl bg-violet-500 px-3 py-1.5 text-xs font-black text-white shadow-sm transition-all hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {waitlistAction === `promote:${entry.key}` ? "Promoting..." : "Promote"}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleRemoveFromWaitlist(entry)}
+              disabled={Boolean(waitlistAction)}
+              className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-violet-50 text-gray-400 transition-colors hover:text-red-500 disabled:opacity-60"
+              aria-label={`Remove ${entry.name} from the waitlist`}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ))}
+      </div>
+      {waitlistState.hostCanOpen && (
+        <button
+          type="button"
+          onClick={handleOpenToWaitlist}
+          disabled={Boolean(waitlistAction)}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-violet-200 bg-white px-4 py-2 text-sm font-black text-violet-700 transition hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <Send className="h-4 w-4" />
+          {waitlistAction === "open" ? "Opening..." : "Open to waitlist"}
+        </button>
+      )}
     </section>
   );
 
@@ -3039,6 +3350,7 @@ const MatchDetailsModal = ({
 
   const renderDefaultView = () => {
     const disabledReason = joinDisabledReason();
+    const showWaitlistPanel = waitlistState.canJoin || waitlistState.isWaitlisted;
     const shareContainerTone = isHiddenMatch
       ? "border-amber-200 bg-amber-50"
       : "border-emerald-100 bg-emerald-50";
@@ -3162,8 +3474,14 @@ const MatchDetailsModal = ({
                 Players
                 {Number.isFinite(capacityLimit) && ` (${capacityLimit} max)`}
               </p>
+              {waitlistState.count > 0 && (
+                <span className="ml-auto rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-bold text-violet-700">
+                  {formatWaitlistCount(waitlistState.count)}
+                </span>
+              )}
             </div>
             {renderPlayers()}
+            {waitlistEntries.length > 0 && renderWaitlist()}
             {isHost && (
               <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -3486,10 +3804,10 @@ const MatchDetailsModal = ({
             </div>
           )}
 
-          {status === "full" && !isJoined && (
+          {status === "full" && !isJoined && !showWaitlistPanel && (
             <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-700">
               <AlertCircle className="mt-0.5 h-4 w-4" />
-              This match is currently full. We'll let you know if a spot opens up.
+              This match is currently full.
             </div>
           )}
 
@@ -3515,7 +3833,61 @@ const MatchDetailsModal = ({
             </button>
           ) : (
             <>
-              {isOpenMatch && (
+              {showWaitlistPanel && (
+                <div className="mb-2 space-y-3">
+                  {waitlistState.isWaitlisted ? (
+                    <div className="rounded-2xl border border-violet-100 bg-violet-50 p-4 text-center">
+                      <p className="text-sm font-black text-violet-900">
+                        {formatWaitlistStanding(waitlistState.position, waitlistState.count)}
+                      </p>
+                      <p className="mt-1 text-xs font-semibold text-violet-700">
+                        {waitlistState.canClaim
+                          ? "A spot is open. The first to claim it gets it."
+                          : waitlistState.awaitingOrganiser
+                          ? "A spot has opened. The organizer is choosing who gets it."
+                          : "If a spot opens, the organizer chooses who gets it."}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-center text-xs font-semibold text-gray-500">
+                      {waitlistState.seatHeld
+                        ? "A spot has opened and is being held for the waitlist. The organizer chooses who gets it."
+                        : "This match is full. If a spot opens, the organizer chooses who gets it."}
+                    </p>
+                  )}
+                  {waitlistState.canClaim && (
+                    <button
+                      type="button"
+                      onClick={handleClaimSpot}
+                      disabled={Boolean(waitlistAction)}
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-500 px-6 py-3 text-sm font-black text-white shadow-lg transition-all hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {waitlistAction === "claim" ? "Claiming spot..." : "Claim this spot"}
+                    </button>
+                  )}
+                  {waitlistState.canJoin && (
+                    <button
+                      type="button"
+                      onClick={handleJoinWaitlist}
+                      disabled={Boolean(waitlistAction)}
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-500 to-violet-600 px-6 py-3 text-sm font-black text-white shadow-lg transition-all hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {waitlistAction === "join" ? "Joining waitlist..." : "Join waitlist"}
+                    </button>
+                  )}
+                  {waitlistState.canLeave && (
+                    <button
+                      type="button"
+                      onClick={handleLeaveWaitlist}
+                      disabled={Boolean(waitlistAction)}
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-6 py-3 text-sm font-black text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {waitlistAction === "leave" ? "Leaving waitlist..." : "Leave waitlist"}
+                    </button>
+                  )}
+                </div>
+              )}
+              {isOpenMatch && !showWaitlistPanel && (
                 <button
                   type="button"
                   onClick={handleJoin}
@@ -3639,6 +4011,11 @@ const MatchDetailsModal = ({
             Players
             {Number.isFinite(capacityLimit) && ` (${capacityLimit} max)`}
           </p>
+          {waitlistState.count > 0 && (
+            <span className="ml-auto rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-bold text-violet-700">
+              {formatWaitlistCount(waitlistState.count)}
+            </span>
+          )}
         </div>
         {renderPlayers()}
       </section>

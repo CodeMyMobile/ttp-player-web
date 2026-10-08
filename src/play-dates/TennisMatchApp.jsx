@@ -134,6 +134,7 @@ import {
   RECENT_LOCATIONS_EVENT,
 } from "./utils/recentLocations";
 import { buildSlotOptionPayloadFields } from "./utils/matchSlotOptions";
+import { readMatchWaitlist } from "./utils/matchWaitlist";
 
 const DEFAULT_SKILL_LEVEL = "2.5 - Beginner";
 
@@ -2272,6 +2273,7 @@ const TennisMatchApp = ({
           rosterCount: fallbackOccupied,
           rosterSpotsRemaining,
           spotsAvailable: computedSpotsAvailable,
+          waitlistCount: readMatchWaitlist(m).count,
           capacity: capacityInfo,
           isInvited,
           alerts: {
