@@ -40,6 +40,8 @@ export interface RestringingPayLinkOrder {
   discount_type?: "percent" | "fixed" | null;
   discount_value?: number | null;
   discount_amount_cents?: number | null;
+  /** True when the player applied the discount here with a code and can still take it off. */
+  discount_removable?: boolean;
   tax_cents: number;
   total_cents: number;
   items: RestringingPayLinkItem[];
@@ -89,6 +91,41 @@ export const createRestringingPayLinkCheckout = (
     authScheme: "Token",
     body: options.paymentMethodId ? { payment_method_id: options.paymentMethodId } : undefined,
   });
+
+export const applyRestringingPayLinkDiscountCode = (
+  token: string,
+  code: string,
+  authToken?: string | null,
+) =>
+  request<RestringingPayLinkSummary>(`/restringing/pay-links/${encodeToken(token)}/discount`, {
+    method: "POST",
+    token: authToken || undefined,
+    authScheme: "Token",
+    body: { code: code.trim() },
+  });
+
+export const removeRestringingPayLinkDiscountCode = (token: string, authToken?: string | null) =>
+  request<RestringingPayLinkSummary>(`/restringing/pay-links/${encodeToken(token)}/discount`, {
+    method: "DELETE",
+    token: authToken || undefined,
+    authScheme: "Token",
+  });
+
+const DISCOUNT_CODE_ERRORS: Record<string, string> = {
+  discount_code_required: "Enter a discount code.",
+  discount_code_invalid: "That code isn't valid for this shop.",
+  discount_code_attempts_exceeded: "Too many tries. Ask the shop to apply your discount.",
+  discount_already_applied: "This order already has a discount.",
+  discount_not_removable: "This discount was added by the shop and can't be removed here.",
+  payment_link_not_payable: "This order can no longer be changed.",
+  payment_link_expired: "This payment link has expired.",
+};
+
+/** What to tell the player when applying or removing a code fails. */
+export const payLinkDiscountErrorMessage = (error: unknown) => {
+  const detail = (error as { data?: { detail?: unknown } } | null)?.data?.detail;
+  return (typeof detail === "string" && DISCOUNT_CODE_ERRORS[detail]) || "The discount could not be updated. Try again.";
+};
 
 export const formatPayLinkMoney = (cents: number | null | undefined) => {
   const amount = Number.isFinite(Number(cents)) ? Number(cents) : 0;

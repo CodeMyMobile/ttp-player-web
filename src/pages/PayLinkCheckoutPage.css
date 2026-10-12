@@ -569,3 +569,58 @@
     animation: none;
   }
 }
+
+.pay-link-discount {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--pay-line);
+}
+
+.pay-link-discount label {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.pay-link-discount__row {
+  display: flex;
+  gap: 8px;
+}
+
+.pay-link-discount__row input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--pay-line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #fff;
+  font: inherit;
+  /* Below 16px iOS zooms the page when the field is focused. */
+  font-size: 16px;
+}
+
+.pay-link-discount__row input:focus {
+  outline: none;
+  border-color: var(--pay-violet);
+}
+
+.pay-link-discount__remove {
+  margin-left: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--pay-violet);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.pay-link-discount__error {
+  margin: 8px 0 0;
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 700;
+}
