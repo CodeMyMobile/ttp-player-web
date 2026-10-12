@@ -154,3 +154,17 @@ test("labels restringing order and payment statuses for players", () => {
   assert.equal(paymentStatusLabel("unpaid"), "Awaiting payment");
   assert.equal(paymentStatusLabel("payment_failed"), "Payment failed");
 });
+
+test("restringTaxCents taxes the string part of a tier at the shop's rate", () => {
+  const tier = { price_cents: 4499, taxable_cents: 1500 };
+  const vendor = { tax_rate: 0.0975 };
+
+  assert.equal(playerFlow.restringTaxCents({ tier, vendor }), 146);
+  // Rounded once on the order, not per racket, the way the API does it.
+  assert.equal(playerFlow.restringTaxCents({ tier, quantity: 3, vendor }), 439);
+  // Labor-only tier, a shop with no rate, and tiers loaded before the field existed.
+  assert.equal(playerFlow.restringTaxCents({ tier: { price_cents: 2999, taxable_cents: 0 }, vendor }), 0);
+  assert.equal(playerFlow.restringTaxCents({ tier, vendor: { name: "No tax shop" } }), 0);
+  assert.equal(playerFlow.restringTaxCents({ tier: { price_cents: 4499 }, vendor }), 0);
+  assert.equal(playerFlow.restringTaxCents({ tier: null, vendor: null }), 0);
+});

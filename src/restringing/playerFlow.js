@@ -203,6 +203,16 @@ export function buildCheckoutItems({
 export const formatMoneyCents = (cents) =>
   `$${(Number(cents || 0) / 100).toFixed(2)}`;
 
+// Sales tax on a restring, so the player sees what their card will be charged
+// before the order exists. The API is what prices the order; this mirrors it.
+// A tier's taxable_cents is its string (labor is not taxed), and a vendor has
+// a tax_rate only when the shop charges sales tax.
+export function restringTaxCents({ tier, quantity = 1, vendor }) {
+  const count = Math.max(1, Number(quantity) || 1);
+  const taxable = Math.max(0, Number(tier?.taxable_cents) || 0) * count;
+  return Math.round(taxable * (Number(vendor?.tax_rate) || 0));
+}
+
 export function normalizePaymentMethods(payload) {
   const rows = Array.isArray(payload)
     ? payload

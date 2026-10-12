@@ -34,9 +34,11 @@ function StatusChip({ order }) {
 
 function Price({ order }) {
   const note = orderPaymentNote(order);
+  const taxCents = Number(order.tax_cents || 0);
   return (
     <span className="mo-price">
       <b className={isCancelledOrder(order) ? "is-struck" : ""}>{formatOrderTotal(order.total_cents)}</b>
+      {taxCents > 0 ? <span className="mo-pay mo-pay--grey">incl. {formatOrderTotal(taxCents)} sales tax</span> : null}
       {note ? <span className={`mo-pay mo-pay--${note.tone}`}>{note.tone === "red" ? "⚠ " : ""}{note.label}</span> : null}
     </span>
   );

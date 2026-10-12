@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext.jsx";
 import { useAuthDrawer } from "../context/AuthDrawerContext.jsx";
 import RestringingPlayerFlow from "./RestringingPlayerFlow.jsx";
 import { googleMapsUriForVendor, googleReviewsForVendor, hasGoogleSummary } from "./googleReviews.js";
-import { WIZARD_QUESTIONS, formatMoneyCents, recommendStringCategory, vendorImageSrc } from "./playerFlow.js";
+import { WIZARD_QUESTIONS, formatMoneyCents, recommendStringCategory, restringTaxCents, vendorImageSrc } from "./playerFlow.js";
 import { getVendorProfile, listServiceTiers, listVendorStrings, listVendors } from "./restringingService.js";
 import {
   STRING_CHOICE,
@@ -451,7 +451,9 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
     : decideAtDropOff
       ? "Decided at drop-off"
       : stringerChoosesTension ? "Stringer’s choice" : `${effectiveTension} lbs`;
-  const totalLine = tier ? formatMoneyCents(tier.price_cents) : "—";
+  const taxCents = restringTaxCents({ tier, vendor });
+  const totalLine = tier ? formatMoneyCents(Number(tier.price_cents || 0) + taxCents) : "—";
+  const taxNote = taxCents > 0 ? `incl. ${formatMoneyCents(taxCents)} sales tax` : "";
   const turnaround = Number(vendor.turnaround_days);
   const readyLine = Number.isFinite(turnaround) && turnaround > 0
     ? `${turnaround} day${turnaround === 1 ? "" : "s"} after drop-off`
@@ -770,7 +772,7 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
                 {readyLine ? <div><span>Ready</span><span>{readyLine}</span></div> : null}
               </div>
               <div className="vp-total">
-                <div><b>{totalLine}</b> {tier ? <small>+ tax</small> : null}</div>
+                <div><b>{totalLine}</b> {taxNote ? <small>{taxNote}</small> : null}</div>
                 <button type="button" className="vp-btn vp-btn--primary vp-book" onClick={book}>Book restring</button>
               </div>
               {bookError ? <p className="vp-book-error" role="alert">{bookError}</p> : null}
@@ -827,7 +829,7 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
         <div className="vp-sticky">
           <div>
             <small>{bookError || (tier ? `${stringLine} · ${tensionLine}${readyLine ? ` · ready in ${readyLine.replace(" after drop-off", "")}` : ""}` : "Choose a service to book")}</small>
-            {tier ? <><b>{totalLine}</b><small className="vp-sticky-tax"> + tax</small></> : null}
+            {tier ? <><b>{totalLine}</b>{taxNote ? <small className="vp-sticky-tax"> {taxNote}</small> : null}</> : null}
           </div>
           <button type="button" className="vp-btn vp-btn--primary vp-book" onClick={book}>Book</button>
         </div>
