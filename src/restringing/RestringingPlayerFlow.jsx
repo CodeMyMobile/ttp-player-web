@@ -30,6 +30,7 @@ import {
   categoryLabel,
   defaultGaugeForString,
   formatMoneyCents,
+  restringTaxCents,
   lbsToKg,
   normalizePaymentMethods,
   recommendStringCategory,
@@ -305,7 +306,9 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     [selectedString],
   );
   const needsOtherString = Boolean(tier && !isOwnTier(tier) && !isPresetCompositionTier(tier) && (stringId === "other" || catalog.length === 0));
-  const totalCents = (Number(tier?.price_cents || 0) * quantity);
+  const subtotalCents = (Number(tier?.price_cents || 0) * quantity);
+  const taxCents = restringTaxCents({ tier, quantity, vendor: selectedVendor });
+  const totalCents = subtotalCents + taxCents;
   const totalLabel = formatMoneyCents(totalCents);
 
   const go = useCallback((next) => {
@@ -1037,6 +1040,12 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
                 <span>{checkoutHandoff ? checkoutHandoff.summary : adviceRequested ? "Specs decided at drop-off" : `${isPresetCompositionTier(tier) ? serviceCompositionLabel(tier.string_composition) : `${selectedStringName || "String"} · gauge ${gauge}`} · ${splitTension ? `${tension}/${crosses}` : tension} lbs`}</span>
                 <span>{selectedVendor?.name} · {selectedVendor?.address}</span>
                 {orderNotes ? <span>{orderNotes}</span> : null}
+                {taxCents > 0 ? (
+                  <>
+                    <span>Subtotal · {formatMoneyCents(subtotalCents)}</span>
+                    <span>Sales tax · {formatMoneyCents(taxCents)}</span>
+                  </>
+                ) : null}
                 <strong>{totalLabel}</strong>
               </div>
             </section>
