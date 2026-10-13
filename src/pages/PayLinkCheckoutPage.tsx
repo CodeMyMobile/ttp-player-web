@@ -5,6 +5,7 @@ import { AlertCircle, CheckCircle2, Loader2, Phone, ShieldCheck } from "lucide-r
 import { useParams } from "react-router-dom";
 
 import {
+  applyRestringingPayLinkDiscountCode,
   buildVendorTelHref,
   createRestringingPayLinkCheckout,
   formatPayLinkMoney,
@@ -13,6 +14,8 @@ import {
   getRestringingPayLink,
   isRestringingPayLinkPaid,
   isPayLinkDemoMode,
+  payLinkDiscountErrorMessage,
+  removeRestringingPayLinkDiscountCode,
   shouldShowAccountPrompt,
   type RestringingPayLinkCheckout,
   type RestringingPayLinkSummary,
@@ -297,6 +300,9 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
   const [paid, setPaid] = useState(false);
   const [loading, setLoading] = useState(!demoMode);
   const [error, setError] = useState<string | null>(null);
+  const [discountCode, setDiscountCode] = useState("");
+  const [discountBusy, setDiscountBusy] = useState(false);
+  const [discountError, setDiscountError] = useState<string | null>(null);
   const paymentConfirmed = paid || isRestringingPayLinkPaid(summary);
   const accountLinked = summary?.account_link.status === "linked";
   const hasAuthToken = Boolean(authToken);
@@ -364,6 +370,24 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
   useEffect(() => {
     void loadSummary();
   }, [loadSummary, isAuthenticated]);
+
+  // The API reprices the order and the pending payment; the new summary then
+  // re-runs loadCheckout, so the payment form is rebuilt for the new total.
+  const changeDiscount = useCallback(async (apply: boolean) => {
+    if (!token || demoMode || discountBusy) return;
+    setDiscountBusy(true);
+    setDiscountError(null);
+    try {
+      setSummary(apply
+        ? await applyRestringingPayLinkDiscountCode(token, discountCode, authToken)
+        : await removeRestringingPayLinkDiscountCode(token, authToken));
+      setDiscountCode("");
+    } catch (err) {
+      setDiscountError(payLinkDiscountErrorMessage(err));
+    } finally {
+      setDiscountBusy(false);
+    }
+  }, [authToken, demoMode, discountBusy, discountCode, token]);
 
   useEffect(() => {
     void loadCheckout();
@@ -534,13 +558,57 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
         </div>
         {(summary.order.discount_amount_cents || 0) > 0 ? (
           <div className="pay-link-total">
-            <span>{summary.order.discount_label || "Discount"}</span>
+            <span>
+              {summary.order.discount_label || "Discount"}
+              {summary.order.discount_removable && !paymentConfirmed ? (
+                <button
+                  type="button"
+                  className="pay-link-discount__remove"
+                  disabled={discountBusy}
+                  onClick={() => void changeDiscount(false)}
+                >
+                  Remove
+                </button>
+              ) : null}
+            </span>
             <strong>-{formatPayLinkMoney(summary.order.discount_amount_cents || 0)}</strong>
           </div>
+        ) : !paymentConfirmed && !demoMode ? (
+          <form
+            className="pay-link-discount"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void changeDiscount(true);
+            }}
+          >
+            <label htmlFor="pay-link-discount-code">Discount code</label>
+            <div className="pay-link-discount__row">
+              <input
+                id="pay-link-discount-code"
+                value={discountCode}
+                onChange={(event) => {
+                  setDiscountCode(event.target.value);
+                  setDiscountError(null);
+                }}
+                placeholder="Enter code"
+                autoCapitalize="characters"
+                autoComplete="off"
+                spellCheck={false}
+              />
+              <button
+                type="submit"
+                className="pay-link-btn pay-link-btn--white pay-link-btn--sm"
+                disabled={discountBusy || !discountCode.trim()}
+              >
+                {discountBusy ? "Applying..." : "Apply"}
+              </button>
+            </div>
+          </form>
         ) : null}
+        {discountError ? <p className="pay-link-discount__error" role="alert">{discountError}</p> : null}
         {summary.order.tax_cents ? (
           <div className="pay-link-total">
-            <span>Tax</span>
+            <span>Sales tax</span>
             <strong>{formatPayLinkMoney(summary.order.tax_cents)}</strong>
           </div>
         ) : null}
@@ -581,7 +649,7 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
             onPaid={() => setPaid(true)}
           />
         ) : (
-          <Elements stripe={stripePromise} options={elementsOptions} key={checkout.client_secret}>
+          <Elements stripe={stripePromise} options={elementsOptions} key={`${checkout.client_secret}:${summary.order.total_cents}`}>
             <PayLinkPaymentForm
               checkout={checkout as RestringingPayLinkCheckout}
               summary={summary}
@@ -624,8 +692,13 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
             <>
               <section className="pay-link-card pay-link-panel pay-link-success">
                 <CheckCircle2 size={42} aria-hidden />
-                <h1>Payment confirmed</h1>
-                <p>Order #{summary.order.id} · {formatPayLinkMoney(summary.order.total_cents)} · receipt sent by email.</p>
+                {/* A code can cover the whole order: nothing was charged, so no receipt exists. */}
+                <h1>{summary.order.total_cents > 0 ? "Payment confirmed" : "Order confirmed"}</h1>
+                <p>
+                  Order #{summary.order.id} · {summary.order.total_cents > 0
+                    ? `${formatPayLinkMoney(summary.order.total_cents)} · receipt sent by email.`
+                    : "No payment needed."}
+                </p>
                 {accountLinked ? <span className="pay-link-pill pay-link-pill--green">Saved to your profile</span> : null}
               </section>
               <section className="pay-link-card pay-link-panel">

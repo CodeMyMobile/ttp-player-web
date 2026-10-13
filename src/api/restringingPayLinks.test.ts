@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  applyRestringingPayLinkDiscountCode,
+  payLinkDiscountErrorMessage,
+  removeRestringingPayLinkDiscountCode,
   buildVendorTelHref,
   createRestringingPayLinkCheckout,
   formatPayLinkMoney,
@@ -147,4 +150,45 @@ test("checkout API returns client secret and connected account id", async () => 
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("discount code calls post the trimmed code and delete it again", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: Array<{ url: string; init?: RequestInit }> = [];
+  globalThis.fetch = (async (url: RequestInfo | URL, init?: RequestInit) => {
+    calls.push({ url: String(url), init });
+    return new Response(JSON.stringify({ order: { id: 42, total_cents: 4185 } }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  try {
+    const applied = await applyRestringingPayLinkDiscountCode("raw-token", "  CLUB10 ");
+    assert.equal(applied.order.total_cents, 4185);
+    assert.equal(calls[0].url.endsWith("/restringing/pay-links/raw-token/discount"), true);
+    assert.equal(calls[0].init?.method, "POST");
+    assert.equal(calls[0].init?.body, JSON.stringify({ code: "CLUB10" }));
+
+    await removeRestringingPayLinkDiscountCode("raw-token");
+    assert.equal(calls[1].url.endsWith("/restringing/pay-links/raw-token/discount"), true);
+    assert.equal(calls[1].init?.method, "DELETE");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("payLinkDiscountErrorMessage turns API codes into player copy", () => {
+  assert.equal(
+    payLinkDiscountErrorMessage({ data: { detail: "discount_code_invalid" } }),
+    "That code isn't valid for this shop.",
+  );
+  assert.equal(
+    payLinkDiscountErrorMessage({ data: { detail: "discount_already_applied" } }),
+    "This order already has a discount.",
+  );
+  assert.equal(
+    payLinkDiscountErrorMessage(new Error("network")),
+    "The discount could not be updated. Try again.",
+  );
 });
