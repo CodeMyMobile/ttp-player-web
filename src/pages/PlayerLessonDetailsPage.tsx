@@ -1531,13 +1531,13 @@ const PlayerLessonDetailsPage = () => {
                               <span>🎟️</span>
                               <span>
                                 <strong>Reserve a lesson package</strong>
-                                <small>No charge until first confirmed lesson</small>
+                                <small>Charged when you buy</small>
                               </span>
                               <ChevronDown aria-hidden size={18} />
                             </button>
                             {creditsPackageOpen ? (
                               <div className="player-lesson-details__credits-package-panel">
-                                <p>Reserve sessions now. Your card is charged only when this lesson is confirmed.</p>
+                                <p>Buy credits now and use them on this lesson. Your card is charged when you buy.</p>
                                 {packagesLoading ? <p>Loading packages…</p> : null}
                                 {packagesError ? <p className="player-lesson-details__status-error">{packagesError}</p> : null}
                                 {!packagesLoading && !packagesError && !packageOptions.length ? <p>No lesson packages are available right now.</p> : null}

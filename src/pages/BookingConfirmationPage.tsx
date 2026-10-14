@@ -2360,14 +2360,14 @@ const BookingConfirmationPage = () => {
         <span className="payment-method-card__icon payment-method-card__icon--ticket">🎟️</span>
         <span className="payment-method-card__body">
           <span className="payment-method-card__title">Reserve a lesson package</span>
-          <span className="payment-method-card__subtitle">No charge until first confirmed lesson</span>
+          <span className="payment-method-card__subtitle">Charged when you buy</span>
         </span>
         <ChevronDown className="payment-method-card__chevron" aria-hidden size={18} />
       </button>
       {isCreditsPackageOpen ? (
         <div className="payment-method-card__package-panel">
           <p className="payment-method-card__package-intro">
-            Reserve sessions now. Your card is charged only when the first lesson is confirmed.
+            Buy credits now and use them on this lesson. Your card is charged when you buy.
           </p>
           {packagesLoading ? <p className="payment-methods__notice">Loading packages...</p> : null}
           {packagesError ? <p className="payment-methods__notice payment-methods__notice--error">{packagesError}</p> : null}

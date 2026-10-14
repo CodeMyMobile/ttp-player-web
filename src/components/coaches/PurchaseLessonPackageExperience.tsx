@@ -33,6 +33,7 @@ import {
 import AddCardForm from "../payments/AddCardForm";
 import { useAuth } from "../../context/AuthContext";
 import { getStoredAuthToken } from "../../services/authToken";
+import { calculatePackagePricing } from "../../utils/lessonPricing";
 
 import "./PurchaseLessonPackageExperience.css";
 
@@ -395,6 +396,7 @@ const PurchaseLessonPackageExperience = ({
     () => packages.find((pkg) => String(pkg.id) === selectedPackageId) ?? null,
     [packages, selectedPackageId],
   );
+  const selectedPackagePricing = selectedPackage ? calculatePackagePricing(selectedPackage.total_price) : null;
 
   const creditEntries = useMemo(() => {
     const now = new Date();
@@ -519,7 +521,7 @@ const PurchaseLessonPackageExperience = ({
           </h2>
           {selectedPackage ? (
             <p className="purchase-package-experience__subtitle">
-              Reserve {selectedPackage.lesson_count} credits with {coachFirstName}. You are charged when your first lesson is confirmed.
+              Reserve {selectedPackage.lesson_count} credits with {coachFirstName}. Your card is charged when you check out.
             </p>
           ) : (
             <p className="purchase-package-experience__subtitle">
@@ -544,9 +546,9 @@ const PurchaseLessonPackageExperience = ({
         {purchaseState === "success" ? (
           <div className="purchase-package-experience__success" role="status" aria-live="polite">
             <CheckCircle2 className="purchase-package-experience__success-icon" aria-hidden />
-            <h3 className="purchase-package-experience__success-title">Package reserved</h3>
+            <h3 className="purchase-package-experience__success-title">Package purchased</h3>
             <p className="purchase-package-experience__success-copy">
-              You will not be charged until your first lesson with {coachFirstName} is confirmed.
+              Your credits with {coachFirstName} are ready to use.
             </p>
             <button type="button" className="purchase-package-experience__primary" onClick={handleDismiss}>
               Close
@@ -559,7 +561,7 @@ const PurchaseLessonPackageExperience = ({
                 <div className="purchase-package-experience__section-header">
                   <span className="purchase-package-experience__section-eyebrow">Pick your package</span>
                   <p className="purchase-package-experience__section-copy">
-                    See available bundles from this coach. Prices include all fees.
+                    See available bundles from this coach. Card and booking fees are added at checkout.
                   </p>
                 </div>
                 {packagesError ? (
@@ -697,15 +699,35 @@ const PurchaseLessonPackageExperience = ({
                 <div className="purchase-package-experience__order-card">
                   <div className="purchase-package-experience__order-header">
                     <h3>Order summary</h3>
-                    <span>{formatCurrency(selectedPackage.total_price) ?? selectedPackage.total_price}</span>
+                    <span>{formatCurrency(selectedPackagePricing?.total)}</span>
                   </div>
                   <div className="purchase-package-experience__order-line">
                     <span>{selectedPackage.name ?? `${selectedPackage.lesson_count} credits`}</span>
                     <span>{buildValidityLabel(selectedPackage.validity_months)}</span>
                   </div>
+                  {selectedPackagePricing ? (
+                    <div className="purchase-package-experience__fees">
+                      <div className="purchase-package-experience__fee-line">
+                        <span>Package</span>
+                        <span>{formatCurrency(selectedPackagePricing.packagePrice)}</span>
+                      </div>
+                      <div className="purchase-package-experience__fee-line">
+                        <span>Booking fee</span>
+                        <span>{formatCurrency(selectedPackagePricing.serviceFee)}</span>
+                      </div>
+                      <div className="purchase-package-experience__fee-line">
+                        <span>Card processing</span>
+                        <span>{formatCurrency(selectedPackagePricing.creditFee)}</span>
+                      </div>
+                      <div className="purchase-package-experience__fee-line purchase-package-experience__fee-line--total">
+                        <span>Total</span>
+                        <span>{formatCurrency(selectedPackagePricing.total)}</span>
+                      </div>
+                    </div>
+                  ) : null}
                   <p className="purchase-package-experience__order-copy">
-                    Includes {selectedPackage.lesson_count} credits with {coachFirstName}. You will not be charged until the first confirmed{" "}
-                    {formatLessonTypeList(selectedPackage.lesson_types_allowed)} lesson.
+                    Includes {selectedPackage.lesson_count} credits with {coachFirstName} for{" "}
+                    {formatLessonTypeList(selectedPackage.lesson_types_allowed)} lessons. Your card is charged when you check out.
                   </p>
                   <div className="purchase-package-experience__summary-highlight">
                     <Package aria-hidden />
@@ -718,7 +740,7 @@ const PurchaseLessonPackageExperience = ({
                 <div className="purchase-package-experience__payment-header">
                   <div>
                     <h3>Payment method</h3>
-                    <p>Choose the card to keep on file for the first confirmed lesson.</p>
+                    <p>Choose the card to pay with.</p>
                   </div>
                   <span className="purchase-package-experience__payment-secure">
                     <ShieldCheck aria-hidden size={16} /> Secure checkout
@@ -927,7 +949,7 @@ const PurchaseLessonPackageExperience = ({
                           <Loader2 className="purchase-package-page__spinner" aria-hidden /> Processing…
                         </>
                       ) : (
-                        <>Reserve package · no charge today</>
+                        <>Buy package · {formatCurrency(selectedPackagePricing?.total)}</>
                       )}
                     </button>
                   ) : (

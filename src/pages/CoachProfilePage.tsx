@@ -3557,14 +3557,14 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                             <div className="coach-payment-choice__title-row">
                               <span className="coach-payment-choice__title">Reserve a lesson package</span>
                             </div>
-                            <p className="coach-payment-choice__subtitle">No charge until first confirmed lesson</p>
+                            <p className="coach-payment-choice__subtitle">Charged when you buy</p>
                           </div>
                           <ChevronDown className="coach-payment-choice__chevron" aria-hidden size={18} />
                         </button>
                         {creditsPackageOpen ? (
                           <div className="coach-payment-choice__package-panel">
                             <p className="coach-payment-choice__package-intro">
-                              Reserve sessions now. Your card is charged only when the first lesson is confirmed.
+                              Buy credits now and use them on this lesson. Your card is charged when you buy.
                             </p>
                             {packagesLoading ? <p className="coach-payment-modal__hint">Loading packages...</p> : null}
                             {packagesError ? <p className="coach-payment-modal__error">{packagesError}</p> : null}

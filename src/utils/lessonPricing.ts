@@ -77,6 +77,26 @@ export const calculateLessonPricing = (input: LessonPricingInput): LessonPricing
   };
 };
 
+export type PackagePricingBreakdown = {
+  packagePrice: number;
+  creditFee: number;
+  serviceFee: number;
+  total: number;
+};
+
+// Mirrors the backend's calculate_lessons_cost_for_group, which prices a
+// package purchase: the coach's package price plus the card and booking fees.
+export const calculatePackagePricing = (totalPrice: unknown): PackagePricingBreakdown => {
+  const packagePrice = round2(parseNumber(totalPrice));
+  const creditFee = round2(packagePrice * (CREDIT_FEE_PERCENTAGE / 100));
+  return {
+    packagePrice,
+    creditFee,
+    serviceFee: SERVICE_FEE,
+    total: round2(packagePrice + creditFee + SERVICE_FEE),
+  };
+};
+
 export const resolveLessonCreditType = ({
   lesson_type_name,
   lessontype_id,

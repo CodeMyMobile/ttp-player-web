@@ -44,7 +44,7 @@ import { colors, typography } from "../lib/theme";
 import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
 import { DEFAULT_POSITION, getStoredLocation } from "../utils/userLocation";
-import { packageAllowsLessonCreditType } from "../utils/lessonPricing";
+import { calculatePackagePricing, packageAllowsLessonCreditType } from "../utils/lessonPricing";
 import { buildGroupLessonShareUrl } from "../utils/shareLinks";
 import { hoursUntilFloating } from "../utils/floatingTime";
 import { buildVisibleGroupLessonParticipantRows } from "../utils/groupLessonVisibleParticipants";
@@ -674,6 +674,7 @@ const GroupLessonDetailsPage = () => {
     bestValuePackage ??
     packageOptions[0] ??
     null;
+  const selectedPackagePricing = selectedPackage ? calculatePackagePricing(selectedPackage.total_price) : null;
 
   useEffect(() => {
     if (selectedPackageId || packageOptions.length === 0) return;
@@ -1795,13 +1796,13 @@ const GroupLessonDetailsPage = () => {
                               <span aria-hidden>🎟️</span>
                               <span>
                                 <strong>Reserve a lesson package</strong>
-                                <small>No charge until first confirmed lesson</small>
+                                <small>Charged when you buy</small>
                               </span>
                               <ChevronDown aria-hidden />
                             </button>
                             {creditsPackageOpen ? (
                               <div className="group-lesson-details__credits-package-panel">
-                                <p>Reserve sessions now. Your card is charged only when this lesson is confirmed.</p>
+                                <p>Buy credits now and use them on this lesson. Your card is charged when you buy.</p>
                                 {packagesLoading ? <p>Loading packages...</p> : null}
                                 {packagesError ? <p className="group-lesson-details__checkout-error">{packagesError}</p> : null}
                                 {!packagesLoading && !packagesError && packageOptions.length === 0 ? <p>No group packages are available right now.</p> : null}
@@ -1838,6 +1839,14 @@ const GroupLessonDetailsPage = () => {
                                     </button>
                                   );
                                 })}
+                                {selectedPackagePricing ? (
+                                  <p>
+                                    {formatMoney(selectedPackagePricing.packagePrice)} package +{" "}
+                                    {formatMoney(selectedPackagePricing.serviceFee)} booking fee +{" "}
+                                    {formatMoney(selectedPackagePricing.creditFee)} card processing ={" "}
+                                    <strong>{formatMoney(selectedPackagePricing.total)} total</strong>
+                                  </p>
+                                ) : null}
                                 <button
                                   type="button"
                                   className="group-lesson-details__buy-package"

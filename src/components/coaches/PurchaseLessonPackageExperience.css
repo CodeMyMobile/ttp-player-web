@@ -490,6 +490,26 @@
   color: #4338ca;
 }
 
+.purchase-package-experience__fees {
+  display: grid;
+  gap: 6px;
+}
+
+.purchase-package-experience__fee-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+  color: #475467;
+}
+
+.purchase-package-experience__fee-line--total {
+  padding-top: 8px;
+  border-top: 1px solid #eaecf0;
+  font-weight: 700;
+  color: #101828;
+}
+
 .purchase-package-experience__order-copy {
   margin: 0;
   font-size: 14px;
