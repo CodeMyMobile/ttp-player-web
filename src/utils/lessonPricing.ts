@@ -77,6 +77,26 @@ export const calculateLessonPricing = (input: LessonPricingInput): LessonPricing
   };
 };
 
+export type PackagePricingBreakdown = {
+  packagePrice: number;
+  creditFee: number;
+  total: number;
+};
+
+const PACKAGE_CREDIT_FEE_PERCENTAGE = 3.5;
+
+// Mirrors the backend's calculate_package_cost: a package carries a 3.5% card
+// fee and no booking fee, unlike a single lesson.
+export const calculatePackagePricing = (totalPrice: unknown): PackagePricingBreakdown => {
+  const packagePrice = round2(parseNumber(totalPrice));
+  const creditFee = round2(packagePrice * (PACKAGE_CREDIT_FEE_PERCENTAGE / 100));
+  return {
+    packagePrice,
+    creditFee,
+    total: round2(packagePrice + creditFee),
+  };
+};
+
 export const resolveLessonCreditType = ({
   lesson_type_name,
   lessontype_id,
