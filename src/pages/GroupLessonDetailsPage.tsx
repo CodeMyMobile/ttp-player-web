@@ -1842,7 +1842,6 @@ const GroupLessonDetailsPage = () => {
                                 {selectedPackagePricing ? (
                                   <p>
                                     {formatMoney(selectedPackagePricing.packagePrice)} package +{" "}
-                                    {formatMoney(selectedPackagePricing.serviceFee)} booking fee +{" "}
                                     {formatMoney(selectedPackagePricing.creditFee)} card processing ={" "}
                                     <strong>{formatMoney(selectedPackagePricing.total)} total</strong>
                                   </p>

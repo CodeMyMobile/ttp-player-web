@@ -561,7 +561,7 @@ const PurchaseLessonPackageExperience = ({
                 <div className="purchase-package-experience__section-header">
                   <span className="purchase-package-experience__section-eyebrow">Pick your package</span>
                   <p className="purchase-package-experience__section-copy">
-                    See available bundles from this coach. Card and booking fees are added at checkout.
+                    See available bundles from this coach. A 3.5% card processing fee is added at checkout.
                   </p>
                 </div>
                 {packagesError ? (
@@ -710,10 +710,6 @@ const PurchaseLessonPackageExperience = ({
                       <div className="purchase-package-experience__fee-line">
                         <span>Package</span>
                         <span>{formatCurrency(selectedPackagePricing.packagePrice)}</span>
-                      </div>
-                      <div className="purchase-package-experience__fee-line">
-                        <span>Booking fee</span>
-                        <span>{formatCurrency(selectedPackagePricing.serviceFee)}</span>
                       </div>
                       <div className="purchase-package-experience__fee-line">
                         <span>Card processing</span>
