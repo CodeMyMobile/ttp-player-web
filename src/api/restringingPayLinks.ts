@@ -42,6 +42,9 @@ export interface RestringingPayLinkOrder {
   discount_amount_cents?: number | null;
   /** True when the player applied the discount here with a code and can still take it off. */
   discount_removable?: boolean;
+  /** The coach's commission, given to the player as a discount. Comes off after any other discount. */
+  coach_discount_cents?: number | null;
+  ordered_by_coach_name?: string | null;
   tax_cents: number;
   total_cents: number;
   items: RestringingPayLinkItem[];

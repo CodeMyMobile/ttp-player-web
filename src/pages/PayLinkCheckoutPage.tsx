@@ -606,6 +606,16 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
           </form>
         ) : null}
         {discountError ? <p className="pay-link-discount__error" role="alert">{discountError}</p> : null}
+        {(summary.order.coach_discount_cents || 0) > 0 ? (
+          <div className="pay-link-total">
+            <span>
+              {summary.order.ordered_by_coach_name
+                ? `Discount from ${summary.order.ordered_by_coach_name}`
+                : "Discount from your coach"}
+            </span>
+            <strong>-{formatPayLinkMoney(summary.order.coach_discount_cents || 0)}</strong>
+          </div>
+        ) : null}
         {summary.order.tax_cents ? (
           <div className="pay-link-total">
             <span>Sales tax</span>
