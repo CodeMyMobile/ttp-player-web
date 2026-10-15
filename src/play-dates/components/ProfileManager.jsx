@@ -453,7 +453,7 @@ const ProfileManager = ({
                 <span>
                   <span className="block font-bold">{SHARE_PHONE_LABEL}</span>
                   <span className="mt-1 block text-xs font-medium text-gray-500">
-                    Pending invitees, spectators, and other players cannot see your number.
+                    The host of a match you join always sees your number, so they can text the group. This lets the other confirmed players see it too.
                   </span>
                 </span>
               </label>
