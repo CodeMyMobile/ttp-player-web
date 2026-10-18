@@ -29,6 +29,13 @@
   VITE_HOME_V2 = "true"
   VITE_VENDOR_PAGE = "true"
 
+# Deploy previews only: these add to [build.environment] above rather than replace it.
+# VITE_LEAGUE_COACHING_PROMPTS shows the league dashboard's lesson prompts (card,
+# ladder nudge, hero clinic link) for review. Production stays off until a line for it
+# is added to [build.environment].
+[context.deploy-preview.environment]
+  VITE_LEAGUE_COACHING_PROMPTS = "true"
+
 
 # Netlify Image CDN. Avatars are uploaded to S3 unresized (measured up to 2048x1536,
 # ~320KB) and rendered into a 48px slot, so they are resized at the edge instead of
