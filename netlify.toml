@@ -17,6 +17,10 @@
 # (VendorPublicPage) instead of RestringingPlayerFlow. To roll back: delete the line
 # and redeploy; vendor links then render RestringingPlayerFlow as before.
 #
+# VITE_LEAGUE_COACHING_PROMPTS=true shows the league dashboard's lesson prompts: the
+# "Group lessons at your level" card, the ladder nudge and the unranked hero's clinic
+# link. To roll back: delete the line and redeploy; the dashboard renders as before.
+#
 # To roll back: delete the VITE_HOME_V2 line and redeploy. Flag off is
 # structurally identical to the old home — DashboardPage was never modified for
 # the redesign — so there is nothing to undo beyond the flag itself.
@@ -28,6 +32,7 @@
   VITE_MULTI_MATCH = "true"
   VITE_HOME_V2 = "true"
   VITE_VENDOR_PAGE = "true"
+  VITE_LEAGUE_COACHING_PROMPTS = "true"
 
 
 # Netlify Image CDN. Avatars are uploaded to S3 unresized (measured up to 2048x1536,

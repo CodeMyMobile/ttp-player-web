@@ -17,6 +17,7 @@ import Hero from "./Hero";
 import Icon from "./Icon";
 import LeagueSwitcher from "./LeagueSwitcher";
 import LeagueTabs from "./LeagueTabs";
+import LessonsAtYourLevel from "./LessonsAtYourLevel";
 import PlayersLooking from "./PlayersLooking";
 import ResultsTicker from "./ResultsTicker";
 import SeasonProgress from "./SeasonProgress";
@@ -28,6 +29,9 @@ import { useIsMobile } from "./useIsMobile";
 import { cancelHostedMatch, leaveMatch } from "../../api/matches";
 import { getStoredAuthToken } from "../../services/authToken";
 import { useLeagueDashboard } from "./useLeagueDashboard";
+import { useLevelMatchedLessons } from "./useLevelMatchedLessons";
+import { isLeagueCoachingPromptsEnabled } from "../../utils/featureFlags";
+import { track } from "../../utils/analytics";
 import type { NextMoveTarget, TabKey } from "./types";
 
 // The cancel dialog reuses the .league-confirm panel defined in LeaguesPage.css. That
@@ -67,6 +71,28 @@ const LeagueDashboardPage = () => {
     }
   };
   const { data, hero, nextMove, leagues, loading, error, reload } = useLeagueDashboard(id);
+
+  // Coaching prompts: the lessons card, the ladder nudge and the hero's clinic link.
+  const coachingEnabled = isLeagueCoachingPromptsEnabled();
+  const matchedLessons = useLevelMatchedLessons({ enabled: coachingEnabled, leagueLabel: data?.summary.level });
+  const coachingLeagueId = String(data?.summary.id ?? id ?? "");
+  const coachingReady = coachingEnabled && matchedLessons.loaded && Boolean(matchedLessons.level && matchedLessons.band);
+  const ladderNudge = coachingReady
+    ? {
+        leagueId: coachingLeagueId,
+        band: matchedLessons.band as string,
+        next: matchedLessons.lessons[0] ?? null,
+        linkState: matchedLessons.linkState,
+      }
+    : null;
+  const heroClinic = coachingReady
+    ? {
+        level: matchedLessons.level as string,
+        linkState: matchedLessons.linkState,
+        onClick: () => track("hero_clinic_click", { leagueId: coachingLeagueId, levelBand: matchedLessons.band }),
+      }
+    : null;
+  const lessonsCard = coachingEnabled ? <LessonsAtYourLevel leagueId={coachingLeagueId} matched={matchedLessons} /> : null;
   const [activeTab, setActiveTab] = useState<TabKey>("ladder");
   // Mobile section state (Overview + the four data tabs). Kept separate from the
   // desktop `activeTab` so "overview" can never leak into the desktop LeagueTabs.
@@ -262,10 +288,12 @@ const LeagueDashboardPage = () => {
                         hero={hero}
                         onCta={() => handleNextMove(nextMove.cta.target)}
                         onPostAvailability={() => goPostAvailability()}
+                        clinic={heroClinic}
                       />
                       <StandingsPreview standings={data.standings} onSeeFull={goStandings} />
                       <ResultsTicker items={data.ticker} />
                       <ThisWeekCard week={data.week} />
+                      {lessonsCard}
                       <SeasonProgress season={data.season} />
                       <PlayersLooking
                         looking={data.looking}
@@ -288,6 +316,7 @@ const LeagueDashboardPage = () => {
                         viewerName={viewerName}
                         onNeedMatch={() => goPostAvailability()}
                         hideTabBar
+                        ladderNudge={ladderNudge}
                         onCancelScheduled={(matchId, viewerIsHost) => {
                           setCancelError(null);
                           setCancelTarget({ id: matchId, viewerIsHost });
@@ -341,7 +370,7 @@ const LeagueDashboardPage = () => {
                     onViewAll={() => navigate(`/leagues/${id}/match-browser`)}
                   />
 
-                  <Hero hero={hero} onCta={() => handleNextMove(nextMove.cta.target)} />
+                  <Hero hero={hero} onCta={() => handleNextMove(nextMove.cta.target)} clinic={heroClinic} />
 
                   <ResultsTicker items={data.ticker} />
 
@@ -360,6 +389,7 @@ const LeagueDashboardPage = () => {
                         onSeeAll={() => navigate(`/leagues/${id}/match-browser`)}
                       />
                       <ThisWeekCard week={data.week} />
+                      {lessonsCard}
                     </div>
                   </section>
 
@@ -374,6 +404,7 @@ const LeagueDashboardPage = () => {
                     // Desktop has no sticky bar. Deliberately no "Log a Score"
                     // here — nothing on a roster screen implies a finished match.
                     onNeedMatch={() => goPostAvailability()}
+                    ladderNudge={ladderNudge}
                     onCancelScheduled={(matchId, viewerIsHost) => {
                       setCancelError(null);
                       setCancelTarget({ id: matchId, viewerIsHost });

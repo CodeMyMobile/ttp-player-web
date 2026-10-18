@@ -627,3 +627,59 @@
 @media (min-width:561px){
   .lgd .action-slot{margin-top:16px}
 }
+
+/* ── Coaching prompts (VITE_LEAGUE_COACHING_PROMPTS) ───────────────────── */
+
+/* A: "Group lessons at your level". Inherits .looking's card, header and rows. */
+.lgd .lessons-at-level{margin-top:16px}
+.lgd .lesson-row{display:flex;align-items:center;gap:12px}
+.lgd .lesson-row__main{flex:1;min-width:0}
+.lgd .lesson-row .nm{min-width:0}
+.lgd .lesson-row__reserve{flex-shrink:0;padding:7px 13px;font-size:13px}
+.lgd .lessons-at-level__browse{margin-top:14px}
+
+/* D: the ladder nudge, inside the viewer's lavender band, aligned with the name
+   column (row padding 14 + rank column 26 + gap 10). */
+.lgd .ladder-row.you-row.has-nudge{border-bottom:0}
+.lgd .ladder-nudge{background:var(--violet-softer);padding:0 14px 12px 50px;border-bottom:1px solid var(--line)}
+.lgd .ladder-nudge:last-child{border-bottom:0}
+.lgd .ladder-nudge__card{display:flex;align-items:center;gap:12px;background:#fff;
+  border:1px solid var(--violet-soft);border-radius:10px;padding:10px 10px 10px 12px}
+.lgd .ladder-nudge__icon{flex-shrink:0;width:32px;height:32px;border-radius:8px;display:flex;
+  align-items:center;justify-content:center;background:var(--violet-soft);color:var(--violet)}
+.lgd .ladder-nudge__icon svg{width:17px;height:17px}
+.lgd .ladder-nudge__text{flex:1;min-width:0;display:block}
+.lgd .ladder-nudge__title{display:block;font-size:13.5px;font-weight:600}
+.lgd .ladder-nudge__detail{display:block;font-size:12px;color:var(--ink-3);margin-top:1px}
+.lgd .ladder-nudge__actions{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.lgd .ladder-nudge__cta{padding:7px 12px;font-size:13px}
+.lgd .ladder-nudge__dismiss{width:32px;height:32px;border:0;border-radius:8px;background:transparent;
+  color:var(--ink-3);display:flex;align-items:center;justify-content:center}
+.lgd .ladder-nudge__dismiss:hover{background:var(--violet-softer);color:var(--ink-2)}
+.lgd .ladder-nudge__dismiss svg{width:16px;height:16px}
+
+/* C2: the never-played hero's clinic prompt. Desktop button matches .cta's size. */
+.lgd .hero .hero__clinic-btn{display:inline-flex;align-items:center;background:transparent;color:#fff;
+  border:1px solid rgba(255,255,255,.6);font-weight:600;font-size:14px;padding:10px 17px;border-radius:9px}
+.lgd .hero .hero__clinic-btn:hover{background:rgba(255,255,255,.1)}
+.lgd .hero .hero__clinic-link{display:none}
+
+@media (max-width:560px){
+  .lgd .lessons-at-level{padding:14px;margin-top:12px}
+  .lgd .lesson-row{flex-direction:column;align-items:stretch;gap:10px}
+  .lgd .lesson-row__reserve,
+  .lgd .lessons-at-level__browse,
+  .lgd .lessons-at-level .see-all{min-height:44px;justify-content:center;display:flex;align-items:center}
+  .lgd .lessons-at-level .see-all{margin-top:4px}
+
+  .lgd .ladder-nudge{padding:0 10px 10px 10px}
+  .lgd .ladder-nudge__card{flex-wrap:wrap}
+  .lgd .ladder-nudge__text{flex-basis:calc(100% - 44px)}
+  .lgd .ladder-nudge__actions{width:100%}
+  .lgd .ladder-nudge__cta{flex:1;justify-content:center;min-height:44px}
+  .lgd .ladder-nudge__dismiss{width:44px;height:44px}
+
+  .lgd .hero .hero__clinic-btn{display:none}
+  .lgd .hero .hero__clinic-link{display:inline-flex;align-items:center;min-height:44px;margin-top:4px;
+    color:#fff;font-size:13.5px;font-weight:600}
+}
