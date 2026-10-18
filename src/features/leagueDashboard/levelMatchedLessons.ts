@@ -4,7 +4,8 @@
 // Which classes fit is decided by the Group Lessons page's own rule (fitsPlayerLevel),
 // so "Browse all 4.0 lessons" opens a list that agrees with the card. On top of it, a
 // class with no level is left out here: the page shows those to everyone, but calling
-// one "curated for 4.0" would overclaim.
+// one "curated for 4.0" would overclaim. Outside providers' classes are included, and
+// link to their details page, from which the player books on the provider's site.
 
 import moment from "moment";
 
@@ -55,7 +56,12 @@ export interface LevelMatchedLesson {
   title: string;
   /** The class's own level, as its pill: "4.0–4.5", "4.0+", "4.0". */
   levelPill: string;
-  spotsLabel: string;
+  /** True for an outside provider's class, booked on their site. */
+  external: boolean;
+  /** "3 spots left". Null for an outside class: we don't know its spots. */
+  spotsLabel: string | null;
+  /** Where its button goes: our booking flow, or the outside class's details page. */
+  path: string;
   /** "Sat Oct 24 · 9:00 AM" in the venue's own time. */
   when: string;
   /** "Sat 9:00 AM", for the ladder nudge's "next:" clause. */
@@ -68,7 +74,9 @@ export interface LevelMatchedLesson {
 const GENERIC_COACH = /^(coach|external provider)$/i;
 
 /**
- * Upcoming classes of ours that fit the level and still have room, soonest first.
+ * Upcoming classes that fit the level and still have room, soonest first. Outside
+ * providers' classes count as having room: we aren't told their spots, and the lessons
+ * page lists them the same way.
  *
  * Start times are venue wall clocks stamped with a Z. They are compared to now with
  * parseFloatingLocal and formatted with moment.utc, exactly as the lessons page does,
@@ -82,7 +90,8 @@ export const matchLessonsToLevel = (
   if (level === null) return [];
   return lessons
     .flatMap((lesson) => {
-      if (lesson.isExternal || lesson.cancelled || !(lesson.availableSpots > 0)) return [];
+      const external = Boolean(lesson.isExternal);
+      if (!external && (lesson.cancelled || !(lesson.availableSpots > 0))) return [];
       const band = classLevelBand(lesson);
       if (band === null || !fitsPlayerLevel(band, level)) return [];
       const startsAt = parseFloatingLocal(lesson.startDateTime);
@@ -93,7 +102,11 @@ export const matchLessonsToLevel = (
         id: lesson.id,
         title: lesson.title,
         levelPill: bandLabel(band),
-        spotsLabel: `${lesson.availableSpots} spot${lesson.availableSpots === 1 ? "" : "s"} left`,
+        external,
+        spotsLabel: external
+          ? null
+          : `${lesson.availableSpots} spot${lesson.availableSpots === 1 ? "" : "s"} left`,
+        path: external ? `/lessons/external/${lesson.id}` : `/group-lessons/${lesson.id}`,
         when: `${start.format("ddd MMM D")} · ${start.format("h:mm A")}`,
         whenShort: start.format("ddd h:mm A"),
         venue: normalizeVenueLabel(lesson.locationName) || lesson.locationName,

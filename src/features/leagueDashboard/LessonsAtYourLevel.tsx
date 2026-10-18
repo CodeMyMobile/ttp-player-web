@@ -1,6 +1,6 @@
-// "Group lessons at your level" — up to three of our upcoming classes that fit the
-// viewer's level, styled as a sibling of "Players looking for matches". Hidden when
-// none fit. Behind VITE_LEAGUE_COACHING_PROMPTS.
+// "Group lessons at your level" — up to three upcoming classes that fit the viewer's
+// level, ours and outside providers', styled as a sibling of "Players looking for
+// matches". Hidden when none fit. Behind VITE_LEAGUE_COACHING_PROMPTS.
 
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
@@ -41,12 +41,18 @@ const LessonsAtYourLevel = ({ leagueId, matched }: LessonsAtYourLevelProps) => {
       <div className="desc">Curated for NTRP {band} players near you.</div>
 
       {lessons.slice(0, SHOWN).map((lesson) => (
-        <div className="look-row lesson-row" key={lesson.id}>
+        // Our ids and outside providers' ids are separate sequences, so they can repeat.
+        <div className="look-row lesson-row" key={`${lesson.external ? "external" : "own"}-${lesson.id}`}>
           <div className="lesson-row__main">
             <div className="top">
               <span className="nm">{lesson.title}</span>
               <span className="tag-tpr">{lesson.levelPill}</span>
-              <span className="tag-ok">{lesson.spotsLabel}</span>
+              {/* Outside classes don't report spots: say how they book, as the lessons page does. */}
+              {lesson.spotsLabel ? (
+                <span className="tag-ok">{lesson.spotsLabel}</span>
+              ) : (
+                <span className="tag-wl">External booking</span>
+              )}
             </div>
             <div className="meta">
               {lesson.when} · {lesson.venue}
@@ -55,10 +61,10 @@ const LessonsAtYourLevel = ({ leagueId, matched }: LessonsAtYourLevelProps) => {
           </div>
           <Link
             className="btn ghost lesson-row__reserve"
-            to={`/group-lessons/${lesson.id}`}
-            onClick={() => clicked("reserve")}
+            to={lesson.path}
+            onClick={() => clicked(lesson.external ? "external_details" : "reserve")}
           >
-            Reserve
+            {lesson.external ? "Details" : "Reserve"}
           </Link>
         </div>
       ))}

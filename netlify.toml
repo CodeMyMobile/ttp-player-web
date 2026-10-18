@@ -17,6 +17,10 @@
 # (VendorPublicPage) instead of RestringingPlayerFlow. To roll back: delete the line
 # and redeploy; vendor links then render RestringingPlayerFlow as before.
 #
+# VITE_LEAGUE_COACHING_PROMPTS=true shows the league dashboard's lesson prompts: the
+# "Group lessons at your level" card, the ladder nudge and the unranked hero's clinic
+# link. To roll back: delete the line and redeploy; the dashboard renders as before.
+#
 # To roll back: delete the VITE_HOME_V2 line and redeploy. Flag off is
 # structurally identical to the old home — DashboardPage was never modified for
 # the redesign — so there is nothing to undo beyond the flag itself.
@@ -28,12 +32,6 @@
   VITE_MULTI_MATCH = "true"
   VITE_HOME_V2 = "true"
   VITE_VENDOR_PAGE = "true"
-
-# Deploy previews only: these add to [build.environment] above rather than replace it.
-# VITE_LEAGUE_COACHING_PROMPTS shows the league dashboard's lesson prompts (card,
-# ladder nudge, hero clinic link) for review. Production stays off until a line for it
-# is added to [build.environment].
-[context.deploy-preview.environment]
   VITE_LEAGUE_COACHING_PROMPTS = "true"
 
 

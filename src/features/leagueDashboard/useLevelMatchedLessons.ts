@@ -1,14 +1,20 @@
 // Loads, once, what the league dashboard's coaching prompts share: the player's level
-// and our group lessons that fit it. Fetches the same window and area as the Group
-// Lessons page (today through today+9, the stored location and radius) so the card and
-// the page agree on what is on offer.
+// and the group lessons that fit it, ours and outside providers'. Fetches the same
+// lessons, window and area as the Group Lessons page (today through today+9, the stored
+// location and radius) so the card and the page agree on what is on offer.
 
 import { useEffect, useMemo, useState } from "react";
 import moment from "moment";
 
 import { fetchUpcomingGroupLessons, mapUpcomingGroupLessonsResponse, type GroupLesson } from "../../api/groupLessons";
+import { getPlayerExternalLessons } from "../../api/playerHome";
 import { getPlayerPersonalDetails } from "../../api/playerProfile";
 import { getStoredAuthToken } from "../../services/authToken";
+import {
+  extractExternalLessons,
+  getExternalLessonMetadata,
+  mapExternalLessonToGroupLesson,
+} from "../../utils/externalGroupLessons";
 import { playerLevelOf } from "../../utils/groupLessonLevelFit";
 import {
   DEFAULT_POSITION,
@@ -63,7 +69,7 @@ export const useLevelMatchedLessons = ({
           .catch(() => null)
       : Promise.resolve(null);
 
-    const lessonsRequest = fetchUpcomingGroupLessons({
+    const request = {
       ...(token ? { token } : {}),
       perPage: 50,
       page: 1,
@@ -74,15 +80,24 @@ export const useLevelMatchedLessons = ({
         dateEnd: moment().add(DAY_WINDOW_LENGTH - 1, "days").format("YYYY-MM-DD"),
       },
       signal: controller.signal,
-    })
+    };
+    // Each source fails on its own: a prompt that can't load just doesn't show.
+    const ownLessons = fetchUpcomingGroupLessons(request)
       .then((response) => mapUpcomingGroupLessonsResponse(response).lessons)
-      // A prompt that can't load just doesn't show; the dashboard is unaffected.
+      .catch(() => [] as GroupLesson[]);
+    // As on the lessons page: only outside lessons with a link to book them.
+    const externalLessons = getPlayerExternalLessons(request)
+      .then((response) =>
+        extractExternalLessons(response)
+          .filter((lesson) => Boolean(getExternalLessonMetadata(lesson).externalUrl))
+          .map(mapExternalLessonToGroupLesson),
+      )
       .catch(() => [] as GroupLesson[]);
 
-    Promise.all([levelRequest, lessonsRequest]).then(([level, loadedLessons]) => {
+    Promise.all([levelRequest, ownLessons, externalLessons]).then(([level, own, external]) => {
       if (controller.signal.aborted) return;
       setPlayerLevel(level);
-      setLessons(loadedLessons);
+      setLessons([...own, ...external]);
       setLoaded(true);
     });
     return () => controller.abort();

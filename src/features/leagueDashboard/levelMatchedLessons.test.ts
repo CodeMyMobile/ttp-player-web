@@ -33,6 +33,8 @@ test("a class whose range overlaps the player's level is in, with its own range 
   const [match] = matchLessonsToLevel([lesson({ title: "3.5-4.0 Drill" })], 4.0, NOW);
   assert.equal(match?.levelPill, "3.5–4.0");
   assert.equal(match?.spotsLabel, "3 spots left");
+  assert.equal(match?.external, false);
+  assert.equal(match?.path, "/group-lessons/1");
   assert.equal(match?.when, "Sat Oct 24 · 9:00 AM");
   assert.equal(match?.venue, "Penmar Park");
   assert.equal(match?.coachName, "Sam Lee");
@@ -55,12 +57,31 @@ test("a class with no level stays off, though the lessons page shows it to every
   assert.deepEqual(matchLessonsToLevel([lesson({ title: "Saturday Clinic" })], 4.0, NOW), []);
 });
 
-test("full, cancelled, outside-provider and past classes are left out", () => {
+test("full, cancelled and past classes are left out", () => {
   const lessons = [
     lesson({ id: "full", title: "4.0 Drill", availableSpots: 0 }),
     lesson({ id: "cancelled", title: "4.0 Drill", cancelled: true }),
-    lesson({ id: "external", title: "4.0 Drill", isExternal: true }),
     lesson({ id: "past", title: "4.0 Drill", startDateTime: "2026-10-20T09:00:00.000Z" }),
+  ];
+  assert.deepEqual(matchLessonsToLevel(lessons, 4.0, NOW), []);
+});
+
+test("an outside provider's class is in, with no spots claim, linking to its details page", () => {
+  const [match] = matchLessonsToLevel(
+    [lesson({ id: "9", title: "Liveball", level: 4.0, isExternal: true, availableSpots: 1, coachName: "External provider" })],
+    4.0,
+    NOW,
+  );
+  assert.equal(match?.external, true);
+  assert.equal(match?.spotsLabel, null);
+  assert.equal(match?.path, "/lessons/external/9");
+  assert.equal(match?.coachName, null);
+});
+
+test("an outside class with no level, or a past one, stays off like ours", () => {
+  const lessons = [
+    lesson({ id: "nolevel", title: "Saturday Clinic", isExternal: true }),
+    lesson({ id: "past", title: "4.0 Drill", isExternal: true, startDateTime: "2026-10-20T09:00:00.000Z" }),
   ];
   assert.deepEqual(matchLessonsToLevel(lessons, 4.0, NOW), []);
 });
