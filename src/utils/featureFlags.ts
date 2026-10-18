@@ -15,3 +15,8 @@ export const isHomeV2Enabled = () => truthy(import.meta.env?.VITE_HOME_V2);
 // VITE_VENDOR_PAGE gates the redesigned public vendor page at /:vendorSlug. Default OFF: when
 // unset/false the existing RestringingPlayerFlow renders for vendor links unchanged.
 export const isVendorPageEnabled = () => truthy(import.meta.env?.VITE_VENDOR_PAGE);
+
+// VITE_LEAGUE_COACHING_PROMPTS gates the league dashboard's lesson prompts: the "Group
+// lessons at your level" card, the ladder nudge and the unranked hero's clinic link.
+// Default OFF.
+export const isLeagueCoachingPromptsEnabled = () => truthy(import.meta.env?.VITE_LEAGUE_COACHING_PROMPTS);

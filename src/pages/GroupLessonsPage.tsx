@@ -15,6 +15,7 @@ import {
   fitsPlayerLevel,
   formatPlayerLevel,
   playerLevelOf,
+  YOUR_LEVEL_FILTER,
 } from "../utils/groupLessonLevelFit";
 import {
   fetchUpcomingGroupLessons,
@@ -47,8 +48,8 @@ import "./GroupLessonsPage.css";
 
 const DEFAULT_LOCATION = "San Francisco, CA";
 
-/** The level filter's value for "classes that fit my level". */
-const YOUR_LEVEL = "Your level";
+/** The level filter's value for "classes that fit my level". Shared so links can preselect it. */
+const YOUR_LEVEL = YOUR_LEVEL_FILTER;
 
 /**
  * The level the player last chose, for this browser session. The page remounts every time

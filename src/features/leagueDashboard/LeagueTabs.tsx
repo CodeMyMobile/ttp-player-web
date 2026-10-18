@@ -9,9 +9,11 @@
 // W–L colour rule (standings + players): GREEN when wins>losses, RED when
 // losses>wins, neutral otherwise.
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 import Icon from "./Icon";
+import LadderNudge, { type LadderNudgeInput } from "./LadderNudge";
+import { dismissNudge, isNudgeDismissed } from "./levelMatchedLessons";
 import {
   buildContactLinks,
   buildContactMessage,
@@ -109,6 +111,8 @@ interface LeagueTabsProps {
   contactSheetEnabled?: boolean;
   /** Overrides touch detection. Injected by tests; production reads the media query. */
   pointerCoarse?: boolean;
+  /** The clinic prompt under the viewer's ladder row. Absent when the flag is off. */
+  ladderNudge?: LadderNudgeInput | null;
 }
 
 /** Roster player as the contact helpers want it — ratings ride along for the vCard name. */
@@ -150,7 +154,16 @@ const LeagueTabs = ({
   viewerAvailability,
   contactSheetEnabled: contactSheetEnabledProp,
   pointerCoarse: pointerCoarseProp,
+  ladderNudge = null,
 }: LeagueTabsProps) => {
+  const nudgeLeagueId = ladderNudge?.leagueId ?? null;
+  const [nudgeDismissed, setNudgeDismissed] = useState(() =>
+    nudgeLeagueId ? isNudgeDismissed(nudgeLeagueId) : false,
+  );
+  useEffect(() => {
+    setNudgeDismissed(nudgeLeagueId ? isNudgeDismissed(nudgeLeagueId) : false);
+  }, [nudgeLeagueId]);
+  const showNudge = Boolean(ladderNudge) && !nudgeDismissed;
   // Which row last had its number copied, for the transient chip state.
   const [copiedPlayerId, setCopiedPlayerId] = useState<string | null>(null);
   const [liveMessage, setLiveMessage] = useState("");
@@ -219,7 +232,9 @@ const LeagueTabs = ({
             {ladderRows.map((row, index) => {
               const above = index > 0 ? ladderRows[index - 1] : null;
               const below = index < ladderRows.length - 1 ? ladderRows[index + 1] : null;
-              const gap = row.isViewer
+              // While the nudge is showing it carries the gap, so the row shows the
+              // usual ratings line instead; dismissed or hidden, the gap comes back.
+              const gap = row.isViewer && !showNudge
                 ? viewerGapLabel(
                     { rank: row.rank, rating: row.rating },
                     above ? { rank: above.rank, rating: above.rating } : null,
@@ -227,46 +242,59 @@ const LeagueTabs = ({
                   )
                 : null;
               return (
-                <div className={`ladder-row${row.isViewer ? " you-row" : ""}`} key={row.playerId}>
-                  {/* The # prefix marks the viewer's own place; everyone else is a
-                      plain number so the column scans as a list, not a set of tags. */}
-                  <span className="ladder-rank">{row.isViewer ? `#${row.rank}` : row.rank}</span>
-                  <span className="ladder-player">
-                    <span className="ladder-nm">{row.name}</span>
-                    <span className="ladder-meta">
-                      {gap ?? (
-                        <>
-                          {`NTRP ${ratingValue(row.ntrpLabel)} · UTR ${ratingValue(row.utrLabel)} · `}
-                          {matchesLabel(row.matchesPlayed, row.ratingBadge)}
-                        </>
-                      )}
+                <React.Fragment key={row.playerId}>
+                  <div className={`ladder-row${row.isViewer ? " you-row" : ""}${row.isViewer && showNudge ? " has-nudge" : ""}`}>
+                    {/* The # prefix marks the viewer's own place; everyone else is a
+                        plain number so the column scans as a list, not a set of tags. */}
+                    <span className="ladder-rank">{row.isViewer ? `#${row.rank}` : row.rank}</span>
+                    <span className="ladder-player">
+                      <span className="ladder-nm">{row.name}</span>
+                      <span className="ladder-meta">
+                        {gap ?? (
+                          <>
+                            {`NTRP ${ratingValue(row.ntrpLabel)} · UTR ${ratingValue(row.utrLabel)} · `}
+                            {matchesLabel(row.matchesPlayed, row.ratingBadge)}
+                          </>
+                        )}
+                      </span>
                     </span>
-                  </span>
-                  <span className="ladder-tpr">
-                    <span className="ladder-tpr__n">{tprLabel(row.rating)}</span>
-                    {/* Qualifies the TPR, not the self-reported NTRP/UTR: rating_source
-                        keys off matches played, vouches and the seed. Never blank. */}
-                    <span className="ladder-tpr__st">{ratingStatusLabel(row.ratingBadge)}</span>
-                  </span>
-                  {row.isViewer ? (
-                    <span className="ladder-act" />
-                  ) : (
-                    <button
-                      type="button"
-                      className="ladder-act ladder-challenge"
-                      aria-label={`Challenge ${row.name}`}
-                      title={`Challenge ${row.name}`}
-                      onClick={(event) => {
-                        // The row is not a control today, but this stays so the
-                        // button keeps working if one is ever wrapped around it.
-                        event.stopPropagation();
-                        onChallenge?.(row.playerId);
+                    <span className="ladder-tpr">
+                      <span className="ladder-tpr__n">{tprLabel(row.rating)}</span>
+                      {/* Qualifies the TPR, not the self-reported NTRP/UTR: rating_source
+                          keys off matches played, vouches and the seed. Never blank. */}
+                      <span className="ladder-tpr__st">{ratingStatusLabel(row.ratingBadge)}</span>
+                    </span>
+                    {row.isViewer ? (
+                      <span className="ladder-act" />
+                    ) : (
+                      <button
+                        type="button"
+                        className="ladder-act ladder-challenge"
+                        aria-label={`Challenge ${row.name}`}
+                        title={`Challenge ${row.name}`}
+                        onClick={(event) => {
+                          // The row is not a control today, but this stays so the
+                          // button keeps working if one is ever wrapped around it.
+                          event.stopPropagation();
+                          onChallenge?.(row.playerId);
+                        }}
+                      >
+                        <Icon name="swords" />
+                      </button>
+                    )}
+                  </div>
+                  {row.isViewer && showNudge && ladderNudge ? (
+                    <LadderNudge
+                      nudge={ladderNudge}
+                      viewer={{ rank: row.rank, rating: row.rating }}
+                      above={above ? { rank: above.rank, rating: above.rating } : null}
+                      onDismiss={() => {
+                        dismissNudge(ladderNudge.leagueId);
+                        setNudgeDismissed(true);
                       }}
-                    >
-                      <Icon name="swords" />
-                    </button>
-                  )}
-                </div>
+                    />
+                  ) : null}
+                </React.Fragment>
               );
             })}
           </div>

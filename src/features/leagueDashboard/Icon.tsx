@@ -25,6 +25,7 @@ const PATHS: Record<string, string> = {
   "menu-2": '<path d="M4 6h16M4 12h16M4 18h16"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>',
   "clock-exclamation": '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>',
+  x: '<path d="M18 6L6 18"/><path d="M6 6l12 12"/>',
   "trending-up": '<path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/>',
   bolt: '<path d="M13 3l-8 10h6l-1 8 8-10h-6z"/>',
   "target-arrow": '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4"/>',

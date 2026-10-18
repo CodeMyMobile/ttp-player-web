@@ -12,6 +12,9 @@
  * anyone and always fits.
  */
 
+/** The Group Lessons page's level filter value for "classes that fit my level". */
+export const YOUR_LEVEL_FILTER = "Your level";
+
 export type LevelBand = {
   min: number;
   /** null for an open band ("4.5+"). */
