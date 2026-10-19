@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  addOnQuantity,
+  payLinkAddOnErrorMessage,
   applyRestringingPayLinkDiscountCode,
   payLinkDiscountErrorMessage,
   removeRestringingPayLinkDiscountCode,
@@ -191,4 +193,22 @@ test("payLinkDiscountErrorMessage turns API codes into player copy", () => {
     payLinkDiscountErrorMessage(new Error("network")),
     "The discount could not be updated. Try again.",
   );
+});
+
+test("addOnQuantity counts the add-on's cans on the order, and 0 when there are none", () => {
+  const summary = {
+    order: {
+      items: [
+        { id: 7, item_type: "restring" as const, item_qty: 1 },
+        { id: 8, item_type: "custom" as const, item_qty: 2, add_on_offer_id: 11 },
+      ],
+    },
+  } as unknown as Parameters<typeof addOnQuantity>[0];
+  assert.equal(addOnQuantity(summary, 11), 2);
+  assert.equal(addOnQuantity(summary, 12), 0);
+});
+
+test("payLinkAddOnErrorMessage names an ended offer, and falls back for anything else", () => {
+  assert.equal(payLinkAddOnErrorMessage({ data: { detail: "add_on_offer_not_found" } }), "That offer has just ended.");
+  assert.equal(payLinkAddOnErrorMessage(new Error("network")), "Your order could not be updated. Try again.");
 });
