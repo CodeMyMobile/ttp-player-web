@@ -27,6 +27,18 @@ export interface RestringingPayLinkItem {
   tension_lbs_crosses?: number | null;
   advice_requested?: boolean;
   unit_price_cents?: number;
+  /** Set when the item is an add-on the player bought here at its bundle price. */
+  add_on_offer_id?: number | null;
+}
+
+/** A product the shop sells at a bundle price alongside a restring. */
+export interface RestringingPayLinkAddOnOffer {
+  id: number;
+  name: string;
+  description: string | null;
+  regular_price_cents: number;
+  bundle_price_cents: number;
+  taxable: boolean;
 }
 
 export interface RestringingPayLinkOrder {
@@ -54,6 +66,8 @@ export interface RestringingPayLinkSummary {
   order: RestringingPayLinkOrder;
   vendor: RestringingPayLinkVendor;
   account_link: RestringingPayLinkAccount;
+  /** Offered while the order is unpaid and has a restring; absent from older APIs. */
+  add_on_offers?: RestringingPayLinkAddOnOffer[];
 }
 
 export const isRestringingPayLinkPaid = (summary?: Pick<RestringingPayLinkSummary, "order"> | null) =>
@@ -113,6 +127,40 @@ export const removeRestringingPayLinkDiscountCode = (token: string, authToken?: 
     token: authToken || undefined,
     authScheme: "Token",
   });
+
+/** Sets how many of an add-on the player is buying; 0 takes it off. Returns the repriced order. */
+export const setRestringingPayLinkAddOnQuantity = (
+  token: string,
+  offerId: number,
+  quantity: number,
+  authToken?: string | null,
+) =>
+  request<RestringingPayLinkSummary>(`/restringing/pay-links/${encodeToken(token)}/add-ons/${offerId}`, {
+    method: "PUT",
+    token: authToken || undefined,
+    authScheme: "Token",
+    body: { quantity },
+  });
+
+/** How many of this offer are on the order now. */
+export const addOnQuantity = (summary: Pick<RestringingPayLinkSummary, "order">, offerId: number) =>
+  summary.order.items
+    .filter((item) => Number(item.add_on_offer_id) === offerId)
+    .reduce((count, item) => count + Number(item.item_qty || 0), 0);
+
+const ADD_ON_ERRORS: Record<string, string> = {
+  add_on_offer_not_found: "That offer has just ended.",
+  add_on_needs_a_restring: "This offer comes with a restring.",
+  invalid_add_on_quantity: "Choose how many you'd like.",
+  payment_link_not_payable: "This order can no longer be changed.",
+  payment_link_expired: "This payment link has expired.",
+};
+
+/** What to tell the player when changing an add-on fails. */
+export const payLinkAddOnErrorMessage = (error: unknown) => {
+  const detail = (error as { data?: { detail?: unknown } } | null)?.data?.detail;
+  return (typeof detail === "string" && ADD_ON_ERRORS[detail]) || "Your order could not be updated. Try again.";
+};
 
 const DISCOUNT_CODE_ERRORS: Record<string, string> = {
   discount_code_required: "Enter a discount code.",

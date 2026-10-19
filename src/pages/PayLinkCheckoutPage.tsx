@@ -5,6 +5,7 @@ import { AlertCircle, CheckCircle2, Loader2, Phone, ShieldCheck } from "lucide-r
 import { useParams } from "react-router-dom";
 
 import {
+  addOnQuantity,
   applyRestringingPayLinkDiscountCode,
   buildVendorTelHref,
   createRestringingPayLinkCheckout,
@@ -14,9 +15,12 @@ import {
   getRestringingPayLink,
   isRestringingPayLinkPaid,
   isPayLinkDemoMode,
+  payLinkAddOnErrorMessage,
   payLinkDiscountErrorMessage,
   removeRestringingPayLinkDiscountCode,
+  setRestringingPayLinkAddOnQuantity,
   shouldShowAccountPrompt,
+  type RestringingPayLinkAddOnOffer,
   type RestringingPayLinkCheckout,
   type RestringingPayLinkSummary,
 } from "../api/restringingPayLinks";
@@ -74,7 +78,39 @@ const demoSummary = (hasAccount: boolean): RestringingPayLinkSummary => ({
   account_link: hasAccount
     ? { eligible: true, status: "login_available" }
     : { eligible: false, status: "hidden" },
+  add_on_offers: [{
+    id: 1,
+    name: "Dunlop Grand Prix Extra Duty",
+    description: "Can of 3 balls",
+    regular_price_cents: 549,
+    bundle_price_cents: 499,
+    taxable: true,
+  }],
 });
+
+/** Demo mode only: the add-on changed locally, since there is no order to reprice. Demo tax is 0. */
+const demoWithAddOn = (
+  summary: RestringingPayLinkSummary,
+  offer: RestringingPayLinkAddOnOffer,
+  quantity: number,
+): RestringingPayLinkSummary => {
+  const items = summary.order.items.filter((item) => Number(item.add_on_offer_id) !== offer.id);
+  if (quantity > 0) {
+    items.push({
+      id: 9000 + offer.id,
+      item_type: "custom",
+      label: offer.name,
+      item_qty: quantity,
+      unit_price_cents: offer.bundle_price_cents,
+      add_on_offer_id: offer.id,
+    });
+  }
+  const subtotal = items.reduce((sum, item) => sum + Number(item.unit_price_cents || 0) * Number(item.item_qty || 1), 0);
+  return {
+    ...summary,
+    order: { ...summary.order, items, subtotal_cents: subtotal, total_cents: subtotal - Number(summary.order.discount_amount_cents || 0) },
+  };
+};
 
 const useDemoMode = () => {
   const search = typeof window === "undefined" ? "" : window.location.search;
@@ -303,6 +339,8 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
   const [discountCode, setDiscountCode] = useState("");
   const [discountBusy, setDiscountBusy] = useState(false);
   const [discountError, setDiscountError] = useState<string | null>(null);
+  const [addOnBusy, setAddOnBusy] = useState(false);
+  const [addOnError, setAddOnError] = useState<string | null>(null);
   const paymentConfirmed = paid || isRestringingPayLinkPaid(summary);
   const accountLinked = summary?.account_link.status === "linked";
   const hasAuthToken = Boolean(authToken);
@@ -388,6 +426,26 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
       setDiscountBusy(false);
     }
   }, [authToken, demoMode, discountBusy, discountCode, token]);
+
+  // Same as a discount: the API reprices the order and its pending payment, and
+  // the new summary rebuilds the payment form for the new total.
+  const changeAddOn = useCallback(async (offer: RestringingPayLinkAddOnOffer, quantity: number) => {
+    if (!summary || addOnBusy || quantity < 0) return;
+    if (demoMode) {
+      setSummary(demoWithAddOn(summary, offer, quantity));
+      return;
+    }
+    if (!token) return;
+    setAddOnBusy(true);
+    setAddOnError(null);
+    try {
+      setSummary(await setRestringingPayLinkAddOnQuantity(token, offer.id, quantity, authToken));
+    } catch (err) {
+      setAddOnError(payLinkAddOnErrorMessage(err));
+    } finally {
+      setAddOnBusy(false);
+    }
+  }, [addOnBusy, authToken, demoMode, summary, token]);
 
   useEffect(() => {
     void loadCheckout();
@@ -552,6 +610,52 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
             </div>
           ))}
         </div>
+        {!paymentConfirmed && summary.add_on_offers?.length ? (
+          <div className="pay-link-add-ons">
+            {summary.add_on_offers.map((offer) => {
+              const quantity = addOnQuantity(summary, offer.id);
+              const saving = offer.regular_price_cents - offer.bundle_price_cents;
+              return (
+                <div className="pay-link-add-on" key={offer.id}>
+                  <div className="pay-link-add-on__body">
+                    <span className="pay-link-add-on__eyebrow">Add to your order</span>
+                    <span className="pay-link-add-on__name">{offer.name}</span>
+                    {offer.description ? <span className="pay-link-muted">{offer.description}</span> : null}
+                    <span className="pay-link-add-on__price">
+                      <strong>{formatPayLinkMoney(offer.bundle_price_cents)}</strong>
+                      {saving > 0 ? (
+                        <>
+                          <s>{formatPayLinkMoney(offer.regular_price_cents)}</s>
+                          <span className="pay-link-add-on__save">Save {formatPayLinkMoney(saving)} with your restring</span>
+                        </>
+                      ) : null}
+                    </span>
+                  </div>
+                  <div className="pay-link-add-on__stepper" role="group" aria-label={`How many ${offer.name}`}>
+                    <button
+                      type="button"
+                      aria-label={`Remove one ${offer.name}`}
+                      disabled={addOnBusy || quantity === 0}
+                      onClick={() => void changeAddOn(offer, quantity - 1)}
+                    >
+                      −
+                    </button>
+                    <output aria-live="polite">{quantity}</output>
+                    <button
+                      type="button"
+                      aria-label={`Add one ${offer.name}`}
+                      disabled={addOnBusy}
+                      onClick={() => void changeAddOn(offer, quantity + 1)}
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+            {addOnError ? <p className="pay-link-discount__error" role="alert">{addOnError}</p> : null}
+          </div>
+        ) : null}
         <div className="pay-link-total">
           <span>Subtotal</span>
           <strong>{formatPayLinkMoney(summary.order.subtotal_cents)}</strong>
