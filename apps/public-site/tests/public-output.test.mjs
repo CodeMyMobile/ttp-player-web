@@ -226,6 +226,27 @@ test("build emits the public whats-on route", async () => {
   assert.doesNotMatch(html, /Taylor Host|profile_picture|about_me|genderAdditionalText/);
 });
 
+test("whats-on sign-in links never send the app to /whats-on", async () => {
+  // /whats-on is this site's page. The app read next=/whats-on as a stringer called
+  // "whats-on" and showed the stringer list to everyone who signed in from here.
+  const html = await readFile(new URL("../dist/whats-on/index.html", import.meta.url), "utf8");
+
+  assert.doesNotMatch(html, /next=%2Fwhats-on/);
+  assert.match(html, /href="https:\/\/app\.thetennisplan\.com\/#\/login"/);
+  // Arriving from the quiz, the links hand its result to the app's save-level route.
+  assert.match(html, /https:\/\/app\.thetennisplan\.com\/#\/save-level/);
+});
+
+test("the level quiz hands its result to the app", async () => {
+  const html = await readFile(
+    new URL("../dist/what-is-my-tennis-level/index.html", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(html, /https:\/\/app\.thetennisplan\.com\/#\/save-level/);
+  assert.match(html, /quiz: JSON\.stringify\(payload\)/);
+});
+
 test("public whats-on filters can be broadened to any value", async () => {
   const html = await readFile(
     new URL("../dist/whats-on/index.html", import.meta.url),

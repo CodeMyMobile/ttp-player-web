@@ -2,6 +2,7 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
+import { APP_SAVE_LEVEL_URL, loginHref } from "../lib/appLinks";
 
 const title = "What's My Tennis Level? Free NTRP Rating Quiz | The Tennis Plan";
 // No question count in the copy: the paths are different lengths — the beginner
@@ -252,7 +253,7 @@ const faqSchema = {
     <Footer wide />
   </div>
 
-  <script is:inline define:vars={{ quizQuestions }}>
+  <script is:inline define:vars={{ quizQuestions, saveLevelUrl: APP_SAVE_LEVEL_URL, appLoginUrl: loginHref() }}>
     (() => {
       const RATING_MODEL_VERSION = 2;
       const quiz = document.getElementById("quiz");
@@ -461,17 +462,32 @@ const faqSchema = {
         });
       }
 
-      function appHref(settled) {
+      function appHref(settled, payload) {
         const params = new URLSearchParams({
           level: settled.band,
           src: "quiz",
           rating_model_version: String(RATING_MODEL_VERSION),
+          // The result itself, so "Save my level" on /whats-on can hand it to the app.
+          quiz: JSON.stringify(payload),
         });
         // Which division this routes to. Nothing reads it yet; it costs nothing to
         // send and the alternative is re-asking later. Omitted rather than guessed
         // when the question was not reached.
         if (answers.pool) params.set("divisions", answers.pool === "w" ? "womens" : "mens");
         return `/whats-on?${params.toString()}`;
+      }
+
+      // Every sign-in link on the page (the header's included) carries the current
+      // result to the app, which saves it if the account has no level yet. With no
+      // result they go back to a plain sign-in.
+      function pointAppLinksAt(payload) {
+        const href = payload
+          ? `${saveLevelUrl}?quiz=${encodeURIComponent(JSON.stringify(payload))}`
+          : null;
+        document.querySelectorAll(`a[href^="${appLoginUrl}"], a[data-app-login]`).forEach((link) => {
+          if (!link.dataset.appLogin) link.dataset.appLogin = link.getAttribute("href");
+          link.setAttribute("href", href || link.dataset.appLogin);
+        });
       }
 
       /**
@@ -563,7 +579,7 @@ const faqSchema = {
             <div class="local">
               <h3>Playing in West LA?</h3>
               <p>Save your level and we'll show you players, classes, coaches, and league divisions that actually fit.</p>
-              <a class="btn solid" href="${appHref(accepted)}">Find options at this level</a>
+              <a class="btn solid" href="${appHref(accepted, payload)}">Find options at this level</a>
             </div>
             <details class="save-preview">
               <summary>What the app saves if you sign in</summary>
@@ -572,6 +588,8 @@ const faqSchema = {
             <p class="again"><button class="level-reset" type="button">Take it again</button></p>
           </div>
         `;
+
+        pointAppLinksAt(payload);
 
         quiz.querySelectorAll("[data-feedback]").forEach((button) => {
           button.addEventListener("click", () => {
@@ -599,6 +617,7 @@ const faqSchema = {
           answers = {};
           accepted = null;
           index = 0;
+          pointAppLinksAt(null);
           renderQuestion();
         });
       }

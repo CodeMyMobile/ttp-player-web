@@ -2,7 +2,7 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
-import { loginHref } from "../lib/appLinks";
+import { APP_SAVE_LEVEL_URL, loginHref } from "../lib/appLinks";
 import { AREAS, getWhatsOn } from "../lib/whatsOn";
 
 const title = "Tennis at Your Level in West LA | The Tennis Plan";
@@ -40,7 +40,7 @@ const { classes, leagues } = await getWhatsOn();
 
 <BaseLayout {title} {description} canonicalPath="/whats-on">
   <div class="whats-on">
-    <Header next="/whats-on" />
+    <Header />
     <main id="main">
       <section class="wo-top">
         <div class="wo-shell">
@@ -120,16 +120,30 @@ const { classes, leagues } = await getWhatsOn();
       <div class="wo-drawer__grab"></div>
       <h3 id="dtitle"></h3>
       <p id="dwhy"></p>
-      <a class="wo-btn" href={loginHref("/whats-on")}>Continue with Google</a>
-      <a class="wo-btn wo-btn--solid" href={loginHref("/whats-on")}>Continue with email</a>
-      <p class="wo-drawer__fine">Already have an account? <a href={loginHref("/whats-on")}>Sign in</a></p>
+      <a class="wo-btn" href={loginHref()}>Continue with Google</a>
+      <a class="wo-btn wo-btn--solid" href={loginHref()}>Continue with email</a>
+      <p class="wo-drawer__fine">Already have an account? <a href={loginHref()}>Sign in</a></p>
     </div>
   </div>
 
-  <script is:inline define:vars={{ whatsOnApiUrl, levels, divisions, areas, whens, classes, leagues }}>
+  <script is:inline define:vars={{ whatsOnApiUrl, levels, divisions, areas, whens, classes, leagues, saveLevelUrl: APP_SAVE_LEVEL_URL, appLoginUrl: loginHref() }}>
     const F = { level: null, div: null, area: null, when: null };
     const state = { matches: [], playersCount: null, loading: false, error: null };
     const q = new URLSearchParams(location.search);
+
+    // Arriving from the level quiz, every sign-in link hands its result to the app, which
+    // saves it if the account has no level yet and then opens the app home. Without one
+    // they are plain sign-ins, which also land on the app home. They used to carry
+    // next=/whats-on — a page on this site, not the app — which the app read as a
+    // stringer called "whats-on" and showed the stringer list.
+    const quizResult = q.get("quiz");
+    if (quizResult) {
+      document.addEventListener("DOMContentLoaded", () => {
+        document.querySelectorAll(`a[href^="${appLoginUrl}"]`).forEach((link) => {
+          link.setAttribute("href", `${saveLevelUrl}?quiz=${encodeURIComponent(quizResult)}`);
+        });
+      });
+    }
 
     const paramValue = (value) => value && value !== "any" ? value : null;
     if (q.has("level")) F.level = paramValue(q.get("level"));

@@ -12,25 +12,8 @@ import {
   scoreRatingQuiz,
   type RatingQuizAnswers,
 } from "../features/ratingQuiz/ratingQuizModel";
+import { hasStoredRating, positiveNumber, storeUpdatedProfile } from "../features/ratingQuiz/storedRating";
 import "./RatingQuizPage.css";
-
-const toNumber = (value: unknown) => {
-  const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric : null;
-};
-
-const positiveNumber = (value: unknown) => {
-  const numeric = toNumber(value);
-  return numeric !== null && numeric > 0 ? numeric : null;
-};
-
-const hasStoredRating = (details: PlayerPersonalDetails | null) =>
-  Boolean(
-    positiveNumber(details?.usta_rating) ||
-      positiveNumber(details?.self_rated_seed) ||
-      positiveNumber(details?.calculated_ntrp) ||
-      (positiveNumber(details?.current_rating) && Number(details?.matches_played || 0) > 0),
-  );
 
 const currentRatingLabel = (details: PlayerPersonalDetails | null) => {
   const rating =
@@ -39,15 +22,6 @@ const currentRatingLabel = (details: PlayerPersonalDetails | null) => {
     positiveNumber(details?.calculated_ntrp) ??
     positiveNumber(details?.current_rating);
   return rating === null ? null : rating.toFixed(1);
-};
-
-const storeUpdatedProfile = (details: PlayerPersonalDetails) => {
-  try {
-    localStorage.setItem("playerPersonalDetails", JSON.stringify(details));
-    window.dispatchEvent(new StorageEvent("storage", { key: "playerPersonalDetails" }));
-  } catch {
-    // Best effort. The saved response still drives this page.
-  }
 };
 
 export default function RatingQuizPage() {
