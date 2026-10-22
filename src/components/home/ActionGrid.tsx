@@ -1,5 +1,6 @@
 import { GraduationCap, ListOrdered, Swords, Trophy, Users, Wrench } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 
 import type { RatingState } from "../../utils/homeTiles";
@@ -7,6 +8,11 @@ import type { RatingState } from "../../utils/homeTiles";
 interface ActionGridProps {
   /** From useLadderStanding in HomePage — passed down so the rankings call isn't made twice. */
   ratingState: RatingState;
+  /**
+   * Shown in the Ladder tile's place while the Ladder is locked: the compact
+   * "Find players" tile, when the top row has no room for it.
+   */
+  lockedLadderReplacement?: ReactNode;
 }
 
 interface Action {
@@ -36,7 +42,7 @@ const ACTIONS: Action[] = [
   { label: "Ladder", to: "/ladder", icon: ListOrdered, gated: true },
 ];
 
-export function ActionGrid({ ratingState }: ActionGridProps) {
+export function ActionGrid({ ratingState, lockedLadderReplacement = null }: ActionGridProps) {
   return (
     <nav className="home-grid" aria-label="Quick actions">
       {ACTIONS.map(({ label, to, icon: Icon, gated }) => {
@@ -44,6 +50,10 @@ export function ActionGrid({ ratingState }: ActionGridProps) {
         // tile stays live: disabling it is the same wrong claim the rating tile
         // used to make, and it greeted rated players with a dead Ladder button.
         const locked = Boolean(gated) && ratingState === "unrated";
+
+        if (locked && lockedLadderReplacement) {
+          return <span key={label} className="home-grid__slot">{lockedLadderReplacement}</span>;
+        }
 
         if (locked) {
           return (

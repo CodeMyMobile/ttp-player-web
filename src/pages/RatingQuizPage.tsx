@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { getPlayerPersonalDetails, patchPlayerPersonalDetails, type PlayerPersonalDetails } from "../api/playerProfile";
 import { useAuth } from "../context/AuthContext";
@@ -16,6 +16,7 @@ import {
   type RatingQuizAnswers,
   type SettledLevel,
 } from "../features/ratingQuiz/ratingQuizModel";
+import { quizReturnPath } from "../features/ratingQuiz/quizReturn";
 import { hasStoredRating, positiveNumber, storeUpdatedProfile } from "../features/ratingQuiz/storedRating";
 import "./RatingQuizPage.css";
 
@@ -30,6 +31,9 @@ const currentRatingLabel = (details: PlayerPersonalDetails | null) => {
 
 export default function RatingQuizPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  // "/" when opened from the home page's "Set my rating", so saving goes back there.
+  const returnPath = quizReturnPath(location.search);
   const { user } = useAuth();
   const token = useMemo(() => getStoredAuthToken() ?? "", [user]);
   const [details, setDetails] = useState<PlayerPersonalDetails | null>(null);
@@ -159,6 +163,7 @@ export default function RatingQuizPage() {
       setDetails(nextDetails);
       storeUpdatedProfile(nextDetails);
       setSaved(true);
+      if (returnPath) navigate(returnPath, { replace: true });
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "We couldn't save your level.");
     } finally {
@@ -197,7 +202,10 @@ export default function RatingQuizPage() {
           The quiz is only for players without a saved or match-derived rating.
         </p>
         <div className="rq-actions">
-          <Link className="rq-btn rq-btn--solid" to="/leagues">Find leagues</Link>
+          {returnPath ? (
+            <Link className="rq-btn rq-btn--solid" to={returnPath}>Back to home</Link>
+          ) : null}
+          <Link className={`rq-btn${returnPath ? "" : " rq-btn--solid"}`} to="/leagues">Find leagues</Link>
           <Link className="rq-btn" to="/matches">Find a match</Link>
         </div>
       </section>

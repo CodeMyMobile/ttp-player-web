@@ -20,3 +20,7 @@ export const isVendorPageEnabled = () => truthy(import.meta.env?.VITE_VENDOR_PAG
 // lessons at your level" card, the ladder nudge and the unranked hero's clinic link.
 // Default OFF.
 export const isLeagueCoachingPromptsEnabled = () => truthy(import.meta.env?.VITE_LEAGUE_COACHING_PROMPTS);
+
+// VITE_HOME_FIND_PLAYERS gates the home page's "Players to hit with" carousel and the
+// compact "Find players" tile. Default OFF.
+export const isHomeFindPlayersEnabled = () => truthy(import.meta.env?.VITE_HOME_FIND_PLAYERS);

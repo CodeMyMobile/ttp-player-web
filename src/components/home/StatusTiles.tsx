@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { ChevronRight, Info, Sparkles, Swords } from "lucide-react";
 import { Link } from "react-router-dom";
 import { resolveStatusTiles, type RatingState } from "../../utils/homeTiles";
@@ -19,6 +20,12 @@ interface StatusTilesProps {
    * one they already gave. See utils/ratingPrompt.
    */
   declaredLevel?: number | null;
+  /**
+   * The compact "Find players" tile, when it belongs in this row (see
+   * findPlayersTilePlacement). It takes the right slot when that slot is free or
+   * holds "Play your first match"; it never squeezes in a third tile.
+   */
+  findPlayersTile?: ReactNode;
 }
 
 const formatRating = (rating: number | null) =>
@@ -40,8 +47,13 @@ export function StatusTiles({
   bookingsCount,
   nextBookingLabel,
   declaredLevel = null,
+  findPlayersTile = null,
 }: StatusTilesProps) {
-  const { left, right, fullWidth } = resolveStatusTiles({ ratingState, bookingsCount });
+  const layout = resolveStatusTiles({ ratingState, bookingsCount });
+  const showFindPlayers = Boolean(findPlayersTile) && layout.right !== "bookings";
+  const { left, right } = layout;
+  // Beside the Find players tile, the get-rated prompt is half width like any other.
+  const fullWidth = layout.fullWidth && !showFindPlayers;
   const prompt = ratingPrompt(declaredLevel);
 
   return (
@@ -106,7 +118,9 @@ export function StatusTiles({
         </Link>
       ) : null}
 
-      {right === "playFirst" ? (
+      {showFindPlayers ? findPlayersTile : null}
+
+      {right === "playFirst" && !showFindPlayers ? (
         <Link className="home-tile home-tile--bookings home-tile--prompt-compact" to="/matches">
           <Sparkles className="home-tile__lead-icon" size={20} aria-hidden="true" />
           <span className="home-tile__prompt-title">Play your first match</span>

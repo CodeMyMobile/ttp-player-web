@@ -1,15 +1,20 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import AppNav from "../components/AppNav";
 import MobileHomeBottomNav from "../components/MobileHomeBottomNav";
 import { ActionGrid } from "../components/home/ActionGrid";
 import { ActivityFeed } from "../components/home/ActivityFeed";
 import { AlertStack } from "../components/home/AlertStack";
+import { FindPlayersTile } from "../components/home/FindPlayersTile";
 import { InviteCard } from "../components/home/InviteCard";
 import { OffCourt } from "../components/home/OffCourt";
+import { PlayersToHitWith } from "../components/home/PlayersToHitWith";
 import { SeasonModule } from "../components/home/SeasonModule";
 import { StatusTiles } from "../components/home/StatusTiles";
 import { TodayRow } from "../components/home/TodayRow";
 import { useAuth } from "../context/AuthContext";
+import useHomePlayers from "../hooks/useHomePlayers";
+import usePlayerConnect from "../hooks/usePlayerConnect";
 import {
   readViewerId,
   useActiveSeasons,
@@ -22,7 +27,9 @@ import {
   useWeekBookings,
 } from "../hooks/useHomeStatus";
 import { acceptInvite, rejectInvite } from "../services/invites";
+import { isHomeFindPlayersEnabled } from "../utils/featureFlags";
 import type { HomeInviteItem } from "../utils/homeInvite";
+import { findPlayersTilePlacement } from "../utils/homeTiles";
 import "./HomePage.css";
 
 /**
@@ -75,6 +82,20 @@ export default function HomePage() {
   const { seasons } = useActiveSeasons(user);
   const { tip } = useTipOfDay();
 
+  // "Players to hit with" and the compact Find players tile (VITE_HOME_FIND_PLAYERS).
+  // Connect is Find Players' own, through the shared hook; it also loads the viewer's
+  // match profile, which is where the suggestions read their level from.
+  const findPlayersOn = isHomeFindPlayersEnabled();
+  const navigate = useNavigate();
+  const connect = usePlayerConnect({ enabled: findPlayersOn, source: "home" });
+  const homePlayers = useHomePlayers({
+    enabled: findPlayersOn,
+    token: connect.playerToken,
+    viewer: connect.matchProfile,
+    viewerLoaded: connect.matchProfileCheckLoaded,
+  });
+  const tilePlacement = findPlayersOn ? findPlayersTilePlacement({ ratingState, bookingsCount: count }) : null;
+
   return (
     <div className="player-home home-v2">
       <AppNav hideMobileNewMatch hideMobileNotifications />
@@ -87,6 +108,9 @@ export default function HomePage() {
           bookingsCount={count}
           nextBookingLabel={nextLabel}
           declaredLevel={declaredLevel}
+          findPlayersTile={
+            tilePlacement === "row" ? <FindPlayersTile state={homePlayers} placement="row" /> : null
+          }
         />
 
         {/* The mockups' order: tiles, today row, invite card, alerts, grid.
@@ -104,7 +128,20 @@ export default function HomePage() {
 
         <AlertStack alerts={alerts} />
 
-        <ActionGrid ratingState={ratingState} />
+        <ActionGrid
+          ratingState={ratingState}
+          lockedLadderReplacement={
+            tilePlacement === "grid" ? <FindPlayersTile state={homePlayers} placement="grid" /> : null
+          }
+        />
+
+        {findPlayersOn ? (
+          <PlayersToHitWith
+            state={homePlayers}
+            onConnect={connect.openConnect}
+            onViewProfile={(player) => navigate(`/players/${player.id}`, { state: { player } })}
+          />
+        ) : null}
 
         {/* Season, then the feed. Every mockup puts "Play this week" last;
             off court (PR 8) will sit between these two when it lands. */}
@@ -122,6 +159,8 @@ export default function HomePage() {
 
 
       </main>
+
+      {findPlayersOn ? connect.modals : null}
 
       <MobileHomeBottomNav />
     </div>
