@@ -20,9 +20,16 @@ test("reads the public site's handoff as the body the API takes", () => {
   });
 });
 
-test("maps a level the player nudged themselves to the API's own-claim source", () => {
-  const payload = parseQuizHandoff(search({ self_rated_seed: 4, self_rating_source: "self_declared" }));
-  assert.equal(payload?.self_rating_source, "player");
+test("keeps a level the player nudged themselves as their own claim", () => {
+  // The shared model (v3) sends "player"; links from before it said "self_declared".
+  for (const source of ["player", "self_declared"]) {
+    const payload = parseQuizHandoff(search({ self_rated_seed: 4, self_rating_source: source }));
+    assert.equal(payload?.self_rating_source, "player");
+  }
+});
+
+test("passes the shared model's version through", () => {
+  assert.equal(parseQuizHandoff(search({ self_rated_seed: 3, rating_model_version: 3 }))?.rating_model_version, 3);
 });
 
 test("passes a declared USTA rating through on its own", () => {

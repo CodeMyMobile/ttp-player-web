@@ -22,10 +22,12 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const isHalfStep = (value: number, min: number, max: number) =>
   Number.isFinite(value) && value >= min && value <= max && Number.isInteger(value * 2);
 
-// The public quiz labels a level the player nudged themselves "self_declared".
-// The API has no such source; "player" is its word for a player's own claim.
+// A level the player nudged themselves is their own claim, which the API calls
+// "player". The shared quiz model (version 3) sends "player" itself; quiz links made
+// before it said "self_declared", which the API has no word for.
 const SOURCE_MAP: Record<string, "self_assessed" | "player"> = {
   self_assessed: "self_assessed",
+  player: "player",
   self_declared: "player",
 };
 
