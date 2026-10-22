@@ -257,8 +257,20 @@ test("public whats-on filters can be broadened to any value", async () => {
   assert.match(html, /const whens = \[\["any","Any"\]/);
   assert.match(html, /const areas = \[\["any","Any"\]/);
   assert.match(html, /const divisions = \[\["any","Any"\]/);
-  assert.match(html, /if \(F\.level\) params\.set\("level", F\.level\)/);
+  // "Any" sends no level at all, and a level is sent in the form the API reads.
+  assert.match(html, /if \(apiLevel\(\)\) params\.set\("level", apiLevel\(\)\)/);
   assert.doesNotMatch(html, /\n\s*params\.set\("level", F\.level\);/);
+});
+
+test("whats-on filters classes and leagues by the quiz's level range", async () => {
+  // The quiz links here with its band ("3.0-3.5", or "5.0+" at the top). Comparing
+  // that string to a class's single level matched nothing, so arrivals from the quiz
+  // saw no classes even when there were some at 3.5.
+  const html = await readFile(new URL("../dist/whats-on/index.html", import.meta.url), "utf8");
+
+  assert.doesNotMatch(html, /item\.lvl === F\.level/);
+  assert.doesNotMatch(html, /item\.lvl !== F\.level/);
+  assert.match(html, /\(!F\.level \|\| inLevel\(item\.lvl\)\)/);
 });
 
 /**
