@@ -61,7 +61,7 @@ import {
   getGroupLessonCheckoutButtonLabel,
   isGroupLessonCheckoutDisabled,
 } from "../utils/groupLessonCancellation";
-import { createSingleFlightRequest, ensureCreditLessonId } from "../utils/creditLessonBooking";
+import { abandonCreditLesson, createSingleFlightRequest, ensureCreditLessonId } from "../utils/creditLessonBooking";
 import { packageAllowsLessonCreditType, resolveLessonCreditType } from "../utils/lessonPricing";
 import { CodeOfConductModal } from "../components/group-lessons/CodeOfConductModal";
 import {
@@ -1488,6 +1488,25 @@ const BookingConfirmationPage = () => {
     return lessonId;
   }, [createdCreditLessonId, getCreditLessonId, isPlayerRequestedCreditLesson, requestPrivateCreditLesson]);
 
+  // The credit never landed on the lesson this attempt created: cancel it and forget
+  // it, so a retry (or paying by card) starts clean instead of leaving the coach a
+  // pending request with nothing to charge.
+  const abandonPrivateCreditLesson = useCallback(
+    async (lessonId: number | undefined, createdThisAttempt: boolean) => {
+      if (!authToken) return;
+      const cancelled = await abandonCreditLesson({
+        lessonId,
+        createdThisAttempt,
+        cancelLesson: (id) => updatePlayerLesson({ token: authToken, lessonId: id, status: "CANCELLED" }),
+      });
+      if (cancelled) {
+        privateCreditLessonRequestRef.current = null;
+        setCreatedCreditLessonId(undefined);
+      }
+    },
+    [authToken],
+  );
+
   const completeCreditBookingSuccess = useCallback(async () => {
     setPendingCreditConfirm(null);
     setIsConfirmed(true);
@@ -1725,15 +1744,18 @@ const BookingConfirmationPage = () => {
       }
 
       setIsConsumingCredits(true);
+      const hadCreditLesson = Boolean(getCreditLessonId());
+      let creditLessonId: number | undefined;
       try {
         const bestPurchase = eligibleCredits[0];
-        const creditLessonId = await ensurePrivateCreditLessonId();
+        creditLessonId = await ensurePrivateCreditLessonId();
         await consumeCreditsForLesson(bestPurchase?.id, creditLessonId);
       } catch (err) {
         if (pendingCreditConfirm || (err instanceof Error && err.message.includes("Credit reserved"))) {
           setConsumeError(getPackageChargeFailureMessage(err) || "Credit reserved, but lesson confirmation failed. Please retry.");
           return;
         }
+        await abandonPrivateCreditLesson(creditLessonId, !hadCreditLesson);
         const code = (err as Error & { data?: { code?: string; error?: string } })?.data?.code;
         const errorMessage = (() => {
           switch (code) {
@@ -2194,6 +2216,7 @@ const BookingConfirmationPage = () => {
       return;
     }
 
+    const hadCreditLesson = Boolean(getCreditLessonId());
     let creditLessonId: number | undefined;
     try {
       creditLessonId = await ensurePrivateCreditLessonId();
@@ -2311,6 +2334,9 @@ const BookingConfirmationPage = () => {
       }
       const chargeFailureMessage = getPackageChargeFailureMessage(err);
       const isReservedConfirmFailure = err instanceof Error && err.message.includes("Credit reserved");
+      if (!isReservedConfirmFailure) {
+        await abandonPrivateCreditLesson(creditLessonId, !hadCreditLesson);
+      }
       if (isReservedConfirmFailure) {
         setConsumeError(chargeFailureMessage || err.message);
         setIsCreditsPackageOpen(true);
