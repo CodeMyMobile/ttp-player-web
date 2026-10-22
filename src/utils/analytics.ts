@@ -37,6 +37,15 @@ export const ANALYTICS_EVENTS = {
   profilePromptShown: "profile_prompt_shown",
   profilePromptClicked: "profile_prompt_clicked",
   matchProfileCompleted: "match_profile_completed",
+  // Home "Players to hit with" block and the compact Find players tile. Position and
+  // reason type only, never who.
+  homePlayersView: "home_players_view",
+  homePlayersConnect: "home_players_connect",
+  homePlayersProfileClick: "home_players_profile_click",
+  homePlayersSeeAll: "home_players_see_all",
+  homeFindPlayersTileClick: "home_find_players_tile_click",
+  homeRatingPromptView: "home_rating_prompt_view",
+  homeRatingPromptClick: "home_rating_prompt_click",
 } as const;
 
 /** Constant until a ranking exists. Becomes "v1" without the schema changing. */

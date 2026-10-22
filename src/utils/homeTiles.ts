@@ -72,3 +72,30 @@ export function resolveStatusTiles({
 
   return { left, right: "playFirst", fullWidth: false };
 }
+
+/**
+ * Where the compact "Find players" tile goes, given the row above. The top row
+ * already holds two tiles in most states, so the tile takes a slot only where
+ * one is free or worth less:
+ *
+ *   rated, nothing booked    → "row":  replaces "Play your first match"
+ *   unrated, nothing booked  → "row":  beside the get-rated prompt, which
+ *                                      stops filling the row
+ *   unrated, with bookings   → "grid": in the locked Ladder tile's place
+ *   rated, with bookings     → null:   no tile; the carousel is still there
+ *   rating still unknown     → null:   nothing to place against yet
+ */
+export type FindPlayersPlacement = "row" | "grid" | null;
+
+export function findPlayersTilePlacement({
+  ratingState,
+  bookingsCount,
+}: {
+  ratingState: RatingState;
+  bookingsCount: number;
+}): FindPlayersPlacement {
+  if (ratingState === "unknown") return null;
+  const hasBookings = bookingsCount > 0;
+  if (!hasBookings) return "row";
+  return ratingState === "unrated" ? "grid" : null;
+}

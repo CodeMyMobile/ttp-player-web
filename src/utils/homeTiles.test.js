@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { resolveStatusTiles } from "./homeTiles";
+import { findPlayersTilePlacement, resolveStatusTiles } from "./homeTiles";
 
 test("unrated with bookings shows the count beside the get-rated prompt", () => {
   // The case that was broken: a standing weekly lesson, no match history.
@@ -80,4 +80,13 @@ test("unknown never takes the full row, so the layout does not jump when it reso
   for (const bookingsCount of [0, 3]) {
     assert.equal(resolveStatusTiles({ ratingState: "unknown", bookingsCount }).fullWidth, false);
   }
+});
+
+test("the Find players tile takes a free or low-value slot, never a third card in the row", () => {
+  assert.equal(findPlayersTilePlacement({ ratingState: "rated", bookingsCount: 0 }), "row");
+  assert.equal(findPlayersTilePlacement({ ratingState: "unrated", bookingsCount: 0 }), "row");
+  assert.equal(findPlayersTilePlacement({ ratingState: "unrated", bookingsCount: 2 }), "grid");
+  assert.equal(findPlayersTilePlacement({ ratingState: "rated", bookingsCount: 2 }), null);
+  assert.equal(findPlayersTilePlacement({ ratingState: "unknown", bookingsCount: 0 }), null);
+  assert.equal(findPlayersTilePlacement({ ratingState: "unknown", bookingsCount: 2 }), null);
 });

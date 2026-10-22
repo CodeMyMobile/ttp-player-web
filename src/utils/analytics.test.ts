@@ -62,5 +62,12 @@ test("event names are the agreed strings", () => {
     profilePromptShown: "profile_prompt_shown",
     profilePromptClicked: "profile_prompt_clicked",
     matchProfileCompleted: "match_profile_completed",
+    homePlayersView: "home_players_view",
+    homePlayersConnect: "home_players_connect",
+    homePlayersProfileClick: "home_players_profile_click",
+    homePlayersSeeAll: "home_players_see_all",
+    homeFindPlayersTileClick: "home_find_players_tile_click",
+    homeRatingPromptView: "home_rating_prompt_view",
+    homeRatingPromptClick: "home_rating_prompt_click",
   });
 });

@@ -9,22 +9,18 @@ import ResultsHeader from "../components/coaches/ResultsHeader";
 import PlayersFilterBar from "../components/players/PlayersFilterBar";
 import PlayerCard from "../components/players/PlayerCard";
 import PlayerCardSkeleton from "../components/players/PlayerCardSkeleton";
-import MatchProfileModal from "../components/players/MatchProfileModal";
-import ConnectPlayerModal from "../components/players/ConnectPlayerModal";
 import StateBanner from "../components/coaches/StateBanner";
 import { colors, typography } from "../lib/theme";
 import {
-  getAllSurveyQuestionAnswered,
   getPublicSuggestedPlayerCheckLocation,
   getSuggestedPlayerCheckLocation,
 } from "../api/playerHome";
-import { getStoredAuthToken } from "../services/authToken";
 import type { Player } from "../data/mockPlayers";
 import {
+  extractSuggestedPlayers,
   mapSuggestedPlayer,
   toInitials,
   type DirectoryPlayer,
-  type SuggestedPlayerRecord,
 } from "../utils/suggestedPlayer";
 import {
   DEFAULT_POSITION,
@@ -33,7 +29,7 @@ import {
   USER_LOCATION_CHANGED_EVENT,
   type Coordinates,
 } from "../utils/userLocation";
-import usePlayerIdentity from "../hooks/usePlayerIdentity";
+import usePlayerConnect, { type ConnectMethod } from "../hooks/usePlayerConnect";
 import {
   ANALYTICS_EVENTS,
   RANKING_VERSION_NONE,
@@ -42,18 +38,8 @@ import {
 } from "../utils/analytics";
 import { levelNumber, nearLevelRange, rankableLevelOptions } from "../utils/levelScope";
 import { handleImageTransformError, sizedImageUrl } from "../utils/playerImage";
-import type { ConnectIntent } from "../types/matchPlay";
-import {
-  buildMatchProfileFromSurvey,
-  ensureStringArray,
-  getStoredMatchProfile,
-  hasIncompleteMatchProfileQuestions,
-  sanitizeMatchProfile,
-  storeMatchProfile,
-  toCanonicalAvailability,
-  type StoredMatchProfile,
-} from "../utils/matchProfile";
-import { buildSmsUrl, getSmsRecipient } from "../utils/smsLink";
+import { ensureStringArray, toCanonicalAvailability } from "../utils/matchProfile";
+import { isNearLevel, toCourtList } from "../utils/homePlayerSuggestions";
 
 import "../components/coaches/coaches.css";
 import "../components/players/players.css";
@@ -70,6 +56,9 @@ type SelectedLocation = {
 
 const radiusOptions =["5 mi", "10 mi", "15 mi", "20 mi", "All"];
 const levelOptions = ["All levels", "2.5", "3.0", "3.5", "4.0", "4.5+"];
+// Half a level either side of the viewer's own, the same check the home page's
+// "Players to hit with" block uses. Offered only to a viewer with a level.
+const NEAR_LEVEL_OPTION = "Near my level";
 const genderOptions = ["All genders", "Male", "Female", "Other"];
 const playTypeOptions = ["All play types", "Singles", "Doubles", "Mixed", "Social"];
 const availabilityOptions = ["All availability", "Weekdays AM", "Weekday PM", "Weekends"];
@@ -95,7 +84,7 @@ const DEFAULT_PLAYER_FILTERS: PlayerFilters = {
 };
 
 // Module level and pure so the same rules can be applied speculatively — see countMatching.
-const playerMatchesFilters = (player: DirectoryPlayer, filters: PlayerFilters) => {
+const playerMatchesFilters = (player: DirectoryPlayer, filters: PlayerFilters, viewerLevel?: string | null) => {
   const normalizedTerm = normalize(filters.searchTerm);
   const matchesSearch =
     !normalizedTerm ||
@@ -114,7 +103,10 @@ const playerMatchesFilters = (player: DirectoryPlayer, filters: PlayerFilters) =
 
   const matchesLevel =
     filters.level === levelOptions[0] ||
-    (filters.level === "4.5+"
+    // A viewer without a level has nothing to be near, so the option shows everyone.
+    (filters.level === NEAR_LEVEL_OPTION
+      ? !viewerLevel || isNearLevel(viewerLevel, player.level)
+      : filters.level === "4.5+"
       ? Number.parseFloat(player.level) >= 4.5
       : player.level === filters.level);
 
@@ -143,6 +135,19 @@ const countActiveFilters = (filters: PlayerFilters, radius: string) =>
     (key) => filters[key] !== DEFAULT_PLAYER_FILTERS[key],
   ).length + (radius === radiusOptions[1] ? 0 : 1);
 
+
+/**
+ * Filters passed in the URL, e.g. from the home page's "See all": ?radius=15&level=near.
+ * Anything that isn't one of the page's own options is ignored.
+ */
+const filtersFromSearch = (search: string) => {
+  const params = new URLSearchParams(search);
+  const radius = `${params.get("radius") ?? ""} mi`;
+  return {
+    radius: radiusOptions.includes(radius) ? radius : radiusOptions[1],
+    level: params.get("level") === "near" ? NEAR_LEVEL_OPTION : levelOptions[0],
+  };
+};
 
 const parseRadius = (radius: string) => {
   if (radius === "All") {
@@ -189,55 +194,8 @@ const buildLocationSearch = (location: SelectedLocation | null): string => {
   return label;
 };
 
-const formatAvailabilityList = (slots: string[]): string => {
-  const cleaned = slots
-    .map((slot) => (typeof slot === "string" ? toCanonicalAvailability(slot) : ""))
-    .filter((slot) => slot.length > 0);
 
-  if (cleaned.length === 0) {
-    return "Weekends";
-  }
-  if (cleaned.length === 1) {
-    return cleaned[0];
-  }
-  if (cleaned.length === 2) {
-    return `${cleaned[0]} and ${cleaned[1]}`;
-  }
-  const head = cleaned.slice(0, -1).join(", ");
-  return `${head}, and ${cleaned[cleaned.length - 1]}`;
-};
 
-const extractSuggestedPlayers =(payload: unknown): SuggestedPlayerRecord[] => {
-  if (Array.isArray(payload)) {
-    return payload as SuggestedPlayerRecord[];
-  }
-  if (payload && typeof payload === "object") {
-    const record = payload as Record<string, unknown>;
-    if (Array.isArray(record.data)) {
-      return record.data as SuggestedPlayerRecord[];
-    }
-    if (Array.isArray(record.players)) {
-      return record.players as SuggestedPlayerRecord[];
-    }
-    if (Array.isArray(record.results)) {
-      return record.results as SuggestedPlayerRecord[];
-    }
-  }
-  return [];
-};
-
-const toCourtList = (value: string | string[] | undefined): string[] => {
-  if (Array.isArray(value)) {
-    return value.filter((item) => typeof item === "string" && item.trim().length > 0) as string[];
-  }
-  if (typeof value === "string") {
-    return value
-      .split(",")
-      .map((item) => item.trim())
-      .filter((item) => item.length > 0);
-  }
-  return [];
-};
 
 const useIsMobile = (breakpoint = 768) => {
   const [isMobile, setIsMobile] = useState(false);
@@ -866,9 +824,10 @@ const FindPlayersPage = () => {
   const location = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [appliedSearchTerm, setAppliedSearchTerm] = useState("");
-  const [selectedRadius, setSelectedRadius] = useState<string>(radiusOptions[1]);
-  const [appliedRadius, setAppliedRadius] = useState<string>(radiusOptions[1]);
-  const [selectedLevel, setSelectedLevel] = useState<string>(levelOptions[0]);
+  const [initialFilters] = useState(() => filtersFromSearch(location.search));
+  const [selectedRadius, setSelectedRadius] = useState<string>(initialFilters.radius);
+  const [appliedRadius, setAppliedRadius] = useState<string>(initialFilters.radius);
+  const [selectedLevel, setSelectedLevel] = useState<string>(initialFilters.level);
   const [selectedGender, setSelectedGender] = useState<string>(genderOptions[0]);
   const [selectedPlayType, setSelectedPlayType] = useState<string>(playTypeOptions[0]);
   const [selectedAvailability, setSelectedAvailability] = useState<string>(availabilityOptions[0]);
@@ -877,19 +836,31 @@ const FindPlayersPage = () => {
   const [mode, setMode] = useState<Mode>("normal");
   const [status, setStatus] = useState<Status>("loading");
   const [error, setError] = useState<string | null>(null);
-  const [matchProfile, setMatchProfile] = useState<StoredMatchProfile | null>(() => getStoredMatchProfile());
-  const [hasIncompleteMatchProfile, setHasIncompleteMatchProfile] = useState(false);
-  const [matchProfileCheckLoaded, setMatchProfileCheckLoaded] = useState(false);
-  const [connectModalPlayer, setConnectModalPlayer] = useState<DirectoryPlayer | null>(null);
-  const [isConnectModalOpen, setConnectModalOpen] = useState(false);
-  const [isProfileModalOpen, setProfileModalOpen] = useState(false);
-  const [playerToken] = useState(() =>
-    getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" }) ?? undefined,
-  );
-  const hasMatchProfile = Boolean(matchProfile);
-  const hasCompletedMatchProfile = hasMatchProfile && matchProfileCheckLoaded && !hasIncompleteMatchProfile;
+  // Connect, its profile gate and both modals live in usePlayerConnect, shared with the
+  // home page's "Players to hit with" block. The analytics stay here: the hook calls back
+  // through this ref, which is filled in below once buildConnectProps exists.
+  const connectAnalytics = useRef<{
+    gated?: (player: DirectoryPlayer) => void;
+    sent?: (player: DirectoryPlayer, method: ConnectMethod) => void;
+    completed?: (trigger: string | null) => void;
+  }>({});
+  const {
+    playerToken,
+    displayName,
+    matchProfile,
+    hasIncompleteMatchProfile,
+    matchProfileCheckLoaded,
+    hasCompletedMatchProfile,
+    openConnect,
+    openProfileModal: openProfileModalBase,
+    modals: connectModals,
+  } = usePlayerConnect({
+    source: "find-players",
+    onConnectGated: (player) => connectAnalytics.current.gated?.(player),
+    onConnectSent: (player, method) => connectAnalytics.current.sent?.(player, method),
+    onProfileCompleted: (trigger) => connectAnalytics.current.completed?.(trigger),
+  });
   const hasProfile = hasCompletedMatchProfile;
-  const { displayName } = usePlayerIdentity();
   const storedLocation = useMemo(() => getStoredLocation(), []);
   const [position, setPosition] = useState<Coordinates | null>(storedLocation);
   const [locationFilter, setLocationFilter] = useState<SelectedLocation | null>(null);
@@ -903,10 +874,6 @@ const FindPlayersPage = () => {
   const [resolvedLocationLabel, setResolvedLocationLabel] = useState<string>(() =>
     storedLocation ? formatCoordinatesLabel(storedLocation) : "",
   );
-
-  const requireSignIn = useCallback(() => {
-    navigate("/login", { state: { from: location } });
-  }, [location, navigate]);
 
   useEffect(() => {
     const syncStoredLocation = () => {
@@ -923,45 +890,6 @@ const FindPlayersPage = () => {
     window.addEventListener(USER_LOCATION_CHANGED_EVENT, syncStoredLocation);
     return () => window.removeEventListener(USER_LOCATION_CHANGED_EVENT, syncStoredLocation);
   }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    if (!playerToken) {
-      setHasIncompleteMatchProfile(false);
-      setMatchProfileCheckLoaded(true);
-      return undefined;
-    }
-
-    const loadAnsweredQuestions = async () => {
-      setMatchProfileCheckLoaded(false);
-      try {
-        const answered = await getAllSurveyQuestionAnswered({ token: playerToken });
-        if (cancelled) return;
-        const nextIncomplete = hasIncompleteMatchProfileQuestions(answered);
-        const savedProfile = buildMatchProfileFromSurvey(answered, getStoredMatchProfile());
-        if (savedProfile) {
-          setMatchProfile(savedProfile);
-          storeMatchProfile(savedProfile);
-        }
-        setHasIncompleteMatchProfile(nextIncomplete);
-      } catch (requestError) {
-        if (cancelled) return;
-        console.error("Failed to load answered match profile questions", requestError);
-        setHasIncompleteMatchProfile(!getStoredMatchProfile());
-      } finally {
-        if (!cancelled) {
-          setMatchProfileCheckLoaded(true);
-        }
-      }
-    };
-
-    void loadAnsweredQuestions();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [playerToken]);
 
   const positionKey = position ? `${position.latitude.toFixed(4)}:${position.longitude.toFixed(4)}` : "none";
   const locationQuery = buildLocationSearch(locationFilter);
@@ -1275,15 +1203,6 @@ const FindPlayersPage = () => {
     [],
   );
 
-  const profileShareUrl = useMemo(() => {
-    if (typeof window === "undefined") {
-      return "https://tennisplan.app/#/settings/match-profile";
-    }
-    const { origin, pathname } = window.location;
-    const normalizedPath = pathname.endsWith("/") ? pathname : `${pathname}/`;
-    return `${origin}${normalizedPath}#/settings/match-profile`;
-  }, []);
-
   const profileQuickViewUser = useMemo(() => {
     if (!matchProfile) {
       return null;
@@ -1302,11 +1221,6 @@ const FindPlayersPage = () => {
       verificationCount: 2,
     };
   }, [displayName, matchProfile]);
-
-  const closeConnectModal = useCallback(() => {
-    setConnectModalOpen(false);
-    setConnectModalPlayer(null);
-  }, []);
 
   // Identical properties on connect_clicked and connect_sent, so the two are directly
   // comparable and the gap between them reads as the gate's conversion rate.
@@ -1353,8 +1267,11 @@ const FindPlayersPage = () => {
   );
 
   const filteredPlayers = useMemo(
-    () => (mode === "normal" ? players.filter((player) => playerMatchesFilters(player, activeFilters)) : []),
-    [mode, players, activeFilters],
+    () =>
+      mode === "normal"
+        ? players.filter((player) => playerMatchesFilters(player, activeFilters, matchProfile?.level))
+        : [],
+    [mode, players, activeFilters, matchProfile?.level],
   );
 
   // Same predicate, run against a hypothetical filter set, so an analytics event can
@@ -1362,9 +1279,11 @@ const FindPlayersPage = () => {
   const countMatching = useCallback(
     (overrides: Partial<PlayerFilters>) =>
       mode === "normal"
-        ? players.filter((player) => playerMatchesFilters(player, { ...activeFilters, ...overrides })).length
+        ? players.filter((player) =>
+            playerMatchesFilters(player, { ...activeFilters, ...overrides }, matchProfile?.level),
+          ).length
         : 0,
-    [mode, players, activeFilters],
+    [mode, players, activeFilters, matchProfile?.level],
   );
 
   const buildConnectProps = useCallback(
@@ -1393,11 +1312,10 @@ const FindPlayersPage = () => {
   );
   const openProfileModal = useCallback(
     (trigger: string) => {
-      setPromptTrigger(trigger);
       track(ANALYTICS_EVENTS.profilePromptClicked, { trigger, viewerTier });
-      setProfileModalOpen(true);
+      openProfileModalBase(trigger);
     },
-    [viewerTier],
+    [openProfileModalBase, viewerTier],
   );
 
   const openConnectModalForPlayer = useCallback(
@@ -1406,93 +1324,26 @@ const FindPlayersPage = () => {
       // close the modal. connect_sent is the completed action.
       track(ANALYTICS_EVENTS.connectClicked, buildConnectProps(player, position ?? null));
       setConnectModalPosition(typeof position === "number" ? position : null);
-
-      if (!hasCompletedMatchProfile) {
-        if (!playerToken) {
-          requireSignIn();
-          return;
-        }
-        trackPromptShown("connect_gate");
-        openProfileModal("connect_gate");
-        return;
-      }
-      setConnectModalPlayer(player);
-      setConnectModalOpen(true);
+      openConnect(player);
     },
-    [buildConnectProps, hasCompletedMatchProfile, openProfileModal, playerToken, requireSignIn, trackPromptShown],
-  );
-
-  const handleShareIntro = useCallback(
-    (nextPlayer: DirectoryPlayer) => {
-      if (!matchProfile) {
-        if (!playerToken) {
-          requireSignIn();
-          return;
-        }
-        window.alert("Create your match profile to connect.");
-        return;
-      }
-
-      const recipientPhone = getSmsRecipient(nextPlayer.raw?.phone);
-      if (!recipientPhone) {
-        window.alert("This player doesn't have a valid mobile number available for SMS yet.");
-        return;
-      }
-
-      const trimmedDisplayName = displayName.trim();
-      const senderName = trimmedDisplayName.length ? trimmedDisplayName : "TTP Player";
-      const senderLevel = matchProfile?.level ?? null;
-      const preferredTimes = formatAvailabilityList(matchProfile?.availability ?? []);
-      // Without a rating we say nothing about level rather than claiming one.
-      const selfIntro = senderLevel
-        ? `My name is ${senderName} and I'm a ${senderLevel} player looking to hit ${preferredTimes}`
-        : `My name is ${senderName} and I'm looking to hit ${preferredTimes}`;
-      const message =
-        `Hi ${nextPlayer.name}, I found you on the Tennis Plan App. ${selfIntro} at one of our local courts. ` +
-        `You can check out my profile here: ${profileShareUrl}. ` +
-        "Let me know if you'd like to hit sometime.";
-
-      window.location.assign(buildSmsUrl(recipientPhone, message));
-    },
-    [displayName, matchProfile, playerToken, profileShareUrl, requireSignIn],
-  );
-
-  const handleCreateMatchPlayIntent = useCallback(
-    (nextPlayer: DirectoryPlayer) => {
-      if (!matchProfile) {
-        if (!playerToken) {
-          requireSignIn();
-          return;
-        }
-        window.alert("Create your match profile to start building MatchPlay invites.");
-        return;
-      }
-
-      const connectIntent: ConnectIntent = {
-        invitee: {
-          id: nextPlayer.id,
-          name: nextPlayer.name,
-          avatarUrl: nextPlayer.profileImageUrl,
-          level: nextPlayer.level,
-        },
-        senderName: displayName.trim() || "You",
-        senderLevel: matchProfile.level ?? undefined,
-        suggestedAvailability: [...(matchProfile.availability ?? [])],
-        preferredCourt: matchProfile.localCourts?.trim() ? matchProfile.localCourts.trim() : null,
-        source: "find-players",
-      };
-
-      navigate("/matches/create", { state: { connectIntent } });
-      closeConnectModal();
-    },
-    [closeConnectModal, displayName, matchProfile, navigate, playerToken, requireSignIn],
+    [buildConnectProps, openConnect],
   );
 
   const shownPrompts = useRef<Set<string>>(new Set());
   const viewedFired = useRef(false);
   const pendingFilterEvent = useRef<{ filter: string; value: string; before: number } | null>(null);
-  const [promptTrigger, setPromptTrigger] = useState<string | null>(null);
   const [connectModalPosition, setConnectModalPosition] = useState<number | null>(null);
+
+  connectAnalytics.current = {
+    // The profile form opening in Connect's place: shown, and opened by the gate.
+    gated: () => {
+      trackPromptShown("connect_gate");
+      track(ANALYTICS_EVENTS.profilePromptClicked, { trigger: "connect_gate", viewerTier });
+    },
+    sent: (player, method) =>
+      track(ANALYTICS_EVENTS.connectSent, { ...buildConnectProps(player, connectModalPosition), method }),
+    completed: (trigger) => track(ANALYTICS_EVENTS.matchProfileCompleted, { trigger }),
+  };
 
   const activeFilterCount = useMemo(
     () => countActiveFilters(activeFilters, selectedRadius),
@@ -1717,7 +1568,11 @@ const FindPlayersPage = () => {
             radiusOptions={radiusOptions}
             selectedRadius={selectedRadius}
             onRadiusChange={handleRadiusChange}
-            levelOptions={levelOptions}
+            levelOptions={
+              matchProfile?.level || selectedLevel === NEAR_LEVEL_OPTION
+                ? [levelOptions[0], NEAR_LEVEL_OPTION, ...levelOptions.slice(1)]
+                : levelOptions
+            }
             selectedLevel={selectedLevel}
             onLevelChange={handleLevelChange}
             genderOptions={genderOptions}
@@ -1872,57 +1727,7 @@ const FindPlayersPage = () => {
           )}
         </div>
       </div>
-      <ConnectPlayerModal
-        isOpen={isConnectModalOpen}
-        player={connectModalPlayer}
-        onClose={closeConnectModal}
-        canShareIntro={Boolean(connectModalPlayer && getSmsRecipient(connectModalPlayer.raw?.phone))}
-        shareIntroDescription={
-          connectModalPlayer && getSmsRecipient(connectModalPlayer.raw?.phone)
-            ? "Open a text message with this player's number and your profile details prefilled."
-            : "This player doesn't have a valid mobile number available for SMS yet."
-        }
-        onShareIntro={() => {
-          if (connectModalPlayer) {
-            track(ANALYTICS_EVENTS.connectSent, {
-              ...buildConnectProps(connectModalPlayer, connectModalPosition),
-              method: "sms_intro",
-            });
-            closeConnectModal();
-            handleShareIntro(connectModalPlayer);
-          }
-        }}
-        onCreateMatch={() => {
-          if (connectModalPlayer) {
-            track(ANALYTICS_EVENTS.connectSent, {
-              ...buildConnectProps(connectModalPlayer, connectModalPosition),
-              method: "match_invite",
-            });
-            handleCreateMatchPlayIntent(connectModalPlayer);
-          }
-        }}
-        senderAvailability={matchProfile?.availability ?? []}
-        senderCourts={matchProfile?.localCourts ?? ""}
-      />
-
-      <MatchProfileModal
-        isOpen={isProfileModalOpen}
-        onClose={() => setProfileModalOpen(false)}
-        initialProfile={matchProfile}
-        onComplete={(profileDetails) => {
-          const normalizedProfile = sanitizeMatchProfile(profileDetails) ?? profileDetails;
-          setMatchProfile(normalizedProfile);
-          setHasIncompleteMatchProfile(false);
-          setMatchProfileCheckLoaded(true);
-          storeMatchProfile(normalizedProfile);
-          track(ANALYTICS_EVENTS.matchProfileCompleted, { trigger: promptTrigger });
-          setPromptTrigger(null);
-          setProfileModalOpen(false);
-          window.alert(
-            "Your match profile is live! You agree to share your contact details with other members and accept our terms. You can remove yourself from player matching anytime in settings.",
-          );
-        }}
-      />
+      {connectModals}
     </MainLayout>
   );
 };

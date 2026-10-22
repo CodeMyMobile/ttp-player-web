@@ -112,6 +112,26 @@ export const mapSuggestedPlayer = (record: SuggestedPlayerRecord): DirectoryPlay
   };
 };
 
+/** The suggested-players list, from a bare array or the usual envelopes. */
+export const extractSuggestedPlayers = (payload: unknown): SuggestedPlayerRecord[] => {
+  if (Array.isArray(payload)) {
+    return payload as SuggestedPlayerRecord[];
+  }
+  if (payload && typeof payload === "object") {
+    const record = payload as Record<string, unknown>;
+    if (Array.isArray(record.data)) {
+      return record.data as SuggestedPlayerRecord[];
+    }
+    if (Array.isArray(record.players)) {
+      return record.players as SuggestedPlayerRecord[];
+    }
+    if (Array.isArray(record.results)) {
+      return record.results as SuggestedPlayerRecord[];
+    }
+  }
+  return [];
+};
+
 // The specific-user endpoint may return the record bare or wrapped. Pull the
 // first usable record out of the common envelope shapes.
 export const extractSuggestedPlayer = (payload: unknown): SuggestedPlayerRecord | null => {
