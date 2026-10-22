@@ -4,7 +4,11 @@ import { getPersonalDetails } from "../services/auth";
 import { formatPhoneNumber, formatPhoneDisplay } from "../services/phone";
 import ProfilePhotoUploader from "./ProfilePhotoUploader";
 import { createPlayerPersonalDetails, updatePlayerPersonalDetails } from "../services/player";
-import { normalizeProfileRating } from "../utils/profileRatings";
+import {
+  levelOptionsIncluding,
+  normalizeProfileRating,
+  resolveProfileLevel,
+} from "../utils/profileRatings";
 import { resolveSmsConsentGranted } from "../services/smsConsent";
 
 import "./ProfileManager.css";
@@ -20,12 +24,13 @@ const emptyDetails = {
   uta_rating: "",
   calculated_ntrp: "",
   calculated_utr: "",
+  self_rated_seed: "",
   seeded_at: null,
   matches_played: 0,
   about_me: "",
 };
 
-const NTRP_OPTIONS = ["3.0", "3.5", "3.75", "4.0", "4.25", "4.5", "5.0"];
+const NTRP_OPTIONS = ["2.5", "3.0", "3.5", "3.75", "4.0", "4.25", "4.5", "5.0"];
 
 const positiveRating = (value) => {
   const numeric = Number(value);
@@ -91,6 +96,7 @@ const ProfileManager = ({ isOpen, onClose, variant = "modal" }) => {
         uta_rating: normalizeProfileRating(data?.uta_rating),
         calculated_ntrp: normalizeProfileRating(data?.calculated_ntrp),
         calculated_utr: normalizeProfileRating(data?.calculated_utr),
+        self_rated_seed: normalizeProfileRating(data?.self_rated_seed),
         seeded_at: data?.seeded_at || null,
         matches_played: Number(data?.matches_played || 0),
         about_me: data?.about_me || "",
@@ -224,14 +230,22 @@ const ProfileManager = ({ isOpen, onClose, variant = "modal" }) => {
   const matchRating = positiveRating(details.calculated_ntrp);
   const hasMatchRating = Number(details.matches_played || 0) > 0 && matchRating !== null;
   const canEditRating = !details.seeded_at && !hasMatchRating;
-  const ratingValue = details.usta_rating || (hasMatchRating ? details.calculated_ntrp : "");
+  // Once locked, show whatever level the player has, including the rating
+  // quiz's estimate, which is saved as self_rated_seed rather than usta_rating.
+  const shownLevel = canEditRating
+    ? { value: details.usta_rating, source: null }
+    : resolveProfileLevel(details);
+  const ratingValue = shownLevel.value;
+  const ratingOptions = levelOptionsIncluding(NTRP_OPTIONS, ratingValue);
   const ratingHelper = canEditRating
     ? "Choose once. After saving, only an admin can edit this."
     : hasMatchRating
       ? "Your level is now match-derived. Ask support if this needs correction."
       : declaredRating !== null
         ? "Saved. Only an admin can edit this now."
-        : "Only an admin can edit this now.";
+        : shownLevel.source === "quiz"
+          ? "Estimated by the rating quiz. Only an admin can edit this now."
+          : "Only an admin can edit this now.";
 
   const FormContent = (
     <form onSubmit={handleUpdate} className="profile-manager__form">
@@ -363,7 +377,7 @@ const ProfileManager = ({ isOpen, onClose, variant = "modal" }) => {
               }
             >
               <option value="">Select your level</option>
-              {NTRP_OPTIONS.map((rating) => (
+              {ratingOptions.map((rating) => (
                 <option key={rating} value={rating}>
                   {rating}
                 </option>
