@@ -34,6 +34,14 @@
   VITE_VENDOR_PAGE = "true"
   VITE_LEAGUE_COACHING_PROMPTS = "true"
 
+# VITE_HOME_FIND_PLAYERS=true shows the home page's "Players to hit with" carousel and
+# the compact "Find players" tile. Deploy previews only while it's tried out:
+# Netlify merges this context over [build.environment], so production stays off.
+# To ship it everywhere, move the line up into [build.environment]; to roll back,
+# delete it.
+[context.deploy-preview.environment]
+  VITE_HOME_FIND_PLAYERS = "true"
+
 
 # Netlify Image CDN. Avatars are uploaded to S3 unresized (measured up to 2048x1536,
 # ~320KB) and rendered into a 48px slot, so they are resized at the edge instead of
