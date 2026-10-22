@@ -133,16 +133,34 @@ const { classes, leagues } = await getWhatsOn();
 
     const paramValue = (value) => value && value !== "any" ? value : null;
     if (q.has("level")) F.level = paramValue(q.get("level"));
-    // Helper to check if a level id is covered by a range value (e.g. "3.0-3.5" covers both 3.0 and 3.5)
-    const levelIdSelected = (levelId) => {
-      if (F.level === null) return false;
-      if (F.level === levelId) return true;
-      if (F.level.includes("-")) {
-        const parts = F.level.split("-");
-        return parts.length === 2 && (levelId === parts[0] || levelId === parts[1]);
-      }
-      return false;
+    // The level as a range. A chip sets one level ("3.5"); the quiz sends its band, a range
+    // ("3.0-3.5") or its open top band ("5.0+"). Everything that filters by level goes
+    // through this: comparing the raw string matched no class to "3.0-3.5", so a player
+    // arriving from the quiz saw no classes at a level that had three.
+    const levelRange = (value) => {
+      if (!value) return null;
+      const open = /^(\d+(?:\.\d+)?)\+$/.exec(value);
+      if (open) return { min: Number(open[1]), max: 7 };
+      const parts = value.split("-").map(Number);
+      if (parts.length > 2 || parts.some((part) => !Number.isFinite(part))) return null;
+      return { min: Math.min(...parts), max: Math.max(...parts) };
     };
+    const inLevel = (lvl) => {
+      const range = levelRange(F.level);
+      if (!range) return true;
+      const value = Number(lvl);
+      return lvl !== null && Number.isFinite(value) && value >= range.min && value <= range.max;
+    };
+    // What the API is asked for: a single level or "min-max". It reads "3.0-3.5" but
+    // answers "5.0+" with a 400, so the open band is sent as its range.
+    const apiLevel = () => {
+      const range = levelRange(F.level);
+      if (!range) return null;
+      return range.min === range.max
+        ? range.min.toFixed(1)
+        : `${range.min.toFixed(1)}-${range.max.toFixed(1)}`;
+    };
+    const levelIdSelected = (levelId) => F.level !== null && inLevel(levelId);
     if (q.has("divisions")) F.div = paramValue(q.get("divisions"));
     if (q.has("division")) F.div = paramValue(q.get("division"));
     if (q.has("area")) F.area = paramValue(q.get("area"));
@@ -152,9 +170,11 @@ const { classes, leagues } = await getWhatsOn();
       const found = list.find((item) => item[0] === id);
       return found ? found[1] : id;
     };
-    const up = (level) => {
-      if (!level) return null;
-      const next = Number.parseFloat(level) + 0.5;
+    // Half a level above the top of the player's range, so 3.0-3.5 stretches to 4.0, not 3.5.
+    const up = () => {
+      const range = levelRange(F.level);
+      if (!range) return null;
+      const next = range.max + 0.5;
       return next <= 5 ? next.toFixed(1) : null;
     };
     const levelText = () => F.level ? F.level : "any level";
@@ -247,7 +267,7 @@ const { classes, leagues } = await getWhatsOn();
     function renderClasses() {
       const areaName = F.area ? label(areas, F.area) : "West LA";
       const filtered = classes.filter((item) => (
-        (!F.level || item.lvl === F.level) && (!F.area || item.area === F.area) && (!F.when || item.when === F.when)
+        (!F.level || inLevel(item.lvl)) && (!F.area || item.area === F.area) && (!F.when || item.when === F.when)
       ));
       document.getElementById("c-classes").textContent = filtered.length ? (F.level ? `${filtered.length} at your level` : `${filtered.length} open`) : "";
       document.getElementById("classes").innerHTML = filtered.length
@@ -257,14 +277,14 @@ const { classes, leagues } = await getWhatsOn();
 
     function renderLeagues() {
       const divMatch = (item) => !F.div || item.div === F.div || item.div === "any";
-      const exact = leagues.filter((item) => (!F.level || item.lvl === F.level) && divMatch(item));
-      const stretchLevel = up(F.level);
+      const exact = leagues.filter((item) => (!F.level || inLevel(item.lvl)) && divMatch(item));
+      const stretchLevel = up();
       const stretch = stretchLevel ? leagues.filter((item) => item.lvl === stretchLevel && divMatch(item)) : [];
       const all = exact.concat(stretch);
       document.getElementById("c-leagues").textContent = all.length ? `${all.length} open` : "";
       document.getElementById("leagues").innerHTML = all.length
         ? all.map((item) => {
-            const isStretch = F.level && item.lvl !== F.level;
+            const isStretch = F.level && !inLevel(item.lvl);
             const badgeText = F.level ? (isStretch ? "Half a level up" : "Your level") : "Open division";
             return `<article class="wo-card"><h3>${escapeHtml(item.t)}</h3><p class="wo-card__meta">${escapeHtml(item.n)}</p><p class="wo-spots${item.spots <= 2 ? " wo-spots--low" : ""}"><b>${item.spots}</b> spots left</p><div class="wo-foot"><span class="wo-badge ${isStretch ? "wo-badge--stretch" : "wo-badge--match"}">${badgeText}</span><button class="wo-btn" data-dt="Join this division" data-dw="${escapeHtml(authReason("To join a division,"))}">Join</button></div></article>`;
           }).join("")
@@ -281,7 +301,7 @@ const { classes, leagues } = await getWhatsOn();
 
     async function fetchGuestPayload() {
       const params = new URLSearchParams();
-      if (F.level) params.set("level", F.level);
+      if (apiLevel()) params.set("level", apiLevel());
       if (F.div) params.set("divisions", F.div);
       if (F.area) params.set("area", F.area);
       if (F.when) params.set("when", F.when);
