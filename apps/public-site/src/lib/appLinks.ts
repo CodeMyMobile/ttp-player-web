@@ -24,6 +24,22 @@ export const loginHref = (next?: string | null) => {
 };
 
 /**
+ * Where the quiz result is handed to the app: `#/save-level?quiz=<json>`.
+ *
+ * The quiz runs on this site, which can't write to an account. The app route is behind
+ * its sign-in guard, so a signed-out player signs in (or signs up) first and is brought
+ * back to it; it saves the level only if the account has none, then lands on the app home.
+ *
+ * `quiz` is the JSON body the quiz shows under "What the app saves if you sign in". The
+ * app re-validates every field (src/features/ratingQuiz/quizHandoff.ts), since anyone can
+ * edit a URL.
+ */
+export const APP_SAVE_LEVEL_URL = `${APP}/#/save-level`;
+
+export const saveLevelHref = (quizJson: string | null | undefined) =>
+  quizJson ? `${APP_SAVE_LEVEL_URL}?quiz=${encodeURIComponent(quizJson)}` : loginHref();
+
+/**
  * The coach's own page in the player app.
  *
  * `#/coaches/:id` is not behind the auth guard, so a logged-out visitor sees the coach and

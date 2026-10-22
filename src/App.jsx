@@ -56,6 +56,7 @@ import AvailabilityReviewPage from "./pages/AvailabilityReviewPage";
 import CreditsPage from "./pages/CreditsPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import RatingQuizPage from "./pages/RatingQuizPage";
+import SaveQuizLevelPage from "./pages/SaveQuizLevelPage";
 import PlayerCalendar from "./screens/Player/PlayerCalendar";
 import LogResultPage from "./pages/log-result";
 import ConfirmResultPage from "./pages/log-result/ConfirmResultPage";
@@ -446,6 +447,22 @@ const AppRoutes = () => (
           <ConfirmResultPage />
         </ProtectedRoute>
       )}
+    />
+    {/* The public site's level quiz hands its result here; see SaveQuizLevelPage. */}
+    <Route
+      path="/save-level"
+      element={(
+        <ProtectedRoute>
+          <SaveQuizLevelPage />
+        </ProtectedRoute>
+      )}
+    />
+    {/* /whats-on is a page on the public site, not here. Sign-in links once sent
+        next=/whats-on, which /:vendorSlug read as a stringer called "whats-on"
+        and showed the stringer list. Links already out there go home instead. */}
+    <Route
+      path="/whats-on"
+      element={<Navigate to="/" replace />}
     />
     <Route
       path="/rating-quiz"
