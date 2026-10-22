@@ -2,7 +2,7 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
-import { APP_SAVE_LEVEL_URL, loginHref } from "../lib/appLinks";
+import { ratingQuizQuestions } from "../../../../src/features/ratingQuiz/ratingQuizModel";
 
 const title = "What's My Tennis Level? Free NTRP Rating Quiz | The Tennis Plan";
 // No question count in the copy: the paths are different lengths — the beginner
@@ -11,90 +11,10 @@ const title = "What's My Tennis Level? Free NTRP Rating Quiz | The Tennis Plan";
 const description =
   "Get an honest NTRP estimate in about a minute. No account, no email needed.";
 
-interface QuizOption {
-  id: string;
-  label: string;
-  detail?: string;
-}
-
-interface QuizQuestion {
-  key: string;
-  prompt: string;
-  hint: string;
-  branch?: boolean;
-  options: QuizOption[];
-}
-
-const quizQuestions: QuizQuestion[] = [
-  {
-    key: "pool",
-    prompt: "Which do you play?",
-    hint: "NTRP is calibrated separately for men's and women's play, so this genuinely changes the answer.",
-    options: [
-      { id: "m", label: "Men's" },
-      { id: "w", label: "Women's" },
-    ],
-  },
-  {
-    key: "bg",
-    prompt: "How much competitive tennis have you played?",
-    hint: "The single biggest clue to your level.",
-    options: [
-      { id: "starting", label: "I'm just starting out", detail: "New to tennis, or played a handful of times" },
-      { id: "social", label: "Not really: social and rec", detail: "Hitting with friends, drop-in play" },
-      { id: "lessons", label: "Lessons or clinics regularly", detail: "Group lessons, cardio tennis" },
-      { id: "team", label: "High school or club team", detail: "Organized team matches" },
-      { id: "usta", label: "USTA league or tournaments", detail: "You already have a rating" },
-      { id: "college", label: "College varsity or higher", detail: "NCAA, ITF, satellite or pro" },
-    ],
-  },
-  {
-    key: "usta",
-    prompt: "What NTRP rating do you play at?",
-    hint: "We'll take your word for it. It beats anything we'd estimate.",
-    branch: true,
-    options: [
-      { id: "u30", label: "3.0" },
-      { id: "u35", label: "3.5" },
-      { id: "u40", label: "4.0" },
-      { id: "u45", label: "4.5" },
-      { id: "u50", label: "5.0 and above" },
-    ],
-  },
-  {
-    key: "freq",
-    prompt: "How often are you playing right now?",
-    hint: "Current form counts for more than peak form.",
-    options: [
-      { id: "f3", label: "Three or more times a week" },
-      { id: "f2", label: "Once or twice a week" },
-      { id: "f1", label: "A few times a month" },
-      { id: "f0", label: "Coming back after time off", detail: "We'll factor in the rust" },
-    ],
-  },
-  {
-    key: "serve",
-    prompt: "Your second serve",
-    hint: "This is where levels separate most clearly.",
-    options: [
-      { id: "s0", label: "Getting it in is the goal", detail: "Double faults happen" },
-      { id: "s1", label: "Safe and reliable, not much spin", detail: "Rarely double fault, easy to attack" },
-      { id: "s2", label: "A spin serve I trust at 30-40", detail: "It holds up under pressure" },
-      { id: "s3", label: "A weapon I can place", detail: "I win free points on serve" },
-    ],
-  },
-  {
-    key: "rally",
-    prompt: "In a baseline rally",
-    hint: "Think about your normal weekly opponents.",
-    options: [
-      { id: "r0", label: "I focus on getting it back" },
-      { id: "r1", label: "I can keep a crosscourt rally going" },
-      { id: "r2", label: "I direct the ball on purpose", detail: "Change direction, find the open court" },
-      { id: "r3", label: "I construct points and handle real pace" },
-    ],
-  },
-];
+// The questions and scoring are shared with the app's /rating-quiz and the group
+// lesson level check, so a player gets the same level wherever they take it. The
+// module has no imports, so pulling it in from the app's src/ adds nothing to this build.
+const quizQuestions = ratingQuizQuestions;
 
 /**
  * The served first card shows a count, and it has to agree with what the script
@@ -253,171 +173,57 @@ const faqSchema = {
     <Footer wide />
   </div>
 
-  <script is:inline define:vars={{ quizQuestions, saveLevelUrl: APP_SAVE_LEVEL_URL, appLoginUrl: loginHref() }}>
-    (() => {
-      const RATING_MODEL_VERSION = 2;
-      const quiz = document.getElementById("quiz");
-      /**
-       * Every scored answer needs an entry here. A missing one is not an error —
-       * `weights[id]` is undefined and `|| 0` turns it into a zero — so the question
-       * keeps being asked, keeps being shown as a reason for the result, and counts
-       * for nothing. That is what happened to the rally answers from the day this
-       * page shipped until 2026-09-14, and only came up because someone read the
-       * table. A test now fails the build if any answer is missing from it.
-       */
-      const weights = {
-        social: 0, lessons: 1, team: 2, college: 4,
-        f3: 2, f2: 1, f1: 0, f0: -1,
-        s0: 0, s1: 1, s2: 2, s3: 3,
-        r0: 0, r1: 1, r2: 2, r3: 3,
-      };
-      /**
-       * The comparison question is gone, and nothing was renormalised to compensate.
-       *
-       * It was circular — it asked for someone "whose level you know" and then never
-       * asked what that level was, so beating a 3.0 and beating a 4.5 both scored
-       * +0.4. It could not inform the estimate at any weight.
-       *
-       * Removing it needed no rebalancing because its neutral answers carried a
-       * weight of 0: "we split" and "I'd rather skip this" contributed nothing, so
-       * the base constant and the remaining weights already produce the identical
-       * level. Across all 1024 answer combinations, 96 move — every one of them a
-       * player who had answered "I usually beat them" or "they usually beat me",
-       * which is the circular signal itself going away. Adding a compensating
-       * constant would have re-rated everyone, including the 928 that do not move.
-       */
-      /**
-       * Serve and rally are the two stroke questions and carry the same weight. They
-       * did not before: with rally inert, serve at 1.2 was the entire stroke signal,
-       * so a single answer about a second serve moved the estimate as much as both
-       * strokes should together.
-       *
-       * Background stays the heaviest single question — it spans 0 to 4, so 4.4 of
-       * range against 2.7 for either stroke — which is what the card claims when it
-       * calls it the biggest clue. Frequency stays the modifier it reads as.
-       *
-       * SCALE. Turning rally on widens the raw range from 9.0 to 10.8, so leaving the
-       * multiplier at 0.34 would have pushed everyone up half a level or more for no
-       * better reason than an arithmetic side effect. 0.23 puts the strongest honest
-       * set of answers — college player, playing three times a week, weapon serve,
-       * constructs points — at 4.98, which is the 5.0 the top of this scale means.
-       * The base stays 2.5, the floor of what this quiz will estimate.
-       */
-      const coefficients = { bg: 1.1, freq: 0.5, serve: 0.9, rally: 0.9 };
-      const SCALE = 0.23;
-      const clamps = {
-        social: { ceiling: 3.5 },
-        lessons: { ceiling: 4.0 },
-        team: { floor: 3.0, ceiling: 4.5 },
-        college: { floor: 4.0, ceiling: 5.0 },
-      };
-      const declared = { u30: 3.0, u35: 3.5, u40: 4.0, u45: 4.5, u50: 5.0 };
+  <script>
+    // The page's half of the quiz: rendering, the "does that sound right?" nudge and the
+    // hand-off to the app. The questions, weights and scoring are the shared model in
+    // src/features/ratingQuiz/ratingQuizModel.ts, the same one the app's quizzes use.
+    import {
+      RATING_MODEL_VERSION,
+      activeQuestionIndex,
+      activeRatingQuizQuestions,
+      buildRatingQuizPayload,
+      nudgeTarget,
+      scoreRatingQuiz,
+      settleEstimate,
+      takeNudge,
+      type RatingQuizAnswers,
+      type RatingQuizPayload,
+      type RatingQuizResult,
+      type SettledLevel,
+    } from "../../../../src/features/ratingQuiz/ratingQuizModel";
+    import { APP_SAVE_LEVEL_URL, loginHref } from "../lib/appLinks";
 
-      // NTRP scales are calibrated against different populations. The stroke
-      // descriptions in this quiz are absolute, so identical answers place
-      // differently on the two scales.
-      // UNVALIDATED — currently 0 while we gather data. The question is asked and
-      // `pool` is captured on every completion, so nobody is mis-rated by a number
-      // we have not checked. When the league data says otherwise, this line is the
-      // only edit: the term is applied once, at the end of scoring, and nowhere else.
-      const POOL_SHIFT = { m: 0, w: 0 };
-      let answers = {};
+    const quiz = document.getElementById("quiz");
+    const appLoginUrl = loginHref();
+
+    if (quiz) {
+      let answers: RatingQuizAnswers = {};
       let index = 0;
 
-      function toHalf(value) {
-        return Math.round(value * 2) / 2;
-      }
-
       /**
-       * The one-line reason under the estimate. Four cases rather than two, because
-       * the two stroke answers can disagree and the sentence has to survive that: a
-       * player with a weapon serve and no rally shape is a different reading from one
-       * who constructs points off a serve they only get in.
-       */
-      function explain(a) {
-        const serve = a.serve === "s2" || a.serve === "s3";
-        const rally = a.rally === "r2" || a.rally === "r3";
-        if (serve && rally) {
-          return "A second serve you trust and a rally you can direct are the two clearest markers at this level, and you have both.";
-        }
-        if (serve) {
-          return "A second serve you trust under pressure is the clearest marker at this level; steadier rally shape is what would move you up half a level.";
-        }
-        if (rally) {
-          return "Directing the ball in a rally puts you here; a second serve you trust under pressure is what would move you up half a level.";
-        }
-        return "Rally consistency and a reliable second serve are what move players up from here, and they tend to arrive in that order.";
-      }
-
-      function bandLabel(seed) {
-        return seed >= 5 ? "5.0+" : `${seed.toFixed(1)}-${(seed + 0.5).toFixed(1)}`;
-      }
-
-      function score() {
-        if (answers.bg === "starting") {
-          return {
-            seed: 2.0,
-            band: "1.5-2.0",
-            confidence: "Starting out",
-            why: "That's a real level with a number, not a blank. What moves you up fastest is court time with someone showing you the basics.",
-            declaredUsta: null,
-          };
-        }
-        if (answers.bg === "usta") {
-          const seed = declared[answers.usta] || 3.0;
-          return {
-            seed,
-            band: seed >= 5 ? "5.0+" : seed.toFixed(1),
-            confidence: "Self-declared",
-            why: "You told us your USTA rating, which beats anything we could work out from five questions.",
-            declaredUsta: seed,
-          };
-        }
-
-        let raw = 0;
-        Object.keys(coefficients).forEach((key) => {
-          raw += (weights[answers[key]] || 0) * coefficients[key];
-        });
-
-        // Applied to the estimated path only. A declared USTA rating is already on the
-        // right scale, and the beginner answer is a floor rather than an estimate.
-        let seed = Math.max(2.5, Math.min(5.0, 2.5 + toHalf(raw * SCALE) + (POOL_SHIFT[answers.pool] || 0)));
-        const clamp = clamps[answers.bg] || {};
-        if (clamp.ceiling !== undefined && seed > clamp.ceiling) seed = clamp.ceiling;
-        if (clamp.floor !== undefined && seed < clamp.floor) seed = clamp.floor;
-
-        return {
-          seed,
-          band: bandLabel(seed),
-          confidence: "Estimated",
-          // Says what the answers actually were. The old pair claimed the rally answer
-          // "backs it up" whichever way it had been answered — and it was contributing
-          // nothing at the time, so for some players the sentence was false twice over.
-          why: explain(answers),
-          declaredUsta: null,
-        };
-      }
-
-      /**
-       * Jump to the "what rating do you play at" question.
+       * The estimate, as the player leaves it.
        *
-       * The index is looked up rather than written down. It used to be a literal 1,
-       * correct only while the background question was first; inserting the pool
-       * question ahead of it pointed the skip at the question it exists to skip.
+       * `accepted` is what they settled on: our number until they nudge it, theirs
+       * afterwards. Anyone can say whether a number sounds right about themselves, where
+       * "how do you do against someone whose level you know" needed a second player's
+       * rating to mean anything.
+       *
+       * The answer NEVER moves the score on its own. It is recorded, and the only thing
+       * that changes the level is the player explicitly taking the offered half step —
+       * at which point it stops being our estimate and is labelled as their claim.
        */
-      function skipToUsta() {
+      let accepted: SettledLevel | null = null;
+
+      /** Jump to the "what rating do you play at" question, found by key. */
+      const skipToUsta = () => {
         answers.bg = "usta";
-        const target = activeQuestions().findIndex((question) => question.key === "usta");
+        const target = activeQuestionIndex(answers, "usta");
         index = target === -1 ? index + 1 : target;
         renderQuestion();
-      }
+      };
 
-      function activeQuestions() {
-        return quizQuestions.filter((question) => !question.branch || answers.bg === "usta");
-      }
-
-      function renderQuestion() {
-        const questions = activeQuestions();
+      const renderQuestion = () => {
+        const questions = activeRatingQuizQuestions(answers);
         if (answers.bg === "starting" || index >= questions.length) {
           renderResult();
           return;
@@ -446,23 +252,23 @@ const faqSchema = {
           <div class="qskip"><button type="button" data-skip-to-usta>I already know my level</button></div>
         `;
 
-        quiz.querySelector(".qback").addEventListener("click", () => {
+        quiz.querySelector(".qback")?.addEventListener("click", () => {
           index = Math.max(0, index - 1);
           renderQuestion();
         });
-        quiz.querySelectorAll("[data-option-id]").forEach((button) => {
+        quiz.querySelectorAll<HTMLButtonElement>("[data-option-id]").forEach((button) => {
           button.addEventListener("click", () => {
             answers[question.key] = button.dataset.optionId;
             index += 1;
             renderQuestion();
           });
         });
-        quiz.querySelector("[data-skip-to-usta]").addEventListener("click", () => {
+        quiz.querySelector("[data-skip-to-usta]")?.addEventListener("click", () => {
           skipToUsta();
         });
-      }
+      };
 
-      function appHref(settled, payload) {
+      const appHref = (settled: SettledLevel, payload: RatingQuizPayload) => {
         const params = new URLSearchParams({
           level: settled.band,
           src: "quiz",
@@ -475,43 +281,24 @@ const faqSchema = {
         // when the question was not reached.
         if (answers.pool) params.set("divisions", answers.pool === "w" ? "womens" : "mens");
         return `/whats-on?${params.toString()}`;
-      }
+      };
 
       // Every sign-in link on the page (the header's included) carries the current
       // result to the app, which saves it if the account has no level yet. With no
       // result they go back to a plain sign-in.
-      function pointAppLinksAt(payload) {
+      const pointAppLinksAt = (payload: RatingQuizPayload | null) => {
         const href = payload
-          ? `${saveLevelUrl}?quiz=${encodeURIComponent(JSON.stringify(payload))}`
+          ? `${APP_SAVE_LEVEL_URL}?quiz=${encodeURIComponent(JSON.stringify(payload))}`
           : null;
-        document.querySelectorAll(`a[href^="${appLoginUrl}"], a[data-app-login]`).forEach((link) => {
-          if (!link.dataset.appLogin) link.dataset.appLogin = link.getAttribute("href");
+        document.querySelectorAll<HTMLAnchorElement>(`a[href^="${appLoginUrl}"], a[data-app-login]`).forEach((link) => {
+          if (!link.dataset.appLogin) link.dataset.appLogin = link.getAttribute("href") ?? "";
           link.setAttribute("href", href || link.dataset.appLogin);
         });
-      }
+      };
 
-      /**
-       * The estimate, as the player leaves it.
-       *
-       * `accepted` is what they settled on: our number until they nudge it, theirs
-       * afterwards. It replaces the comparison question — anyone can say whether a
-       * number sounds right about themselves, where "how do you do against someone
-       * whose level you know" needed a second player's rating to mean anything.
-       *
-       * The answer NEVER moves the score on its own. It is recorded, and the only
-       * thing that changes the level is the player explicitly taking the offered
-       * half step — at which point it stops being our estimate and is labelled as
-       * their claim.
-       */
-      let accepted = null;
+      const fmtLevel = (value: number) => value.toFixed(1);
 
-      function nudgeTarget(result) {
-        if (answers.feedback === "low") return Math.min(5.5, result.seed + 0.5);
-        if (answers.feedback === "high") return Math.max(1.5, result.seed - 0.5);
-        return null;
-      }
-
-      function confirmBlock(result) {
+      const confirmBlock = (result: RatingQuizResult, settled: SettledLevel) => {
         // Nothing to confirm for someone who told us their rating — they are the
         // source, so asking whether our number sounds right is asking them about
         // themselves twice.
@@ -520,7 +307,7 @@ const faqSchema = {
         if (!answers.feedback) {
           return `
             <div class="confirm">
-              <p class="confirm__q" id="confirm-q">NTRP ${accepted.band} — does that sound about right?</p>
+              <p class="confirm__q" id="confirm-q">NTRP ${settled.band} — does that sound about right?</p>
               <div class="confirm__opts" role="group" aria-labelledby="confirm-q">
                 <button type="button" data-feedback="low">Lower than I expected</button>
                 <button type="button" data-feedback="right">Sounds right</button>
@@ -530,14 +317,14 @@ const faqSchema = {
           `;
         }
 
-        // Answered and settled: they agreed, they took the half step, or they were
-        // offered it and kept ours. All three are done; only an unanswered nudge
-        // still has something to ask.
-        if (answers.feedback === "right" || accepted.declared || answers.feedback.endsWith("_kept")) {
+        // Answered and settled: they agreed, they took the half step, they were offered
+        // it and kept ours, or there is no step the app could save. Only an unanswered
+        // offer still has something to ask.
+        const target = nudgeTarget(result.seed, answers.feedback);
+        if (answers.feedback === "right" || settled.declared || answers.feedback.endsWith("_kept") || target === null) {
           return `<p class="confirm__done" role="status">Thanks — that helps us calibrate the quiz.</p>`;
         }
 
-        const target = nudgeTarget(result);
         return `
           <div class="confirm">
             <p class="confirm__q" id="confirm-q">Want to set it to ${fmtLevel(target)} instead?</p>
@@ -547,39 +334,25 @@ const faqSchema = {
             </div>
           </div>
         `;
-      }
+      };
 
-      function fmtLevel(value) {
-        return value.toFixed(1);
-      }
-
-      function renderResult() {
-        const result = score();
-        if (!accepted) {
-          accepted = { seed: result.seed, band: result.band, confidence: result.confidence, declared: false };
-        }
-
-        const payload = result.declaredUsta === null
-          ? {
-              self_rated_seed: accepted.seed,
-              // Their claim once they have moved it, ours until then.
-              self_rating_source: accepted.declared ? "self_declared" : "self_assessed",
-              rating_quiz_answers: answers,
-              rating_model_version: RATING_MODEL_VERSION,
-            }
-          : { usta_rating: result.declaredUsta };
+      const renderResult = () => {
+        const result = scoreRatingQuiz(answers);
+        const settled = accepted ?? settleEstimate(result);
+        accepted = settled;
+        const payload = buildRatingQuizPayload(answers, settled);
 
         quiz.innerHTML = `
           <div class="res">
             <p class="lead">Based on your answers, you look like</p>
-            <p class="band">NTRP ${accepted.band}</p>
-            <span class="conf">${accepted.confidence}</span>
+            <p class="band">NTRP ${settled.band}</p>
+            <span class="conf">${settled.confidence}</span>
             <p class="why">${result.why}</p>
-            ${confirmBlock(result)}
+            ${confirmBlock(result, settled)}
             <div class="local">
               <h3>Playing in West LA?</h3>
               <p>Save your level and we'll show you players, classes, coaches, and league divisions that actually fit.</p>
-              <a class="btn solid" href="${appHref(accepted, payload)}">Find options at this level</a>
+              <a class="btn solid" href="${appHref(settled, payload)}">Find options at this level</a>
             </div>
             <details class="save-preview">
               <summary>What the app saves if you sign in</summary>
@@ -591,51 +364,53 @@ const faqSchema = {
 
         pointAppLinksAt(payload);
 
-        quiz.querySelectorAll("[data-feedback]").forEach((button) => {
+        quiz.querySelectorAll<HTMLButtonElement>("[data-feedback]").forEach((button) => {
           button.addEventListener("click", () => {
-            // Recorded, not applied. When the completion event ships, this rides
-            // along with level, confidence and pool — it is the calibration signal.
+            // Recorded, not applied. When the completion event ships, this rides along
+            // with level, confidence and pool — it is the calibration signal.
             answers.feedback = button.dataset.feedback;
             renderResult();
           });
         });
 
-        quiz.querySelectorAll("[data-adjust]").forEach((button) => {
+        quiz.querySelectorAll<HTMLButtonElement>("[data-adjust]").forEach((button) => {
           button.addEventListener("click", () => {
             if (button.dataset.adjust !== "keep") {
-              const seed = Number(button.dataset.adjust);
-              accepted = { seed, band: bandLabel(seed), confidence: "Self-declared", declared: true };
+              accepted = takeNudge(Number(button.dataset.adjust));
             } else {
-              accepted = { ...accepted, declared: false };
+              accepted = settleEstimate(result);
               answers.feedback = answers.feedback === "low" ? "low_kept" : "high_kept";
             }
             renderResult();
           });
         });
 
-        quiz.querySelector(".level-reset").addEventListener("click", () => {
+        quiz.querySelector(".level-reset")?.addEventListener("click", () => {
           answers = {};
           accepted = null;
           index = 0;
           pointAppLinksAt(null);
           renderQuestion();
         });
-      }
+      };
 
+      // The first card is served as HTML so it shows before the script runs; its
+      // options are picked up here once, then renderQuestion owns the card.
       quiz.addEventListener("click", (event) => {
-        if (event.target.closest("[data-skip-to-usta]")) {
+        const target = event.target as HTMLElement;
+        if (target.closest("[data-skip-to-usta]")) {
           skipToUsta();
           return;
         }
-        const button = event.target.closest("[data-option-id]");
+        const button = target.closest<HTMLElement>("[data-option-id]");
         if (!button) return;
-        const question = activeQuestions()[index];
+        const question = activeRatingQuizQuestions(answers)[index];
         if (!question) return;
         answers[question.key] = button.dataset.optionId;
         index += 1;
         renderQuestion();
       }, { once: true });
-    })();
+    }
   </script>
 </BaseLayout>
 

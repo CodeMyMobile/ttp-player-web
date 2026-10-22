@@ -86,7 +86,9 @@ export function LevelCheckDrawer({
   }, [open, onClose]);
 
   // The quiz starts clean each time it is opened. A half-finished run from an
-  // earlier visit is more confusing than five quick questions.
+  // earlier visit is more confusing than a few quick questions. The questions and
+  // scoring are the shared model the public quiz and /rating-quiz use, so a player
+  // gets the same level here as there.
   useEffect(() => {
     if (open) reset();
   }, [open, reset]);

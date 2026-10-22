@@ -354,3 +354,54 @@
     padding-bottom: 40px;
   }
 }
+
+/* "Does that sound about right?" under the estimate — the same block the public quiz shows. */
+.rq-confirm {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7ef;
+}
+
+.rq-confirm__q {
+  margin: 0 0 10px;
+  color: #12141c;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.rq-confirm__opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rq-confirm__opts button {
+  flex: 1 1 auto;
+  min-height: 44px;
+  border: 1px solid #e5e7ef;
+  border-radius: 999px;
+  padding: 9px 14px;
+  color: #12141c;
+  background: #fff;
+  font: inherit;
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+
+.rq-confirm__opts button:hover {
+  border-color: #7c5cf5;
+  color: #5b3ad4;
+}
+
+.rq-confirm__opts button:focus-visible {
+  outline: 2px solid #7c5cf5;
+  outline-offset: 2px;
+}
+
+.rq-confirm__done {
+  margin: 18px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7ef;
+  color: #727a90;
+  font-size: 0.86rem;
+}
