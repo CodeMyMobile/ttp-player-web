@@ -890,11 +890,7 @@ const PlayerProfilePage = () => {
         player={player}
         onClose={closeConnectModal}
         canShareIntro={Boolean(getSmsRecipient(player.raw?.phone))}
-        shareIntroDescription={
-          getSmsRecipient(player.raw?.phone)
-            ? "Open a text message with this player's number and your profile details prefilled."
-            : "This player doesn't have a valid mobile number available for SMS yet."
-        }
+        shareIntroDescription="Open a text message with this player's number and your profile details prefilled."
         onShareIntro={shareIntro}
         onCreateMatch={createMatchInvite}
         senderAvailability={matchProfile?.availability ?? []}
