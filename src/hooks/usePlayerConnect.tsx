@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { getAllSurveyQuestionAnswered } from "../api/playerHome";
 import ConnectPlayerModal from "../components/players/ConnectPlayerModal";
 import MatchProfileModal from "../components/players/MatchProfileModal";
 import usePlayerIdentity from "./usePlayerIdentity";
+import usePlayerIntro, { canReceiveIntro } from "./usePlayerIntro";
 import { getStoredAuthToken } from "../services/authToken";
 import type { ConnectIntent } from "../types/matchPlay";
 import {
@@ -13,31 +14,11 @@ import {
   hasIncompleteMatchProfileQuestions,
   sanitizeMatchProfile,
   storeMatchProfile,
-  toCanonicalAvailability,
   type StoredMatchProfile,
 } from "../utils/matchProfile";
-import { buildSmsUrl, getSmsRecipient } from "../utils/smsLink";
 import type { DirectoryPlayer } from "../utils/suggestedPlayer";
 
 export type ConnectMethod = "sms_intro" | "match_invite";
-
-const formatAvailabilityList = (slots: string[]): string => {
-  const cleaned = slots
-    .map((slot) => (typeof slot === "string" ? toCanonicalAvailability(slot) : ""))
-    .filter((slot) => slot.length > 0);
-
-  if (cleaned.length === 0) {
-    return "Weekends";
-  }
-  if (cleaned.length === 1) {
-    return cleaned[0];
-  }
-  if (cleaned.length === 2) {
-    return `${cleaned[0]} and ${cleaned[1]}`;
-  }
-  const head = cleaned.slice(0, -1).join(", ");
-  return `${head}, and ${cleaned[cleaned.length - 1]}`;
-};
 
 interface UsePlayerConnectOptions {
   /** False skips loading the match profile, so an unused hook costs no request. */
@@ -80,6 +61,9 @@ export default function usePlayerConnect({
   const [isConnectModalOpen, setConnectModalOpen] = useState(false);
   const [isProfileModalOpen, setProfileModalOpen] = useState(false);
   const [promptTrigger, setPromptTrigger] = useState<string | null>(null);
+  const intro = usePlayerIntro();
+  const resetIntro = intro.reset;
+  const sendIntro = intro.send;
 
   const hasCompletedMatchProfile = Boolean(matchProfile) && matchProfileCheckLoaded && !hasIncompleteMatchProfile;
 
@@ -128,15 +112,6 @@ export default function usePlayerConnect({
     };
   }, [enabled, playerToken]);
 
-  const profileShareUrl = useMemo(() => {
-    if (typeof window === "undefined") {
-      return "https://tennisplan.app/#/settings/match-profile";
-    }
-    const { origin, pathname } = window.location;
-    const normalizedPath = pathname.endsWith("/") ? pathname : `${pathname}/`;
-    return `${origin}${normalizedPath}#/settings/match-profile`;
-  }, []);
-
   const closeConnectModal = useCallback(() => {
     setConnectModalOpen(false);
     setConnectModalPlayer(null);
@@ -159,14 +134,15 @@ export default function usePlayerConnect({
         openProfileModal("connect_gate");
         return;
       }
+      resetIntro();
       setConnectModalPlayer(player);
       setConnectModalOpen(true);
     },
-    [hasCompletedMatchProfile, onConnectGated, openProfileModal, playerToken, requireSignIn],
+    [hasCompletedMatchProfile, onConnectGated, openProfileModal, playerToken, requireSignIn, resetIntro],
   );
 
   const handleShareIntro = useCallback(
-    (nextPlayer: DirectoryPlayer) => {
+    async (nextPlayer: DirectoryPlayer) => {
       if (!matchProfile) {
         if (!playerToken) {
           requireSignIn();
@@ -176,28 +152,16 @@ export default function usePlayerConnect({
         return;
       }
 
-      const recipientPhone = getSmsRecipient(nextPlayer.raw?.phone);
-      if (!recipientPhone) {
-        window.alert("This player doesn't have a valid mobile number available for SMS yet.");
+      if (!playerToken) {
+        requireSignIn();
         return;
       }
-
-      const trimmedDisplayName = displayName.trim();
-      const senderName = trimmedDisplayName.length ? trimmedDisplayName : "TTP Player";
-      const senderLevel = matchProfile?.level ?? null;
-      const preferredTimes = formatAvailabilityList(matchProfile?.availability ?? []);
-      // Without a rating we say nothing about level rather than claiming one.
-      const selfIntro = senderLevel
-        ? `My name is ${senderName} and I'm a ${senderLevel} player looking to hit ${preferredTimes}`
-        : `My name is ${senderName} and I'm looking to hit ${preferredTimes}`;
-      const message =
-        `Hi ${nextPlayer.name}, I found you on the Tennis Plan App. ${selfIntro} at one of our local courts. ` +
-        `You can check out my profile here: ${profileShareUrl}. ` +
-        "Let me know if you'd like to hit sometime.";
-
-      window.location.assign(buildSmsUrl(recipientPhone, message));
+      // The API texts them from our number; the browser never uses their phone.
+      if (!canReceiveIntro(nextPlayer.raw) || !/^\d+$/.test(nextPlayer.id)) return;
+      const sent = await sendIntro({ token: playerToken, playerId: nextPlayer.id, playerName: nextPlayer.name });
+      if (sent) onConnectSent?.(nextPlayer, "sms_intro");
     },
-    [displayName, matchProfile, playerToken, profileShareUrl, requireSignIn],
+    [matchProfile, onConnectSent, playerToken, requireSignIn, sendIntro],
   );
 
   const handleCreateMatchPlayIntent = useCallback(
@@ -231,22 +195,17 @@ export default function usePlayerConnect({
     [closeConnectModal, displayName, matchProfile, navigate, playerToken, requireSignIn, source],
   );
 
-  const smsRecipient = connectModalPlayer ? getSmsRecipient(connectModalPlayer.raw?.phone) : null;
-
   const modals = (
     <>
       <ConnectPlayerModal
         isOpen={isConnectModalOpen}
         player={connectModalPlayer}
         onClose={closeConnectModal}
-        canShareIntro={Boolean(smsRecipient)}
-        shareIntroDescription="Open a text message with this player's number and your profile details prefilled."
+        canShareIntro={canReceiveIntro(connectModalPlayer?.raw)}
+        introStatus={intro.status}
+        introError={intro.error}
         onShareIntro={() => {
-          if (connectModalPlayer) {
-            onConnectSent?.(connectModalPlayer, "sms_intro");
-            closeConnectModal();
-            handleShareIntro(connectModalPlayer);
-          }
+          if (connectModalPlayer) void handleShareIntro(connectModalPlayer);
         }}
         onCreateMatch={() => {
           if (connectModalPlayer) {

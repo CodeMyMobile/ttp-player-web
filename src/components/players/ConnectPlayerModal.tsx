@@ -1,4 +1,5 @@
 import type { Player } from "../../data/mockPlayers";
+import type { IntroStatus } from "../../hooks/usePlayerIntro";
 
 import "./ConnectPlayerModal.css";
 
@@ -12,6 +13,9 @@ type ConnectPlayerModalProps = {
   senderCourts?: string | null;
   canShareIntro?: boolean;
   shareIntroDescription?: string;
+  /** Where the quick intro is up to; see usePlayerIntro. */
+  introStatus?: IntroStatus;
+  introError?: string | null;
 };
 
 const formatAvailability = (slots?: string[]) => {
@@ -30,7 +34,9 @@ const ConnectPlayerModal = ({
   senderAvailability,
   senderCourts,
   canShareIntro = true,
-  shareIntroDescription = "Open a text message with your profile details prefilled.",
+  shareIntroDescription,
+  introStatus = "idle",
+  introError = null,
 }: ConnectPlayerModalProps) => {
   if (!isOpen || !player) {
     return null;
@@ -39,6 +45,9 @@ const ConnectPlayerModal = ({
   const availability = formatAvailability(senderAvailability);
   const hasAvailability = availability.length > 0;
   const trimmedCourts = senderCourts?.trim();
+  const introDescription =
+    shareIntroDescription ??
+    `We'll text ${player.name} a short intro with a link to your profile. Your number isn't shared.`;
 
   return (
     <div className="connect-modal" role="dialog" aria-modal="true" aria-label="Connect with player">
@@ -80,11 +89,32 @@ const ConnectPlayerModal = ({
 
           <div className="connect-modal__actions">
             {/* No textable number: offer only the invite, so the sheet never reads as "can't connect". */}
-            {canShareIntro ? (
-              <button type="button" className="connect-modal__action" onClick={onShareIntro}>
-                <span className="connect-modal__action-title">Send quick intro</span>
-                <span className="connect-modal__action-description">{shareIntroDescription}</span>
-              </button>
+            {canShareIntro && introStatus === "sent" ? (
+              <div className="connect-modal__status" role="status">
+                <span className="connect-modal__action-title">Intro sent</span>
+                <span className="connect-modal__action-description">
+                  {player.name} will get a text with a link to your profile.
+                </span>
+              </div>
+            ) : canShareIntro ? (
+              <div>
+                <button
+                  type="button"
+                  className="connect-modal__action connect-modal__action--full"
+                  onClick={onShareIntro}
+                  disabled={introStatus === "sending"}
+                >
+                  <span className="connect-modal__action-title">
+                    {introStatus === "sending" ? "Sending…" : "Send quick intro"}
+                  </span>
+                  <span className="connect-modal__action-description">{introDescription}</span>
+                </button>
+                {introStatus === "error" && introError ? (
+                  <p className="connect-modal__error" role="alert">
+                    {introError}
+                  </p>
+                ) : null}
+              </div>
             ) : null}
             <button
               type="button"

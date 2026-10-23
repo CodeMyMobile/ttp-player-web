@@ -143,6 +143,23 @@
   color: var(--coach-color-heading);
 }
 
+.connect-modal__action--full {
+  width: 100%;
+}
+
+.connect-modal__status {
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  border-radius: 18px;
+  padding: 16px 18px;
+  background: rgba(139, 92, 246, 0.08);
+}
+
+.connect-modal__error {
+  margin: 8px 4px 0;
+  font-size: 14px;
+  color: #b42318;
+}
+
 .connect-modal__action-description {
   font-size: 14px;
   color: var(--coach-color-body);

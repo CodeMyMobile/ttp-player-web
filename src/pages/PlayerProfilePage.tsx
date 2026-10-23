@@ -23,7 +23,7 @@ import {
   mapSuggestedPlayer,
   type DirectoryPlayer,
 } from "../utils/suggestedPlayer";
-import { buildSmsUrl, getSmsRecipient } from "../utils/smsLink";
+import usePlayerIntro, { canReceiveIntro } from "../hooks/usePlayerIntro";
 
 type OpenMatch = Record<string, unknown>;
 
@@ -141,6 +141,7 @@ const PlayerProfilePage = () => {
   const [levelConfirmed, setLevelConfirmed] = useState(false);
   const [verificationCountDelta, setVerificationCountDelta] = useState(0);
   const [connectModalOpen, setConnectModalOpen] = useState(false);
+  const intro = usePlayerIntro();
   const [matchProfile] = useState(() => getStoredMatchProfile());
   const [openMatches, setOpenMatches] = useState<OpenMatch[]>([]);
   const [matchesLoading, setMatchesLoading] = useState(true);
@@ -490,6 +491,7 @@ const PlayerProfilePage = () => {
       navigate("/find-players");
       return;
     }
+    intro.reset();
     setConnectModalOpen(true);
   };
 
@@ -505,22 +507,9 @@ const PlayerProfilePage = () => {
       return;
     }
 
-    const recipientPhone = getSmsRecipient(player.raw?.phone);
-    if (!recipientPhone) {
-      window.alert("This player doesn't have a valid mobile number available for SMS yet.");
-      return;
-    }
-
-    const senderLevel = matchProfile.level ?? null;
-    const preferredTimes = matchProfile.availability?.length ? matchProfile.availability.join(", ") : "soon";
-    // Without a rating we say nothing about level rather than claiming one.
-    const selfIntro = senderLevel
-      ? `I'm a ${senderLevel} player looking to hit ${preferredTimes}`
-      : `I'm looking to hit ${preferredTimes}`;
-    const message = `Hi ${player.name}, I found you on The Tennis Plan. ${selfIntro}. Let me know if you'd like to connect.`;
-
-    closeConnectModal();
-    window.location.assign(buildSmsUrl(recipientPhone, message));
+    // The API texts them from our number; the browser never uses their phone.
+    if (!authToken || !canReceiveIntro(player.raw) || !/^\d+$/.test(player.id)) return;
+    void intro.send({ token: authToken, playerId: player.id, playerName: player.name });
   };
 
   const createMatchInvite = () => {
@@ -889,8 +878,9 @@ const PlayerProfilePage = () => {
         isOpen={connectModalOpen}
         player={player}
         onClose={closeConnectModal}
-        canShareIntro={Boolean(getSmsRecipient(player.raw?.phone))}
-        shareIntroDescription="Open a text message with this player's number and your profile details prefilled."
+        canShareIntro={canReceiveIntro(player.raw)}
+        introStatus={intro.status}
+        introError={intro.error}
         onShareIntro={shareIntro}
         onCreateMatch={createMatchInvite}
         senderAvailability={matchProfile?.availability ?? []}
