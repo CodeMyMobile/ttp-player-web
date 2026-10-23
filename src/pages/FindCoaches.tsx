@@ -14,9 +14,8 @@ import MainLayout from "../components/MainLayout";
 import CoachCard from "../components/coaches/CoachCard";
 import TrustCard from "../components/coaches/TrustCard";
 import { TRUST_TOOLTIP } from "../components/coaches/CoachTrustMark";
-import { normalizeVenueLabel } from "../utils/venueLabel";
+import { abbreviateVenueLabel, normalizeVenueLabel } from "../utils/venueLabel";
 import {
-  abbreviateVenueLabel,
   COACH_CHIPS,
   countSessionsThisWeek,
   COACH_SORT_OPTIONS,
