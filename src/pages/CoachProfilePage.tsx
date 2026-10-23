@@ -81,6 +81,7 @@ import {
   isCancelledLessonStatus,
   countSlotsInWindow,
   currentWeekWindow,
+  keepGroupSlots,
   mergeAvailabilityDayGroups,
   parseCoachAvailabilityClock,
 } from "../utils/coachProfileAvailability";
@@ -1445,8 +1446,12 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
         };
       };
 
-      const availableDates = apiProfile?.booking?.availableDates ?? [];
-      if (availableDates.length) {
+      // When the API sends availableDates at all, even empty, it is the only source of
+      // private slots: it has removed the coach's lessons and Google Calendar busy
+      // times. An empty list can mean every day is blocked, not "unknown".
+      const serverDates = apiProfile?.booking?.availableDates;
+      const availableDates = serverDates ?? [];
+      if (Array.isArray(serverDates)) {
         const mappedDays = availableDates.map((day): DayGroup => {
           const isoDate = day.id ?? "";
           const slots = (day.slots ?? []).flatMap((slot, index): LoadedSlot[] => {
@@ -1541,7 +1546,8 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
           for (let cursor = rangeStart.clone(); cursor.isSameOrBefore(rangeEnd, "day"); cursor.add(1, "day")) {
             scheduleDays.push(await loadScheduleDay(cursor.clone()));
           }
-          const mergedDays = mergeAvailabilityDayGroups(nextDays, scheduleDays);
+          // Only group lessons come from the schedule; see keepGroupSlots.
+          const mergedDays = mergeAvailabilityDayGroups(nextDays, scheduleDays.map(keepGroupSlots));
           if (active) {
             setSlotsByDay(mergedDays);
             setScheduleLoading(false);
