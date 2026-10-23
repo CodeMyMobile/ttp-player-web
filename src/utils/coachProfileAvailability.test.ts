@@ -6,6 +6,7 @@ import {
   currentWeekWindow,
   getAvailabilitySlotPeriod,
   isCancelledLessonStatus,
+  keepGroupSlots,
   mergeAvailabilityDayGroups,
   parseCoachAvailabilityClock,
   type CoachProfileAvailabilityDay,
@@ -205,4 +206,27 @@ test("the week window is seven days inclusive", () => {
   assert.equal(windowStart, "2026-09-07");
   // +6, not +7: a seven-day window counted inclusively ends on the seventh day.
   assert.equal(windowEnd, "2026-09-13");
+});
+
+test("schedule days merge in only their group lessons, so blocked private times stay closed", () => {
+  // The API left 9:00 out (a Google Calendar event) and the whole of Oct 24 (busy all day).
+  const profileDays = [day("2026-10-23", [{ id: "p8", type: "private", start: "2026-10-23T08:00:00Z" }])];
+  const scheduleDays = [
+    day("2026-10-23", [
+      { id: "s8", type: "private", start: "2026-10-23T08:00:00Z" },
+      { id: "s9", type: "private", start: "2026-10-23T09:00:00Z" },
+      { id: "g10", type: "group", start: "2026-10-23T10:00:00Z", sourceLessonId: 77 },
+    ]),
+    day("2026-10-24", [{ id: "s24", type: "private", start: "2026-10-24T09:00:00Z" }]),
+  ];
+
+  const merged = mergeAvailabilityDayGroups(profileDays, scheduleDays.map(keepGroupSlots));
+
+  assert.deepEqual(
+    merged.map((d) => [d.isoDate, d.slots.map((slot) => slot.id)]),
+    [
+      ["2026-10-23", ["p8", "g10"]],
+      ["2026-10-24", []],
+    ],
+  );
 });

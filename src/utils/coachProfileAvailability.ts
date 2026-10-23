@@ -65,6 +65,19 @@ export const mergeAvailabilityDayGroups = <T extends CoachProfileAvailabilitySlo
   return Array.from(byDate.values()).sort((a, b) => a.isoDate.localeCompare(b.isoDate));
 };
 
+/**
+ * A schedule-built day with only its group lessons. The API's availableDates
+ * already gives the private slots, with the coach's lessons and synced Google
+ * Calendar busy times taken out; private slots rebuilt from the weekly schedule
+ * know neither, so merging them back would re-open times the coach blocked.
+ */
+export const keepGroupSlots = <T extends CoachProfileAvailabilitySlot>(
+  day: CoachProfileAvailabilityDay<T>,
+): CoachProfileAvailabilityDay<T> => ({
+  ...day,
+  slots: day.slots.filter((slot) => slot.type === "group"),
+});
+
 export const isCancelledLessonStatus = (status: unknown) => {
   if (typeof status === "number") return status === 2;
   if (typeof status === "string") {
