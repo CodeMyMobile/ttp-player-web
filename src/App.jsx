@@ -6,6 +6,7 @@ import DashboardPage from "./pages/DashboardPage";
 import LandingPage from "./pages/LandingPage";
 import HomePage from "./pages/HomePage";
 import { isHomeV2Enabled, isVendorPageEnabled } from "./utils/featureFlags";
+import { readDirectPage } from "./utils/directPage";
 import PlayDatesMatchesApp from "./play-dates/TennisMatchApp";
 import PlayDatesInvitationPage from "./play-dates/InvitationPage";
 import PlayDatesMatchPage from "./play-dates/pages/MatchPage";
@@ -858,21 +859,28 @@ const LocationPermissionGate = () => {
   return null;
 };
 
-function App() {
-  const hashPath = typeof window !== "undefined"
-    ? window.location.hash.replace(/^#/, "")
-    : "";
-  const hasHashRoute = hashPath.startsWith("/");
-  const directPayMatch = typeof window !== "undefined"
-    ? !hasHashRoute && window.location.pathname.match(/^\/pay\/([^/?#]+)/)
-    : null;
-  const directVendorMatch = typeof window !== "undefined"
-    ? !hasHashRoute && window.location.pathname.match(/^\/([^/?#]+)\/?$/)
-    : null;
-  const directVendorSlug = directVendorMatch && directVendorMatch[1] !== "pay"
-    ? decodeURIComponent(directVendorMatch[1])
-    : "";
+// The header on those pages links into the hash routes. Once the player
+// navigates anywhere (even to "#/" again), hand over to the app's routes and
+// drop the direct path from the URL so a refresh stays where they went.
+const DirectPageOrRoutes = () => {
+  const location = useLocation();
+  const [directPage] = useState(() => (typeof window === "undefined" ? null : readDirectPage(window.location)));
+  const [initialKey] = useState(location.key);
+  const leftDirectPage = Boolean(directPage) && location.key !== initialKey;
 
+  useEffect(() => {
+    if (!leftDirectPage || window.location.pathname === "/") return;
+    window.history.replaceState(window.history.state, "", `/${window.location.hash}`);
+  }, [leftDirectPage, location.key]);
+
+  if (!directPage || leftDirectPage) return <AppRoutes />;
+  if (directPage.payToken) return <PayLinkCheckoutPage token={directPage.payToken} />;
+  return isVendorPageEnabled()
+    ? <VendorPublicPage vendorSlug={directPage.vendorSlug} />
+    : <RestringingPlayerFlow vendorSlug={directPage.vendorSlug} />;
+};
+
+function App() {
   return (
     <AuthProvider>
       <HashRouter>
@@ -880,15 +888,7 @@ function App() {
         <AuthDrawerProvider>
           <LocationPermissionGate />
           <div className="app-shell">
-            {directPayMatch ? (
-              <PayLinkCheckoutPage token={decodeURIComponent(directPayMatch[1])} />
-            ) : directVendorSlug ? (
-              isVendorPageEnabled()
-                ? <VendorPublicPage vendorSlug={directVendorSlug} />
-                : <RestringingPlayerFlow vendorSlug={directVendorSlug} />
-            ) : (
-              <AppRoutes />
-            )}
+            <DirectPageOrRoutes />
           </div>
         </AuthDrawerProvider>
       </HashRouter>
