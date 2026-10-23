@@ -621,13 +621,6 @@ export const fetchPlayerDetails = async ({ token, userId }: FetchPlayerDetailsPa
     },
   );
 
-/** Text a player an intro from our number, linking to the sender's profile. See usePlayerIntro. */
-export const sendPlayerIntro = async ({ token, playerId }: { token: string; playerId: string }) =>
-  request<{ sent: boolean }>(`/players/${encodeURIComponent(playerId)}/intro`, {
-    method: "POST",
-    token,
-  });
-
 export const fetchPublicPlayerProfile = async ({ userId }: { userId: number | string }) =>
   request<Record<string, unknown>>(`/public/players/${userId}`);
 

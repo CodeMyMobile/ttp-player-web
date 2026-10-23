@@ -8,8 +8,8 @@ export type SuggestedPlayerRecord = {
   userId: number;
   email?: string;
   phone?: string;
-  /** The API can text this player an intro (they have a textable number). */
-  can_receive_intro?: boolean;
+  /** The API can text this player a hit request (they have a textable number). */
+  can_receive_hit_request?: boolean;
   full_name?: string;
   profile_picture?: string;
   skillLevel?: string;

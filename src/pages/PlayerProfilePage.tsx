@@ -23,7 +23,7 @@ import {
   mapSuggestedPlayer,
   type DirectoryPlayer,
 } from "../utils/suggestedPlayer";
-import usePlayerIntro, { canReceiveIntro } from "../hooks/usePlayerIntro";
+import useHitRequest, { canReceiveHitRequest } from "../hooks/useHitRequest";
 
 type OpenMatch = Record<string, unknown>;
 
@@ -141,7 +141,7 @@ const PlayerProfilePage = () => {
   const [levelConfirmed, setLevelConfirmed] = useState(false);
   const [verificationCountDelta, setVerificationCountDelta] = useState(0);
   const [connectModalOpen, setConnectModalOpen] = useState(false);
-  const intro = usePlayerIntro();
+  const hitRequest = useHitRequest();
   const [matchProfile] = useState(() => getStoredMatchProfile());
   const [openMatches, setOpenMatches] = useState<OpenMatch[]>([]);
   const [matchesLoading, setMatchesLoading] = useState(true);
@@ -491,13 +491,13 @@ const PlayerProfilePage = () => {
       navigate("/find-players");
       return;
     }
-    intro.reset();
+    hitRequest.reset();
     setConnectModalOpen(true);
   };
 
   const closeConnectModal = () => setConnectModalOpen(false);
 
-  const shareIntro = () => {
+  const requestHit = () => {
     if (!isSignedIn) {
       promptSignIn();
       return;
@@ -507,9 +507,9 @@ const PlayerProfilePage = () => {
       return;
     }
 
-    // The API texts them from our number; the browser never uses their phone.
-    if (!authToken || !canReceiveIntro(player.raw) || !/^\d+$/.test(player.id)) return;
-    void intro.send({ token: authToken, playerId: player.id, playerName: player.name });
+    // The API texts them a link to accept or decline; the browser never uses their phone.
+    if (!authToken || !canReceiveHitRequest(player.raw) || !/^\d+$/.test(player.id)) return;
+    void hitRequest.send({ token: authToken, playerId: player.id, playerName: player.name });
   };
 
   const createMatchInvite = () => {
@@ -878,10 +878,10 @@ const PlayerProfilePage = () => {
         isOpen={connectModalOpen}
         player={player}
         onClose={closeConnectModal}
-        canShareIntro={canReceiveIntro(player.raw)}
-        introStatus={intro.status}
-        introError={intro.error}
-        onShareIntro={shareIntro}
+        canRequestHit={canReceiveHitRequest(player.raw)}
+        hitRequestStatus={hitRequest.status}
+        hitRequestError={hitRequest.error}
+        onRequestHit={requestHit}
         onCreateMatch={createMatchInvite}
         senderAvailability={matchProfile?.availability ?? []}
         senderCourts={matchProfile?.localCourts ?? ""}

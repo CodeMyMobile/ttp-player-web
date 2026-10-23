@@ -1,5 +1,5 @@
 import type { Player } from "../../data/mockPlayers";
-import type { IntroStatus } from "../../hooks/usePlayerIntro";
+import type { HitRequestSendStatus } from "../../hooks/useHitRequest";
 
 import "./ConnectPlayerModal.css";
 
@@ -7,15 +7,15 @@ type ConnectPlayerModalProps = {
   isOpen: boolean;
   player: Player | null;
   onClose: () => void;
-  onShareIntro: () => void;
+  onRequestHit: () => void;
   onCreateMatch: () => void;
   senderAvailability?: string[];
   senderCourts?: string | null;
-  canShareIntro?: boolean;
-  shareIntroDescription?: string;
-  /** Where the quick intro is up to; see usePlayerIntro. */
-  introStatus?: IntroStatus;
-  introError?: string | null;
+  /** The API can text this player a hit request. */
+  canRequestHit?: boolean;
+  /** Where the hit request is up to; see useHitRequest. */
+  hitRequestStatus?: HitRequestSendStatus;
+  hitRequestError?: string | null;
 };
 
 const formatAvailability = (slots?: string[]) => {
@@ -29,14 +29,13 @@ const ConnectPlayerModal = ({
   isOpen,
   player,
   onClose,
-  onShareIntro,
+  onRequestHit,
   onCreateMatch,
   senderAvailability,
   senderCourts,
-  canShareIntro = true,
-  shareIntroDescription,
-  introStatus = "idle",
-  introError = null,
+  canRequestHit = false,
+  hitRequestStatus = "idle",
+  hitRequestError = null,
 }: ConnectPlayerModalProps) => {
   if (!isOpen || !player) {
     return null;
@@ -45,9 +44,6 @@ const ConnectPlayerModal = ({
   const availability = formatAvailability(senderAvailability);
   const hasAvailability = availability.length > 0;
   const trimmedCourts = senderCourts?.trim();
-  const introDescription =
-    shareIntroDescription ??
-    `We'll text ${player.name} a short intro with a link to your profile. Your number isn't shared.`;
 
   return (
     <div className="connect-modal" role="dialog" aria-modal="true" aria-label="Connect with player">
@@ -58,8 +54,8 @@ const ConnectPlayerModal = ({
             <p className="connect-modal__eyebrow">Connect with</p>
             <h2 className="connect-modal__title">{player.name}</h2>
             <p className="connect-modal__subtitle">
-              {canShareIntro
-                ? "Share a quick intro or spin up a MatchPlay invite so you can align on a time to hit."
+              {canRequestHit
+                ? "Ask to hit, or spin up a MatchPlay invite with a time and place."
                 : "Send a MatchPlay invite so you can align on a time to hit."}
             </p>
           </div>
@@ -89,29 +85,35 @@ const ConnectPlayerModal = ({
 
           <div className="connect-modal__actions">
             {/* No textable number: offer only the invite, so the sheet never reads as "can't connect". */}
-            {canShareIntro && introStatus === "sent" ? (
+            {canRequestHit && (hitRequestStatus === "sent" || hitRequestStatus === "connected") ? (
               <div className="connect-modal__status" role="status">
-                <span className="connect-modal__action-title">Intro sent</span>
+                <span className="connect-modal__action-title">
+                  {hitRequestStatus === "connected" ? "You're connected" : "Request sent"}
+                </span>
                 <span className="connect-modal__action-description">
-                  {player.name} will get a text with a link to your profile.
+                  {hitRequestStatus === "connected"
+                    ? `${player.name} had already asked you. We've texted you each other's numbers.`
+                    : `We'll text you ${player.name}'s number if they accept.`}
                 </span>
               </div>
-            ) : canShareIntro ? (
+            ) : canRequestHit ? (
               <div>
                 <button
                   type="button"
                   className="connect-modal__action connect-modal__action--full"
-                  onClick={onShareIntro}
-                  disabled={introStatus === "sending"}
+                  onClick={onRequestHit}
+                  disabled={hitRequestStatus === "sending"}
                 >
                   <span className="connect-modal__action-title">
-                    {introStatus === "sending" ? "Sending…" : "Send quick intro"}
+                    {hitRequestStatus === "sending" ? "Sending…" : "Ask to hit"}
                   </span>
-                  <span className="connect-modal__action-description">{introDescription}</span>
+                  <span className="connect-modal__action-description">
+                    We'll text {player.name} your request. If they accept, you'll both get each other's numbers.
+                  </span>
                 </button>
-                {introStatus === "error" && introError ? (
+                {hitRequestStatus === "error" && hitRequestError ? (
                   <p className="connect-modal__error" role="alert">
-                    {introError}
+                    {hitRequestError}
                   </p>
                 ) : null}
               </div>

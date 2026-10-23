@@ -5,7 +5,7 @@ import { getAllSurveyQuestionAnswered } from "../api/playerHome";
 import ConnectPlayerModal from "../components/players/ConnectPlayerModal";
 import MatchProfileModal from "../components/players/MatchProfileModal";
 import usePlayerIdentity from "./usePlayerIdentity";
-import usePlayerIntro, { canReceiveIntro } from "./usePlayerIntro";
+import useHitRequest, { canReceiveHitRequest } from "./useHitRequest";
 import { getStoredAuthToken } from "../services/authToken";
 import type { ConnectIntent } from "../types/matchPlay";
 import {
@@ -18,7 +18,7 @@ import {
 } from "../utils/matchProfile";
 import type { DirectoryPlayer } from "../utils/suggestedPlayer";
 
-export type ConnectMethod = "sms_intro" | "match_invite";
+export type ConnectMethod = "hit_request" | "match_invite";
 
 interface UsePlayerConnectOptions {
   /** False skips loading the match profile, so an unused hook costs no request. */
@@ -37,7 +37,7 @@ interface UsePlayerConnectOptions {
  * Connect, as Find Players does it, for any page that shows player cards.
  *
  * Loads the viewer's match profile once (their survey answers), gates Connect on it
- * being complete, and owns both modals: ConnectPlayerModal (SMS intro or MatchPlay
+ * being complete, and owns both modals: ConnectPlayerModal (hit request or MatchPlay
  * invite) and MatchProfileModal (the gate). Render `modals` once on the page.
  * Analytics stay with the page, through the callbacks.
  */
@@ -61,9 +61,9 @@ export default function usePlayerConnect({
   const [isConnectModalOpen, setConnectModalOpen] = useState(false);
   const [isProfileModalOpen, setProfileModalOpen] = useState(false);
   const [promptTrigger, setPromptTrigger] = useState<string | null>(null);
-  const intro = usePlayerIntro();
-  const resetIntro = intro.reset;
-  const sendIntro = intro.send;
+  const hitRequest = useHitRequest();
+  const resetHitRequest = hitRequest.reset;
+  const sendHitRequest = hitRequest.send;
 
   const hasCompletedMatchProfile = Boolean(matchProfile) && matchProfileCheckLoaded && !hasIncompleteMatchProfile;
 
@@ -134,14 +134,14 @@ export default function usePlayerConnect({
         openProfileModal("connect_gate");
         return;
       }
-      resetIntro();
+      resetHitRequest();
       setConnectModalPlayer(player);
       setConnectModalOpen(true);
     },
-    [hasCompletedMatchProfile, onConnectGated, openProfileModal, playerToken, requireSignIn, resetIntro],
+    [hasCompletedMatchProfile, onConnectGated, openProfileModal, playerToken, requireSignIn, resetHitRequest],
   );
 
-  const handleShareIntro = useCallback(
+  const handleRequestHit = useCallback(
     async (nextPlayer: DirectoryPlayer) => {
       if (!matchProfile) {
         if (!playerToken) {
@@ -156,12 +156,12 @@ export default function usePlayerConnect({
         requireSignIn();
         return;
       }
-      // The API texts them from our number; the browser never uses their phone.
-      if (!canReceiveIntro(nextPlayer.raw) || !/^\d+$/.test(nextPlayer.id)) return;
-      const sent = await sendIntro({ token: playerToken, playerId: nextPlayer.id, playerName: nextPlayer.name });
-      if (sent) onConnectSent?.(nextPlayer, "sms_intro");
+      // The API texts them a link to accept or decline; the browser never uses their phone.
+      if (!canReceiveHitRequest(nextPlayer.raw) || !/^\d+$/.test(nextPlayer.id)) return;
+      const sent = await sendHitRequest({ token: playerToken, playerId: nextPlayer.id, playerName: nextPlayer.name });
+      if (sent) onConnectSent?.(nextPlayer, "hit_request");
     },
-    [matchProfile, onConnectSent, playerToken, requireSignIn, sendIntro],
+    [matchProfile, onConnectSent, playerToken, requireSignIn, sendHitRequest],
   );
 
   const handleCreateMatchPlayIntent = useCallback(
@@ -201,11 +201,11 @@ export default function usePlayerConnect({
         isOpen={isConnectModalOpen}
         player={connectModalPlayer}
         onClose={closeConnectModal}
-        canShareIntro={canReceiveIntro(connectModalPlayer?.raw)}
-        introStatus={intro.status}
-        introError={intro.error}
-        onShareIntro={() => {
-          if (connectModalPlayer) void handleShareIntro(connectModalPlayer);
+        canRequestHit={canReceiveHitRequest(connectModalPlayer?.raw)}
+        hitRequestStatus={hitRequest.status}
+        hitRequestError={hitRequest.error}
+        onRequestHit={() => {
+          if (connectModalPlayer) void handleRequestHit(connectModalPlayer);
         }}
         onCreateMatch={() => {
           if (connectModalPlayer) {
