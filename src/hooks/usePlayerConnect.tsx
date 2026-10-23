@@ -240,11 +240,7 @@ export default function usePlayerConnect({
         player={connectModalPlayer}
         onClose={closeConnectModal}
         canShareIntro={Boolean(smsRecipient)}
-        shareIntroDescription={
-          smsRecipient
-            ? "Open a text message with this player's number and your profile details prefilled."
-            : "This player doesn't have a valid mobile number available for SMS yet."
-        }
+        shareIntroDescription="Open a text message with this player's number and your profile details prefilled."
         onShareIntro={() => {
           if (connectModalPlayer) {
             onConnectSent?.(connectModalPlayer, "sms_intro");

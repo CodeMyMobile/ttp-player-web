@@ -49,7 +49,9 @@ const ConnectPlayerModal = ({
             <p className="connect-modal__eyebrow">Connect with</p>
             <h2 className="connect-modal__title">{player.name}</h2>
             <p className="connect-modal__subtitle">
-              Share a quick intro or spin up a MatchPlay invite so you can align on a time to hit.
+              {canShareIntro
+                ? "Share a quick intro or spin up a MatchPlay invite so you can align on a time to hit."
+                : "Send a MatchPlay invite so you can align on a time to hit."}
             </p>
           </div>
           <button type="button" className="connect-modal__close" onClick={onClose} aria-label="Close">
@@ -77,15 +79,13 @@ const ConnectPlayerModal = ({
           </div>
 
           <div className="connect-modal__actions">
-            <button
-              type="button"
-              className="connect-modal__action"
-              onClick={onShareIntro}
-              disabled={!canShareIntro}
-            >
-              <span className="connect-modal__action-title">Send quick intro</span>
-              <span className="connect-modal__action-description">{shareIntroDescription}</span>
-            </button>
+            {/* No textable number: offer only the invite, so the sheet never reads as "can't connect". */}
+            {canShareIntro ? (
+              <button type="button" className="connect-modal__action" onClick={onShareIntro}>
+                <span className="connect-modal__action-title">Send quick intro</span>
+                <span className="connect-modal__action-description">{shareIntroDescription}</span>
+              </button>
+            ) : null}
             <button
               type="button"
               className="connect-modal__action connect-modal__action--primary"
