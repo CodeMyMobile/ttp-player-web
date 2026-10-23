@@ -34,6 +34,7 @@ import OAuthPhoneCapture, { shouldCaptureProfilePhone } from "./components/OAuth
 import LessonInvitePage from "./pages/LessonInvitePage";
 import CoachProfilePage from "./pages/CoachProfilePage";
 import PlayerProfilePage from "./pages/PlayerProfilePage";
+import HitRequestPage from "./pages/HitRequestPage";
 import AccountProfilePage from "./pages/AccountProfilePage";
 import PlayerMatchProfilePage from "./pages/PlayerMatchProfilePage";
 import PlayerMatchProfileEditPage from "./pages/PlayerMatchProfileEditPage";
@@ -354,6 +355,10 @@ const AppRoutes = () => (
     <Route
       path="/li/:token"
       element={<LessonInvitePage />}
+    />
+    <Route
+      path="/hit/:token"
+      element={<HitRequestPage />}
     />
     <Route
       path="/pay/:token"

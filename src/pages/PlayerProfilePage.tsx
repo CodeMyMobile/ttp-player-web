@@ -23,7 +23,7 @@ import {
   mapSuggestedPlayer,
   type DirectoryPlayer,
 } from "../utils/suggestedPlayer";
-import { buildSmsUrl, getSmsRecipient } from "../utils/smsLink";
+import useHitRequest, { canReceiveHitRequest } from "../hooks/useHitRequest";
 
 type OpenMatch = Record<string, unknown>;
 
@@ -141,6 +141,7 @@ const PlayerProfilePage = () => {
   const [levelConfirmed, setLevelConfirmed] = useState(false);
   const [verificationCountDelta, setVerificationCountDelta] = useState(0);
   const [connectModalOpen, setConnectModalOpen] = useState(false);
+  const hitRequest = useHitRequest();
   const [matchProfile] = useState(() => getStoredMatchProfile());
   const [openMatches, setOpenMatches] = useState<OpenMatch[]>([]);
   const [matchesLoading, setMatchesLoading] = useState(true);
@@ -490,12 +491,13 @@ const PlayerProfilePage = () => {
       navigate("/find-players");
       return;
     }
+    hitRequest.reset();
     setConnectModalOpen(true);
   };
 
   const closeConnectModal = () => setConnectModalOpen(false);
 
-  const shareIntro = () => {
+  const requestHit = () => {
     if (!isSignedIn) {
       promptSignIn();
       return;
@@ -505,22 +507,9 @@ const PlayerProfilePage = () => {
       return;
     }
 
-    const recipientPhone = getSmsRecipient(player.raw?.phone);
-    if (!recipientPhone) {
-      window.alert("This player doesn't have a valid mobile number available for SMS yet.");
-      return;
-    }
-
-    const senderLevel = matchProfile.level ?? null;
-    const preferredTimes = matchProfile.availability?.length ? matchProfile.availability.join(", ") : "soon";
-    // Without a rating we say nothing about level rather than claiming one.
-    const selfIntro = senderLevel
-      ? `I'm a ${senderLevel} player looking to hit ${preferredTimes}`
-      : `I'm looking to hit ${preferredTimes}`;
-    const message = `Hi ${player.name}, I found you on The Tennis Plan. ${selfIntro}. Let me know if you'd like to connect.`;
-
-    closeConnectModal();
-    window.location.assign(buildSmsUrl(recipientPhone, message));
+    // The API texts them a link to accept or decline; the browser never uses their phone.
+    if (!authToken || !canReceiveHitRequest(player.raw) || !/^\d+$/.test(player.id)) return;
+    void hitRequest.send({ token: authToken, playerId: player.id, playerName: player.name });
   };
 
   const createMatchInvite = () => {
@@ -889,9 +878,10 @@ const PlayerProfilePage = () => {
         isOpen={connectModalOpen}
         player={player}
         onClose={closeConnectModal}
-        canShareIntro={Boolean(getSmsRecipient(player.raw?.phone))}
-        shareIntroDescription="Open a text message with this player's number and your profile details prefilled."
-        onShareIntro={shareIntro}
+        canRequestHit={canReceiveHitRequest(player.raw)}
+        hitRequestStatus={hitRequest.status}
+        hitRequestError={hitRequest.error}
+        onRequestHit={requestHit}
         onCreateMatch={createMatchInvite}
         senderAvailability={matchProfile?.availability ?? []}
         senderCourts={matchProfile?.localCourts ?? ""}
