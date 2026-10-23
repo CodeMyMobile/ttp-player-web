@@ -14,8 +14,12 @@ import type { DirectoryPlayer } from "./suggestedPlayer";
  *   of their own is never suggested.
  * - Within the viewer's radius (default 10 mi). If fewer than MIN_SUGGESTIONS
  *   qualify, widen to WIDEN_TO_MILES. The level range never widens.
- * - Score: shared court +3, overlapping availability +2, verified rating +1,
- *   profile photo +1. Ties go to the nearer player.
+ * - Players at the viewer's exact level come first, then those half a level away.
+ * - Within each of those two groups: score shared court +3, overlapping
+ *   availability +2, verified rating +1, profile photo +1.
+ * - With a `seed`, each group is shuffled, weighted by score, so better matches
+ *   tend to lead but the same player isn't always first. Without one, the order
+ *   is by score, then nearest. The home page passes a new seed per visit.
  */
 
 export const DEFAULT_HOME_RADIUS_MILES = 10;
@@ -34,6 +38,8 @@ export interface SuggestionReason {
 
 export interface PlayerSuggestion {
   player: DirectoryPlayer;
+  /** At the viewer's exact level, rather than half a level away. */
+  exactLevel: boolean;
   score: number;
   distanceMiles: number | null;
   reason: SuggestionReason;
@@ -118,6 +124,20 @@ export const isNearLevel = (
   return gap <= LEVEL_TOLERANCE;
 };
 
+/**
+ * Whether a player is at the viewer's own level: the two labels cover a common
+ * number. "4.5" and "4.5+" are the same level; "4.0" and "4.5" are not.
+ */
+export const isExactLevel = (
+  viewerLevel: string | null | undefined,
+  playerLevel: string | null | undefined,
+): boolean => {
+  const viewer = levelInterval(viewerLevel);
+  const player = levelInterval(playerLevel);
+  if (!viewer || !player) return false;
+  return Math.max(0, player[0] - viewer[1], viewer[0] - player[1]) <= 1e-9;
+};
+
 /** distance_miles from the API, or null when it didn't send one. */
 export const distanceOf = (player: DirectoryPlayer): number | null => {
   const raw = player.raw?.distance_miles;
@@ -183,6 +203,28 @@ const byDistance = (a: number | null, b: number | null) => {
   return a - b;
 };
 
+/** A small seeded random generator (mulberry32), so one seed gives one order. */
+const seededRandom = (seed: number) => {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+};
+
+/**
+ * A random order where heavier items tend to come first: each gets the key
+ * u^(1/weight) and the highest keys lead (weighted sampling without replacement).
+ */
+const weightedShuffle = <T>(items: T[], weightOf: (item: T) => number, random: () => number): T[] =>
+  items
+    .map((item) => ({ item, key: Math.pow(random(), 1 / weightOf(item)) }))
+    .sort((a, b) => b.key - a.key)
+    .map(({ item }) => item);
+
 /**
  * Within the viewer's radius, widening to WIDEN_TO_MILES when fewer than
  * MIN_SUGGESTIONS are found there. Returns the players and the radius used.
@@ -211,6 +253,7 @@ export const homePlayerSuggestions = ({
   viewer,
   radiusMiles = DEFAULT_HOME_RADIUS_MILES,
   searchedMiles = searchRadiusMiles(radiusMiles),
+  seed,
 }: {
   /** Find Players' own list for this viewer: self and blocked players are already out. */
   players: DirectoryPlayer[];
@@ -218,11 +261,15 @@ export const homePlayerSuggestions = ({
   radiusMiles?: number;
   /** The radius the players were fetched with. */
   searchedMiles?: number;
+  /** Shuffles the order (see the rules above). Omit for a fixed order. */
+  seed?: number;
 }): HomePlayersResult => {
   if (!hasLevel(viewer.level)) {
     const nearby = withinWidening(players, radiusMiles, searchedMiles);
+    const random = seed === undefined ? null : seededRandom(seed);
+    const pool = random ? weightedShuffle(nearby.players, () => 1, random) : nearby.players;
     // Photos first: the row is there to show real people.
-    const withPhotos = [...nearby.players].sort(
+    const withPhotos = [...pool].sort(
       (a, b) => Number(Boolean(b.profileImageUrl)) - Number(Boolean(a.profileImageUrl)),
     );
     return {
@@ -243,9 +290,20 @@ export const homePlayerSuggestions = ({
 
   const viewerCourts = new Set(viewer.courts.map(normalize));
   const viewerSlots = slotsOf(viewer.availability);
-  const ranked = inRange
-    .map((player) => ({ player, ...scoreOf(player, viewerCourts, viewerSlots) }))
-    .sort((a, b) => b.score - a.score || byDistance(a.distanceMiles, b.distanceMiles));
+  const scored = inRange.map((player) => ({
+    player,
+    exactLevel: isExactLevel(viewer.level, player.level),
+    ...scoreOf(player, viewerCourts, viewerSlots),
+  }));
+  const random = seed === undefined ? null : seededRandom(seed);
+  const order = (group: typeof scored) =>
+    random
+      ? weightedShuffle(group, (s) => 1 + s.score, random)
+      : [...group].sort((a, b) => b.score - a.score || byDistance(a.distanceMiles, b.distanceMiles));
+  const ranked = [
+    ...order(scored.filter((s) => s.exactLevel)),
+    ...order(scored.filter((s) => !s.exactLevel)),
+  ];
 
   return {
     state: "suggestions",

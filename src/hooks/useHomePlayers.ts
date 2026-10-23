@@ -51,6 +51,9 @@ export default function useHomePlayers({
 }): HomePlayersState {
   const [location, setLocation] = useState(readLocation);
   const [players, setPlayers] = useState<DirectoryPlayer[] | null>(null);
+  // One shuffle per visit: a different mix each time home opens, but it holds
+  // still while the viewer is on the page.
+  const [seed] = useState(() => Math.floor(Math.random() * 2 ** 32));
   const searchedMiles = searchRadiusMiles(location.radiusMiles);
 
   // The header's location picker writes here; follow it.
@@ -107,7 +110,8 @@ export default function useHomePlayers({
         },
         radiusMiles: location.radiusMiles,
         searchedMiles,
+        seed,
       }),
     };
-  }, [active, viewerLoaded, players, viewer, location.radiusMiles, searchedMiles]);
+  }, [active, viewerLoaded, players, viewer, location.radiusMiles, searchedMiles, seed]);
 }
