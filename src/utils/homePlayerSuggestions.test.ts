@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   findPlayersHref,
   homePlayerSuggestions,
+  isExactLevel,
   isNearLevel,
   reasonFor,
   searchRadiusMiles,
@@ -202,4 +203,74 @@ test("searches far enough for the widening in one call, and links Find Players w
   assert.equal(searchRadiusMiles(10), 15);
   assert.equal(searchRadiusMiles(20), 20);
   assert.equal(findPlayersHref(15), "/find-players?radius=15&level=near");
+});
+
+test("exact level is a common number: 4.5 and 4.5+ match, 4.0 and 4.5 don't", () => {
+  assert.equal(isExactLevel("4.5", "4.5"), true);
+  assert.equal(isExactLevel("4.5", "NTRP 4.5+"), true);
+  assert.equal(isExactLevel("5.0", "4.5+"), true);
+  assert.equal(isExactLevel("4.5", "4.0"), false);
+  assert.equal(isExactLevel("4.5", "5.0"), false);
+  assert.equal(isExactLevel("4.5", ""), false);
+});
+
+test("players at the viewer's exact level come before those half a level away", () => {
+  const players = [
+    player({ full_name: "Near, court", skillLevel: "4.0", playerCourtLocations: ["Penmar Park"], isLevelConfirmed: true }),
+    player({ full_name: "Exact, nothing", skillLevel: "4.5", distance_miles: 9 }),
+    player({ full_name: "Near above", skillLevel: "5.0", distance_miles: 0.5 }),
+    player({ full_name: "Exact, photo", skillLevel: "4.5", profile_picture: "https://x/p.jpg" }),
+  ];
+  const fixed = homePlayerSuggestions({ players, viewer: viewer({ level: "4.5" }) });
+  assert.deepEqual(idsOf(fixed), ["Exact, photo", "Exact, nothing", "Near, court", "Near above"]);
+  for (let seed = 0; seed < 50; seed += 1) {
+    const result = homePlayerSuggestions({ players, viewer: viewer({ level: "4.5" }), seed });
+    assert.equal(result.state, "suggestions");
+    if (result.state === "suggestions") {
+      assert.deepEqual(result.suggestions.map((s) => s.exactLevel), [true, true, false, false]);
+    }
+  }
+});
+
+test("a seed shuffles the order, the same seed gives the same order, and nobody is always first", () => {
+  const players = Array.from({ length: 12 }, (_, i) => player({ full_name: `P${i}` }));
+  const run = (seed: number) => idsOf(homePlayerSuggestions({ players, viewer: viewer(), seed }));
+  assert.deepEqual(run(7), run(7));
+  const firsts = new Set(Array.from({ length: 40 }, (_, seed) => run(seed)[0]));
+  assert.ok(firsts.size >= 6, `only ${firsts.size} different players led`);
+  // Who makes the 8 shown rotates too, not just their order.
+  const shown = new Set(Array.from({ length: 40 }, (_, seed) => run(seed)).flat());
+  assert.equal(shown.size, 12);
+});
+
+test("the shuffle is weighted: better matches lead more often, but not always", () => {
+  const players = [
+    player({ full_name: "Strong", playerCourtLocations: ["Penmar Park"], availability: ["Weekends"], isLevelConfirmed: true }),
+    ...Array.from({ length: 5 }, (_, i) => player({ full_name: `Plain ${i}` })),
+  ];
+  let strongFirst = 0;
+  const runs = 400;
+  for (let seed = 0; seed < runs; seed += 1) {
+    const ids = idsOf(homePlayerSuggestions({ players, viewer: viewer({ availability: ["Weekends"] }), seed }));
+    if (ids[0] === "Strong") strongFirst += 1;
+  }
+  // Weight 7 against five of weight 1: about 58% if weighted, 17% if not.
+  assert.ok(strongFirst > runs * 0.4 && strongFirst < runs * 0.8, `Strong led ${strongFirst}/${runs}`);
+});
+
+test("with no level, a seed shuffles the photo row but keeps photos first", () => {
+  const players = [
+    player({ full_name: "No photo" }),
+    ...Array.from({ length: 4 }, (_, i) => player({ full_name: `Photo ${i}`, profile_picture: `https://x/${i}.jpg` })),
+  ];
+  const firsts = new Set<string>();
+  for (let seed = 0; seed < 30; seed += 1) {
+    const result = homePlayerSuggestions({ players, viewer: viewer({ level: null }), seed });
+    assert.equal(result.state, "noLevel");
+    if (result.state === "noLevel") {
+      assert.equal(result.nearby[4].name, "No photo");
+      firsts.add(result.nearby[0].name);
+    }
+  }
+  assert.ok(firsts.size >= 3);
 });
