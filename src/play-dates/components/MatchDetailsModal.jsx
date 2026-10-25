@@ -887,6 +887,7 @@ const MatchDetailsModal = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState(DEFAULT_EDIT_FORM);
   const [editError, setEditError] = useState("");
+  const [notifyPlayersOnEdit, setNotifyPlayersOnEdit] = useState(true);
   const [editSaving, setEditSaving] = useState(false);
   const [cancellingMatch, setCancellingMatch] = useState(false);
   const [decliningInvite, setDecliningInvite] = useState(false);
@@ -1733,6 +1734,7 @@ const MatchDetailsModal = ({
   const handleStartEdit = () => {
     if (!isHost || isArchived || isCancelled) return;
     setEditError("");
+    setNotifyPlayersOnEdit(true);
     setIsEditing(true);
   };
 
@@ -1801,7 +1803,7 @@ const MatchDetailsModal = ({
       setEditError("Please provide a valid date and time.");
       return;
     }
-    if (scheduleChanged) {
+    if (scheduleChanged && notifyPlayersOnEdit) {
       const confirmed = window.confirm(
         "Changing the schedule will notify players. Continue?",
       );
@@ -1875,10 +1877,16 @@ const MatchDetailsModal = ({
       previousPlayerLimit: isOpenMatch ? previousPlayerLimitValue : undefined,
     });
 
+    if (!notifyPlayersOnEdit) {
+      payload.notify_players = false;
+    }
+
     try {
       setEditSaving(true);
       await updateMatch(match.id, payload);
-      onToast?.("Match updated");
+      onToast?.(
+        notifyPlayersOnEdit ? "Match updated" : "Match updated. Players weren't notified.",
+      );
       const updatedRecent = persistRecentLocation(
         trimmedLocation,
         latitude,
@@ -3311,6 +3319,24 @@ const MatchDetailsModal = ({
                 />
               </label>
             )}
+            <label className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5">
+              <input
+                type="checkbox"
+                checked={notifyPlayersOnEdit}
+                onChange={(event) => setNotifyPlayersOnEdit(event.target.checked)}
+                className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-gray-300 text-emerald-500 focus:ring-emerald-500"
+              />
+              <span className="flex flex-col gap-0.5">
+                <span className="text-sm font-bold text-gray-800">
+                  Text and email players about this change
+                </span>
+                <span className="text-xs font-medium text-gray-500">
+                  {notifyPlayersOnEdit
+                    ? "Everyone in the match, invited or on the waitlist gets the new details."
+                    : "No one is notified. They'll see the new details when they open the match."}
+                </span>
+              </span>
+            </label>
             {editError && (
               <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600">
                 <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
