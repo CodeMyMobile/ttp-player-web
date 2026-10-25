@@ -6689,6 +6689,9 @@ const TennisMatchApp = ({
 
     if (!isOpen || !matchToEdit) return null;
 
+    // Kept on editMatch rather than local state: this modal remounts on every edit.
+    const notifyPlayers = matchToEdit.notifyPlayers !== false;
+
     const handleSave = async () => {
       if (!matchToEdit?.id) return;
       try {
@@ -6698,6 +6701,7 @@ const TennisMatchApp = ({
           latitude: matchToEdit.latitude,
           longitude: matchToEdit.longitude,
           notes: matchToEdit.notes,
+          ...(notifyPlayers ? {} : { notify_players: false }),
         });
         if (matchToEdit.location) {
           persistRecentLocation(
@@ -6706,7 +6710,11 @@ const TennisMatchApp = ({
             matchToEdit.longitude,
           );
         }
-        displayToast("Match updated successfully!");
+        displayToast(
+          notifyPlayers
+            ? "Match updated successfully!"
+            : "Match updated. Players weren't notified.",
+        );
         setShowEditModal(false);
         setEditMatch(null);
         fetchMatches();
@@ -6878,7 +6886,28 @@ const TennisMatchApp = ({
             )}
           </div>
 
-          <div className="flex gap-3 mt-8">
+          <label className="mt-6 flex items-start gap-3 rounded-xl border-2 border-gray-200 px-4 py-3">
+            <input
+              type="checkbox"
+              checked={notifyPlayers}
+              onChange={(e) =>
+                setEditMatch({ ...matchToEdit, notifyPlayers: e.target.checked })
+              }
+              className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-gray-300 text-green-600 focus:ring-green-500"
+            />
+            <span className="flex flex-col gap-0.5">
+              <span className="text-sm font-black text-gray-800">
+                Text and email players about this change
+              </span>
+              <span className="text-xs font-semibold text-gray-500">
+                {notifyPlayers
+                  ? "Everyone in the match, invited or on the waitlist gets the new details."
+                  : "No one is notified. They'll see the new details when they open the match."}
+              </span>
+            </span>
+          </label>
+
+          <div className="flex gap-3 mt-6">
             <button
               onClick={() => {
                 setShowEditModal(false);
