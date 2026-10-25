@@ -25,6 +25,7 @@ import {
   X,
 } from "lucide-react";
 import PlayerAvatar from "./PlayerAvatar";
+import AddConnectionsSection from "./AddConnectionsSection";
 import {
   cancelMatch,
   deleteMatchNotification,
@@ -3669,6 +3670,15 @@ const MatchDetailsModal = ({
                 </label>
               </div>
             </section>
+          )}
+
+          {isHost && match?.id && !isArchived && !isCancelled && (
+            <AddConnectionsSection
+              matchId={match.id}
+              onAdded={reloadMatchQuietly}
+              onToast={onToast}
+              onInviteOthers={canManageInvites ? handleManageInvites : undefined}
+            />
           )}
 
           {!isArchived && !isCancelled && (
