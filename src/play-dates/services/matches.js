@@ -455,6 +455,19 @@ export const openMatchToWaitlist = (matchId) =>
     })
   );
 
+// Players the host can add straight into the match: people they've played a
+// match with, or connected with through a hit request.
+export const listMatchConnections = (matchId) =>
+  unwrap(api(`/matches/${matchId}/connections`));
+
+export const addMatchParticipant = (matchId, playerId) =>
+  unwrap(
+    api(`/matches/${matchId}/participants`, {
+      method: "POST",
+      body: JSON.stringify({ player_id: playerId }),
+    })
+  );
+
 export const sendInvites = (matchId, { playerIds = [], phoneNumbers = [] } = {}) =>
   unwrap(
     api(`/matches/${matchId}/invites`, {
