@@ -3,6 +3,7 @@ import Autocomplete from "react-google-autocomplete";
 import {
   AlertCircle,
   Ban,
+  CalendarClock,
   Calendar,
   Check,
   CheckCircle2,
@@ -26,6 +27,8 @@ import {
 } from "lucide-react";
 import PlayerAvatar from "./PlayerAvatar";
 import AddConnectionsSection from "./AddConnectionsSection";
+import SuggestTimeSection from "./SuggestTimeSection";
+import TimeSuggestionsSection from "./TimeSuggestionsSection";
 import {
   cancelMatch,
   deleteMatchNotification,
@@ -42,6 +45,7 @@ import {
   removeWaitlistEntry,
   searchPlayers,
   updateMatch,
+  respondToTimeSuggestion,
 } from "../services/matches";
 import { rejectInvite } from "../services/invites";
 import { isMatchArchivedError } from "../utils/archive";
@@ -888,6 +892,10 @@ const MatchDetailsModal = ({
   const [editForm, setEditForm] = useState(DEFAULT_EDIT_FORM);
   const [editError, setEditError] = useState("");
   const [notifyPlayersOnEdit, setNotifyPlayersOnEdit] = useState(true);
+  // The invitee suggestion whose time the host is saving, marked used once the edit lands.
+  const [usingSuggestion, setUsingSuggestion] = useState(null);
+  const [suggestionsReloadKey, setSuggestionsReloadKey] = useState(0);
+  const editFormRef = useRef(null);
   const [editSaving, setEditSaving] = useState(false);
   const [cancellingMatch, setCancellingMatch] = useState(false);
   const [decliningInvite, setDecliningInvite] = useState(false);
@@ -1735,12 +1743,29 @@ const MatchDetailsModal = ({
     if (!isHost || isArchived || isCancelled) return;
     setEditError("");
     setNotifyPlayersOnEdit(true);
+    setUsingSuggestion(null);
     setIsEditing(true);
+  };
+
+  const handleUseSuggestedTime = (suggestion, time) => {
+    if (!isHost || isArchived || isCancelled) return;
+    setEditForm({ ...originalEditForm, date: toDateInput(time), time: toTimeInput(time) });
+    setEditError("");
+    setNotifyPlayersOnEdit(true);
+    setUsingSuggestion({
+      id: suggestion.id,
+      name: (suggestion.player?.full_name || "").split(" ")[0] || "the player",
+    });
+    setIsEditing(true);
+    requestAnimationFrame(() => {
+      editFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   };
 
   const handleCancelEdit = () => {
     setEditForm(originalEditForm);
     setEditError("");
+    setUsingSuggestion(null);
     setIsEditing(false);
   };
 
@@ -1887,6 +1912,16 @@ const MatchDetailsModal = ({
       onToast?.(
         notifyPlayersOnEdit ? "Match updated" : "Match updated. Players weren't notified.",
       );
+      if (usingSuggestion) {
+        try {
+          await respondToTimeSuggestion(match.id, usingSuggestion.id, "used");
+        } catch (suggestionError) {
+          // The match moved; the suggestion just stays listed until dismissed.
+          console.warn("Failed to mark time suggestion used", suggestionError);
+        }
+        setUsingSuggestion(null);
+        setSuggestionsReloadKey((key) => key + 1);
+      }
       const updatedRecent = persistRecentLocation(
         trimmedLocation,
         latitude,
@@ -3163,7 +3198,15 @@ const MatchDetailsModal = ({
           )}
         </div>
         {isEditing && (
-          <form className="space-y-4" onSubmit={handleEditSubmit}>
+          <form ref={editFormRef} className="space-y-4" onSubmit={handleEditSubmit}>
+            {usingSuggestion && (
+              <div className="flex items-start gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-semibold text-violet-800">
+                <CalendarClock className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                <span>
+                  Using {usingSuggestion.name}&apos;s suggested time. Save to move the match.
+                </span>
+              </div>
+            )}
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
                 Date
@@ -3699,6 +3742,15 @@ const MatchDetailsModal = ({
           )}
 
           {isHost && match?.id && !isArchived && !isCancelled && (
+            <TimeSuggestionsSection
+              match={match}
+              reloadKey={suggestionsReloadKey}
+              onUseTime={handleUseSuggestedTime}
+              onToast={onToast}
+            />
+          )}
+
+          {isHost && match?.id && !isArchived && !isCancelled && (
             <AddConnectionsSection
               matchId={match.id}
               onAdded={reloadMatchQuietly}
@@ -3954,6 +4006,13 @@ const MatchDetailsModal = ({
                 >
                   {decliningInvite ? "Declining invite..." : "Decline invite"}
                 </button>
+              )}
+              {canDeclineInvite && Boolean(currentUser?.id) && match?.id && (
+                <SuggestTimeSection
+                  match={match}
+                  hostFirstName={hostName === "Match Organizer" ? "" : hostName.split(" ")[0]}
+                  onToast={onToast}
+                />
               )}
             </>
           )}
