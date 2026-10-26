@@ -1,0 +1,31 @@
+name: Rebuild public site
+
+# thetennisplan.com (apps/public-site) is static: class and league listings are
+# fetched once, when Netlify builds it. Nothing else rebuilds it — commits that
+# don't touch the site are skipped — so without this, /group-tennis-lessons and
+# /whats-on keep showing the classes from the last site change, past dates included.
+#
+# Needs the repo secret NETLIFY_PUBLIC_SITE_BUILD_HOOK: a build hook created in
+# Netlify for the public site (Site configuration → Build & deploy → Build hooks).
+
+on:
+  schedule:
+    # Every 6 hours. A class added or cancelled shows within a quarter of a day.
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger the Netlify build hook
+        env:
+          BUILD_HOOK: ${{ secrets.NETLIFY_PUBLIC_SITE_BUILD_HOOK }}
+        run: |
+          if [ -z "$BUILD_HOOK" ]; then
+            echo "::error::NETLIFY_PUBLIC_SITE_BUILD_HOOK is not set, so the public site cannot be refreshed."
+            exit 1
+          fi
+          curl --fail --silent --show-error -X POST -d '{}' "${BUILD_HOOK}?trigger_title=Scheduled+listings+refresh"

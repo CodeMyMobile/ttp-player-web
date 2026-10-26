@@ -1,6 +1,11 @@
 [build]
   command = "npm run build"
   publish = "dist"
+  # Exit 1 = build, 0 = skip. Build-hook runs always build: they exist to refresh the
+  # class listings, which are fetched at build time, so "no files changed" is expected
+  # (.github/workflows/rebuild-public-site.yml). A push builds when this site or the app
+  # code it imports (../../src, e.g. the shared rating quiz) changed.
+  ignore = "if [ -n \"$INCOMING_HOOK_TITLE\" ] || [ -n \"$INCOMING_HOOK_URL\" ]; then exit 1; fi; git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- . ../../src"
 
 [build.environment]
   NODE_VERSION = "22.12.0"
