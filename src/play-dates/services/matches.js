@@ -479,13 +479,20 @@ export const suggestMatchTime = (matchId, { times, note }) =>
     })
   );
 
-// `extra.players_notified`: whether the edit that used this time texted players, so the
-// API knows if the suggester still needs telling.
-export const respondToTimeSuggestion = (matchId, suggestionId, status, extra = {}) =>
+// Moves the match to the suggested `time` and seats the player who suggested it.
+export const acceptTimeSuggestion = (matchId, suggestionId, time) =>
   unwrap(
-    api(`/matches/${matchId}/time-suggestions/${suggestionId}`, {
-      method: "PATCH",
-      body: JSON.stringify({ ...extra, status }),
+    api(`/matches/${matchId}/time-suggestions/${suggestionId}/accept`, {
+      method: "POST",
+      body: JSON.stringify({ time }),
+    })
+  );
+
+export const declineTimeSuggestion = (matchId, suggestionId) =>
+  unwrap(
+    api(`/matches/${matchId}/time-suggestions/${suggestionId}/decline`, {
+      method: "POST",
+      body: JSON.stringify({}),
     })
   );
 
