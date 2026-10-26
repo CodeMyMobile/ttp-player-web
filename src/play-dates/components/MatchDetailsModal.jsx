@@ -1915,7 +1915,9 @@ const MatchDetailsModal = ({
       );
       if (usingSuggestion) {
         try {
-          await respondToTimeSuggestion(match.id, usingSuggestion.id, "used");
+          await respondToTimeSuggestion(match.id, usingSuggestion.id, "used", {
+            players_notified: notifyPlayersOnEdit,
+          });
         } catch (suggestionError) {
           // The match moved; the suggestion just stays listed until dismissed.
           console.warn("Failed to mark time suggestion used", suggestionError);
