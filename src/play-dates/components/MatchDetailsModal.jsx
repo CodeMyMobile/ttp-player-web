@@ -878,6 +878,7 @@ const MatchDetailsModal = ({
   onManageInvites,
   initialStatus,
   onViewPlayerProfile,
+  openSuggestTime = false,
 }) => {
   const normalizedInitialStatus = initialStatus || "details";
   const [status, setStatus] = useState(normalizedInitialStatus);
@@ -4000,6 +4001,7 @@ const MatchDetailsModal = ({
                 match?.id && (
                   <SuggestTimeSection
                     match={match}
+                    initiallyOpen={openSuggestTime}
                     hostFirstName={hostName === "Match Organizer" ? "" : hostName.split(" ")[0]}
                     onToast={onToast}
                   />
@@ -4024,6 +4026,7 @@ const MatchDetailsModal = ({
               {canDeclineInvite && Boolean(currentUser?.id) && match?.id && (
                 <SuggestTimeSection
                   match={match}
+                  initiallyOpen={openSuggestTime}
                   hostFirstName={hostName === "Match Organizer" ? "" : hostName.split(" ")[0]}
                   onToast={onToast}
                 />

@@ -233,6 +233,7 @@ const MatchPage = () => {
         onToast={showToast}
         formatDateTime={formatDateTime}
         onManageInvites={handleManageInvites}
+        openSuggestTime={Boolean(location.state?.suggestTime)}
       />
     </div>
   );

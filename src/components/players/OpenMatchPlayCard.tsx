@@ -180,14 +180,17 @@ const OpenMatchPlayCard = ({
 
   // Tapping the card body opens the full match detail (/matches/:id). `from`
   // lets that page's close button return here instead of the matches feed.
-  const openDetail = () => {
+  const openDetail = (options: { suggestTime?: boolean } = {}) => {
     if (!matchId) return;
     if (onViewDetails) {
       onViewDetails(matchId);
       return;
     }
     navigate(`/matches/${matchId}`, {
-      state: { from: `${location.pathname}${location.search}` },
+      state: {
+        from: `${location.pathname}${location.search}`,
+        ...(options.suggestTime ? { suggestTime: true } : {}),
+      },
     });
   };
   const doubles = /doubles|mixed/i.test(formatType(match));
@@ -232,7 +235,7 @@ const OpenMatchPlayCard = ({
       role="button"
       tabIndex={0}
       aria-label={`View ${formatType(match)} match details`}
-      onClick={openDetail}
+      onClick={() => openDetail()}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
@@ -381,6 +384,19 @@ const OpenMatchPlayCard = ({
           {joinLabel}
         </button>
       )}
+      {!isSelf && !isFull && currentUserId ? (
+        // The form lives on the match page; this opens it there, already expanded.
+        <button
+          type="button"
+          className="omp-suggest"
+          onClick={(event) => {
+            event.stopPropagation();
+            openDetail({ suggestTime: true });
+          }}
+        >
+          Can&apos;t make this time? Suggest another
+        </button>
+      ) : null}
     </article>
   );
 };
