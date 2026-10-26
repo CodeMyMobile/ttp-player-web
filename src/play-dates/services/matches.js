@@ -468,6 +468,25 @@ export const addMatchParticipant = (matchId, playerId) =>
     })
   );
 
+export const listTimeSuggestions = (matchId) =>
+  unwrap(api(`/matches/${matchId}/time-suggestions`));
+
+export const suggestMatchTime = (matchId, { times, note }) =>
+  unwrap(
+    api(`/matches/${matchId}/time-suggestions`, {
+      method: "POST",
+      body: JSON.stringify({ times, note }),
+    })
+  );
+
+export const respondToTimeSuggestion = (matchId, suggestionId, status) =>
+  unwrap(
+    api(`/matches/${matchId}/time-suggestions/${suggestionId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    })
+  );
+
 export const sendInvites = (matchId, { playerIds = [], phoneNumbers = [] } = {}) =>
   unwrap(
     api(`/matches/${matchId}/invites`, {
