@@ -43,6 +43,7 @@ import {
   uniqueParticipants,
 } from "./utils/participants";
 import MatchDetailsModal from "./components/MatchDetailsModal.jsx";
+import SuggestTimeSection from "./components/SuggestTimeSection.jsx";
 import PlayerAvatar from "./components/PlayerAvatar.jsx";
 import { getAvatarInitials, getAvatarUrlFromPlayer } from "./utils/avatar";
 import { hasViewerJoinedInvitePreview } from "./utils/inviteViewerState";
@@ -2470,6 +2471,13 @@ export default function InvitationPage() {
               >
                 {declining ? "Declining..." : "Decline invite"}
               </SecondaryButton>
+              {previewMatchId && !isArchivedMatch && (
+                <SuggestTimeSection
+                  match={{ ...match, id: previewMatchId }}
+                  hostFirstName={inviterName ? inviterName.split(" ")[0] : ""}
+                  onToast={handleToast}
+                />
+              )}
               <p className="px-2 pt-1 text-center text-xs font-medium leading-relaxed text-slate-400">
                 You were invited by {hostName}. You can leave this match at any time from your schedule.
               </p>
