@@ -157,6 +157,24 @@
   box-shadow: none;
 }
 
+/* Opens the match page with the suggest-a-time form expanded. */
+.omp-suggest {
+  width: 100%;
+  margin-top: -4px;
+  padding: 4px;
+  background: none;
+  border: none;
+  color: #7c3aed;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.omp-suggest:hover {
+  color: #6d28d9;
+  text-decoration: underline;
+}
+
 /* Host / already-joined: actionable secondary that opens the match detail page */
 .omp-join--details {
   background: #ffffff;

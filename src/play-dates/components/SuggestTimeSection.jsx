@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { CalendarClock, Plus, X } from "lucide-react";
 import { listTimeSuggestions, suggestMatchTime } from "../services/matches";
 import { combineDateAndTimeToIso } from "../utils/datetime";
@@ -35,10 +35,11 @@ const emptySlot = () => ({ date: "", time: "" });
 // For an invitee, or a player who could join an open match, who can't make its time:
 // suggest one or two others. Only the organizer sees it; the match doesn't change
 // unless they choose to move it.
-const SuggestTimeSection = ({ match, hostFirstName, onToast }) => {
+const SuggestTimeSection = ({ match, hostFirstName, onToast, initiallyOpen = false }) => {
   const matchId = match?.id;
   const [mine, setMine] = useState(undefined);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initiallyOpen);
+  const formRef = useRef(null);
   const [slots, setSlots] = useState([emptySlot()]);
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
@@ -59,6 +60,12 @@ const SuggestTimeSection = ({ match, hostFirstName, onToast }) => {
       cancelled = true;
     };
   }, [matchId]);
+
+  // Arriving from a "Suggest another" link elsewhere: bring the open form into view.
+  const shouldScroll = initiallyOpen && open && mine === null;
+  useEffect(() => {
+    if (shouldScroll) formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [shouldScroll]);
 
   if (!matchId || mine === undefined) return null;
 
@@ -126,6 +133,7 @@ const SuggestTimeSection = ({ match, hostFirstName, onToast }) => {
 
   return (
     <form
+      ref={formRef}
       onSubmit={submit}
       className="mt-4 space-y-3 rounded-2xl border border-violet-100 bg-violet-50 p-4 text-left"
     >
