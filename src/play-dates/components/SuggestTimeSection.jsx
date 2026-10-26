@@ -17,6 +17,10 @@ const SUGGEST_ERROR_MESSAGES = {
   same_as_current_time: "That's the match's current time. Pick a different one.",
   match_cancelled: "This match has been cancelled.",
   match_archived: "This match has already started.",
+  match_full: "This match is full. Join the waitlist instead.",
+  already_joined: "You're already in this match.",
+  suggestion_limit_reached: "This match has enough suggestions for now.",
+  cannot_suggest: "You can't suggest a time for this match.",
 };
 
 const todayInput = () => {
@@ -28,8 +32,9 @@ const todayInput = () => {
 
 const emptySlot = () => ({ date: "", time: "" });
 
-// Invitee-only: can't make the match's time, so suggest one or two others. Only the
-// organizer sees it; the match doesn't change unless they choose to move it.
+// For an invitee, or a player who could join an open match, who can't make its time:
+// suggest one or two others. Only the organizer sees it; the match doesn't change
+// unless they choose to move it.
 const SuggestTimeSection = ({ match, hostFirstName, onToast }) => {
   const matchId = match?.id;
   const [mine, setMine] = useState(undefined);

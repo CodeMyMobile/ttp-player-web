@@ -3990,6 +3990,20 @@ const MatchDetailsModal = ({
               {status === "details" && disabledReason && (
                 <p className="mt-2 text-center text-xs font-semibold text-gray-500">{disabledReason}</p>
               )}
+              {isOpenMatch &&
+                !showWaitlistPanel &&
+                status === "details" &&
+                (!disabledReason || unresolvedSinglesSlot) &&
+                !isJoined &&
+                !canDeclineInvite &&
+                Boolean(currentUser?.id) &&
+                match?.id && (
+                  <SuggestTimeSection
+                    match={match}
+                    hostFirstName={hostName === "Match Organizer" ? "" : hostName.split(" ")[0]}
+                    onToast={onToast}
+                  />
+                )}
               {(remainingSpots !== null || unresolvedSinglesSlot) && (
                 <p className="mt-2 text-center text-xs font-semibold text-gray-500">
                   {unresolvedSinglesSlot
