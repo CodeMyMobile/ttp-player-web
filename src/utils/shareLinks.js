@@ -44,6 +44,7 @@ export function isIndexableShareType(type) {
 }
 
 export function buildGatewayShareUrl(type, id, options = {}) {
+  if (type === "player") return `${normalizeOrigin(options.origin)}/p/${id}`;
   const shareId = normalizeShareId(id);
   if (!isSupportedShareType(type) || !shareId) return "";
   return `${normalizeOrigin(options.origin)}/s/${type}/${shareId}`;
@@ -62,6 +63,7 @@ export function buildCoachShareUrl(id, options = {}) {
 }
 
 export function buildAppHashPath(type, id) {
+  if (type === "player") return `/p/${id}`;
   const shareId = normalizeShareId(id);
   const appRoute = SHARE_TYPE_TO_APP_ROUTE[type];
   return appRoute && shareId ? `/${appRoute}/${shareId}` : "/";
@@ -107,8 +109,14 @@ export function venueNameFromAddress(value) {
   return head;
 }
 
+// A player's public profile link is /p/<slug>, not /s/<type>/<id>: it is the URL
+// players hand out, so it is short, and it is keyed by slug rather than a numeric id.
+const PLAYER_PROFILE_PATH = /^\/p\/([a-z0-9]+(?:-[a-z0-9]+)*)\/?$/i;
+
 export function parseSharePath(pathname) {
   if (typeof pathname !== "string") return null;
+  const profile = pathname.match(PLAYER_PROFILE_PATH);
+  if (profile && profile[1].length <= 64) return { type: "player", id: profile[1].toLowerCase() };
   const match = pathname.match(/^\/s\/([^/]+)\/([^/?#]+)/);
   if (!match) return null;
   const [, type, rawId] = match;

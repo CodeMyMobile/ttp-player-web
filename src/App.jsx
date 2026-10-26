@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { HashRouter, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import useReportProfileReferral from "./hooks/useReportProfileReferral";
 import { AuthDrawerProvider, useAuthDrawer } from "./context/AuthDrawerContext";
 import DashboardPage from "./pages/DashboardPage";
 import LandingPage from "./pages/LandingPage";
@@ -35,6 +36,7 @@ import OAuthPhoneCapture, { shouldCaptureProfilePhone } from "./components/OAuth
 import LessonInvitePage from "./pages/LessonInvitePage";
 import CoachProfilePage from "./pages/CoachProfilePage";
 import PlayerProfilePage from "./pages/PlayerProfilePage";
+import PublicProfilePage from "./pages/PublicProfilePage";
 import HitRequestPage from "./pages/HitRequestPage";
 import AccountProfilePage from "./pages/AccountProfilePage";
 import PlayerMatchProfilePage from "./pages/PlayerMatchProfilePage";
@@ -674,6 +676,13 @@ const AppRoutes = () => (
       path="/players/:id"
       element={<PlayerProfilePage />}
     />
+    {/* A player's shareable profile link. The public URL is /p/:slug (a real path, so
+        link previews work); netlify/edge-functions/share.js serves the preview and
+        forwards here. */}
+    <Route
+      path="/p/:slug"
+      element={<PublicProfilePage />}
+    />
     <Route
       path="/coaches/:id"
       element={<CoachProfilePage />}
@@ -880,6 +889,14 @@ const DirectPageOrRoutes = () => {
     : <RestringingPlayerFlow vendorSlug={directPage.vendorSlug} />;
 };
 
+// Credits whoever's /p/:slug profile link brought a new player here, once they have an
+// account. Mounted once for the whole app so it runs wherever they land after signing up.
+const ProfileReferralReporter = () => {
+  const { isAuthenticated } = useAuth();
+  useReportProfileReferral(isAuthenticated);
+  return null;
+};
+
 function App() {
   return (
     <AuthProvider>
@@ -887,6 +904,7 @@ function App() {
         <ScrollToTop />
         <AuthDrawerProvider>
           <LocationPermissionGate />
+          <ProfileReferralReporter />
           <div className="app-shell">
             <DirectPageOrRoutes />
           </div>

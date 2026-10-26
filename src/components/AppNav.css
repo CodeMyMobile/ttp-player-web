@@ -656,6 +656,51 @@
   cursor: pointer;
 }
 
+/* Profile menu head: who you are, then share actions. */
+.app-nav__menu-who {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 12px 10px;
+}
+
+.app-nav__menu-who strong {
+  color: #101828;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.app-nav__menu-who span {
+  align-self: flex-start;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f7fee7;
+  box-shadow: inset 0 0 0 1px #d9f99d;
+  color: #4d7c0f;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.app-nav__dropdown .app-nav__menu-item--share,
+.app-nav__dropdown .app-nav__menu-item--profile {
+  min-height: 44px;
+}
+
+.app-nav__dropdown .app-nav__menu-item--share {
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  color: #fff;
+}
+
+.app-nav__dropdown .app-nav__menu-item--share:hover {
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+}
+
+.app-nav__menu-divider {
+  height: 1px;
+  margin: 8px 4px;
+  background: #eaecf0;
+}
+
 .app-nav__menu-item--danger {
   color: #b91c1c !important;
 }
