@@ -52,7 +52,7 @@ const TimeSuggestionsSection = ({ match, reloadKey, onUseTime, onToast }) => {
           Suggested times
         </div>
         <p className="mt-1 text-xs font-semibold text-violet-700">
-          Invited players who can&apos;t make it suggested these. Only you can see them.
+          Players who can&apos;t make this time suggested these. Only you can see them.
         </p>
       </div>
       <div className="space-y-2">
@@ -69,7 +69,12 @@ const TimeSuggestionsSection = ({ match, reloadKey, onUseTime, onToast }) => {
                   showBadge={false}
                 />
                 <p className="min-w-0 flex-1 text-sm font-bold text-gray-900">
-                  {firstName} <span className="font-semibold text-gray-500">can&apos;t make it and suggested</span>
+                  {firstName}{" "}
+                  <span className="font-semibold text-gray-500">
+                    {suggestion.invited === false
+                      ? "wants to play and suggested"
+                      : "can’t make it and suggested"}
+                  </span>
                 </p>
               </div>
               {suggestion.note && (
