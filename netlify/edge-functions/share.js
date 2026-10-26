@@ -133,4 +133,4 @@ export default async (request) => {
   });
 };
 
-export const config = { path: "/s/*" };
+export const config = { path: ["/s/*", "/p/*"] };

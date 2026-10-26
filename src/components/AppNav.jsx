@@ -17,8 +17,10 @@ import {
   ExternalLink,
   LoaderCircle,
   Plus,
+  QrCode,
   RefreshCw,
   Search,
+  Share2,
   ShieldX,
   Target,
   Trophy,
@@ -27,6 +29,9 @@ import {
   Users,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { getMyPublicLink } from "../api/publicProfile";
+import ShareProfileSheet from "./profileShare/ShareProfileSheet";
+import ProfileQrScreen from "./profileShare/ProfileQrScreen";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
 import { getStoredAuthToken } from "../services/authToken";
 import { usableAvatar } from "../utils/avatar";
@@ -137,12 +142,18 @@ const AppNav = ({
   const [draftArea, setDraftArea] = useState(getStoredLocationArea());
   const [searchRadius, setSearchRadius] = useState(getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES);
   const [committedRadius, setCommittedRadius] = useState(getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES);
+  // { slug, enabled } once loaded; false if it couldn't be. Share options show only
+  // for an enabled link ("Allow public profile link" in settings).
+  const [publicLink, setPublicLink] = useState(null);
+  const [shareView, setShareView] = useState(null);
   const userMenuRef = useRef(null);
   const notificationRef = useRef(null);
   const locationSelectionVersionRef = useRef(0);
   const locationRequestVersionRef = useRef(0);
   const openLocationPickerRef = useRef(null);
   const firstName = displayName?.split(" ")?.[0] || "Player";
+  const ownUserId = user?.user_id ?? user?.id ?? null;
+  const canShareProfile = Boolean(publicLink && publicLink.enabled && publicLink.slug);
   // The platform's computed NTRP first. calculated_ntrp is derived per request
   // from current_rating + rating_gender (ttp-api rating_equivalents.js) and ships
   // on the login profile, but this chain used to skip it entirely and settle on
@@ -167,6 +178,21 @@ const AppNav = ({
       user?.profile?.skill_level ||
       user?.profile?.usta_rating ||
       null);
+
+  useEffect(() => {
+    if (!isUserMenuOpen || !authNavState.isAuthenticated) return undefined;
+    let cancelled = false;
+    getMyPublicLink()
+      .then((link) => {
+        if (!cancelled) setPublicLink(link);
+      })
+      .catch(() => {
+        if (!cancelled) setPublicLink((previous) => previous || false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isUserMenuOpen, authNavState.isAuthenticated]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -415,6 +441,20 @@ const AppNav = ({
 
   return (
     <>
+      {shareView === "sheet" && canShareProfile ? (
+        <ShareProfileSheet
+          slug={publicLink.slug}
+          onClose={() => setShareView(null)}
+          onShowQr={() => setShareView("qr")}
+        />
+      ) : null}
+      {shareView === "qr" && canShareProfile ? (
+        <ProfileQrScreen
+          slug={publicLink.slug}
+          onClose={() => setShareView(null)}
+          onShareLink={() => setShareView("sheet")}
+        />
+      ) : null}
       <header className={`app-nav${mobileCenter ? " app-nav--has-mobile-center" : ""}`}>
         <div className="app-nav__left">
           {showBack ? (
@@ -563,6 +603,50 @@ const AppNav = ({
 
               {isUserMenuOpen ? (
                 <div className="app-nav__dropdown app-nav__dropdown--user" role="menu">
+                  <div className="app-nav__menu-who">
+                    <strong>{displayName}</strong>
+                    {skillLevel != null ? <span>NTRP {skillLevel}</span> : null}
+                  </div>
+                  {canShareProfile ? (
+                    <>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="app-nav__menu-item app-nav__menu-item--share"
+                        onClick={() => {
+                          setUserMenuOpen(false);
+                          setShareView("sheet");
+                        }}
+                      >
+                        <Share2 size={16} aria-hidden="true" />
+                        <span>Share my profile</span>
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="app-nav__menu-item app-nav__menu-item--profile"
+                        onClick={() => {
+                          setUserMenuOpen(false);
+                          setShareView("qr");
+                        }}
+                      >
+                        <QrCode size={16} aria-hidden="true" />
+                        <span>Show my QR code</span>
+                      </button>
+                    </>
+                  ) : null}
+                  {canShareProfile || ownUserId ? (
+                    <Link
+                      to={canShareProfile ? `/p/${publicLink.slug}` : `/players/${ownUserId}`}
+                      role="menuitem"
+                      className="app-nav__menu-item app-nav__menu-item--profile"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      <UserRound size={16} aria-hidden="true" />
+                      <span>View my profile</span>
+                    </Link>
+                  ) : null}
+                  <div className="app-nav__menu-divider" aria-hidden="true" />
                   {/* Primary nav links have no home on mobile (app-nav__links is
                       hidden with no hamburger), so fold them into this menu —
                       shown only on mobile via app-nav__menu-item--mobile. */}

@@ -5,6 +5,7 @@ import ProfileManager from "../components/ProfileManager";
 import AccountSignInSection from "../components/AccountSignInSection";
 import PurchaseHistorySection from "../components/PurchaseHistorySection";
 import BookedLessonsSection from "../components/BookedLessonsSection";
+import PublicLinkSetting from "../components/profileShare/PublicLinkSetting";
 
 import "./PlayerSettingsPages.css";
 
@@ -53,6 +54,7 @@ const AccountProfilePage = () => {
               <div id="panel-personal" role="tabpanel" aria-labelledby="tab-personal" className="settings-panel">
                 <ProfileManager variant="page" />
                 <AccountSignInSection />
+                <PublicLinkSetting />
                 {/* TODO(delete-account): the "Delete account" danger zone attaches here once a
                     delete-account endpoint exists. No live control is rendered today because the
                     backend exposes none (reported as a Sahil gap) — deliberately no dead button. */}

@@ -4,6 +4,7 @@ import { test } from "node:test";
 import {
   buildAppRedirectUrl,
   buildCoachShareUrl,
+  buildGatewayShareUrl,
   buildGroupLessonShareUrl,
   buildMatchShareUrl,
   isIndexableShareType,
@@ -53,6 +54,13 @@ test("parses valid share paths and rejects malformed ones", () => {
   assert.equal(parseSharePath("/matches/42"), null);
   assert.equal(parseSharePath("/s/team/42"), null);
   assert.equal(parseSharePath("/s/match/not-valid"), null);
+  assert.deepEqual(parseSharePath("/p/Paul-C"), { type: "player", id: "paul-c" });
+  assert.deepEqual(parseSharePath("/p/paul-c/"), { type: "player", id: "paul-c" });
+  assert.equal(parseSharePath("/p/paul c"), null);
+  assert.equal(parseSharePath("/p/paul-c/extra"), null);
+  assert.equal(buildAppRedirectUrl("player", "paul-c", { origin: "https://app.thetennisplan.com" }), "https://app.thetennisplan.com/#/p/paul-c");
+  assert.equal(buildGatewayShareUrl("player", "paul-c", { origin: "https://app.thetennisplan.com" }), "https://app.thetennisplan.com/p/paul-c");
+  assert.equal(isIndexableShareType("player"), false);
 });
 
 test("venueNameFromAddress strips the street line from a formatted address", () => {
