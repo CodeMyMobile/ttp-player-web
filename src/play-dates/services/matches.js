@@ -479,11 +479,13 @@ export const suggestMatchTime = (matchId, { times, note }) =>
     })
   );
 
-export const respondToTimeSuggestion = (matchId, suggestionId, status) =>
+// `extra.players_notified`: whether the edit that used this time texted players, so the
+// API knows if the suggester still needs telling.
+export const respondToTimeSuggestion = (matchId, suggestionId, status, extra = {}) =>
   unwrap(
     api(`/matches/${matchId}/time-suggestions/${suggestionId}`, {
       method: "PATCH",
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ ...extra, status }),
     })
   );
 
