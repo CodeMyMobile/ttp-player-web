@@ -77,7 +77,9 @@ const SuggestTimeSection = ({ match, hostFirstName, onToast, initiallyOpen = fal
       <div className="mt-4 flex items-start gap-3 rounded-2xl border border-violet-100 bg-violet-50 px-4 py-3 text-left">
         <CalendarClock className="mt-0.5 h-4 w-4 flex-shrink-0 text-violet-600" />
         <p className="text-xs font-semibold text-violet-800">
-          You suggested {(mine.suggested_times || []).map(describe).join(" or ")}. {organizer} can see it.
+          {mine.status === "declined"
+            ? `${organizer} can't do ${(mine.suggested_times || []).map(describe).join(" or ")}, so the match is staying at this time.`
+            : `You suggested ${(mine.suggested_times || []).map(describe).join(" or ")}. ${organizer} can see it.`}
         </p>
       </div>
     );
