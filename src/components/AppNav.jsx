@@ -637,7 +637,7 @@ const AppNav = ({
                   ) : null}
                   {canShareProfile || ownUserId ? (
                     <Link
-                      to={canShareProfile ? `/p/${publicLink.slug}` : `/players/${ownUserId}`}
+                      to={ownUserId ? `/players/${ownUserId}` : `/p/${publicLink.slug}`}
                       role="menuitem"
                       className="app-nav__menu-item app-nav__menu-item--profile"
                       onClick={() => setUserMenuOpen(false)}

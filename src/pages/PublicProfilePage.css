@@ -37,45 +37,17 @@
   font-size: 15px;
 }
 
-.pprofile__avatar {
-  width: 96px;
-  height: 96px;
-  font-size: 30px;
-}
 
-.pprofile__courts {
-  justify-content: center;
-}
 
 .pprofile__lock {
   color: #7c3aed;
 }
 
-.pprofile__actions {
-  width: 100%;
-  margin-top: 8px;
-}
 
-.pprofile__actions .pshare-primary:disabled {
-  opacity: 0.7;
-  cursor: default;
-}
 
 .pprofile__link {
   margin-top: 12px;
   text-decoration: none;
 }
 
-.pprofile__note {
-  margin: 12px 0 0;
-  color: #667085;
-  font-size: 13px;
-  font-weight: 600;
-}
 
-.pprofile__error {
-  margin: 12px 0 0;
-  color: #b42318;
-  font-size: 13px;
-  font-weight: 700;
-}
