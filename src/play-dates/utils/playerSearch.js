@@ -19,3 +19,21 @@ export const getPlayerSearchRating = (player = {}) =>
     player.skill_level,
     player.ntrp,
   ]) || "";
+
+const foldForSearch = (value) =>
+  String(value ?? "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .trim();
+
+// Every word typed has to appear somewhere in the name, so "paul coch" and
+// "coch paul" both find Paul Cochrane, and "jose" finds José.
+export const filterPlayersByName = (players = [], query = "") => {
+  const terms = foldForSearch(query).split(/\s+/).filter(Boolean);
+  if (terms.length === 0) return players;
+  return players.filter((player) => {
+    const name = foldForSearch(getPlayerSearchName(player));
+    return terms.every((term) => name.includes(term));
+  });
+};
