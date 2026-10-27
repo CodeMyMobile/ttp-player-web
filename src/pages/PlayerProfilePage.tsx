@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, BadgeCheck, Gauge, MapPin, MessageCircle, Users } from "lucide-react";
+import { ArrowLeft, BadgeCheck, ChevronDown, Gauge, MapPin, MessageCircle, Users } from "lucide-react";
 import moment from "moment";
 
 import MainLayout from "../components/MainLayout";
@@ -34,6 +34,8 @@ import "./PlayerProfilePage.css";
 // Allowlist, so any other status — cancelled/canceled, completed, in_progress,
 // draft, archived, expired — is excluded regardless of spelling.
 const MATCH_OPEN_STATUSES = ["upcoming", "open"];
+// Two rows on desktop, a short scroll on a phone.
+const PLAYED_WITH_PREVIEW_COUNT = 6;
 const isOpenStatus = (match: OpenMatch): boolean => {
   const status = String(match.status ?? "upcoming").trim().toLowerCase();
   return MATCH_OPEN_STATUSES.includes(status);
@@ -155,6 +157,8 @@ const PlayerProfilePage = () => {
   const [myPlayedWith, setMyPlayedWith] = useState<PlayedWithPlayer[]>([]);
   const [myPlayedWithLoading, setMyPlayedWithLoading] = useState(false);
   const [networkFilter, setNetworkFilter] = useState<"all" | "mutual">("mutual");
+  // A big network buries the rest of the profile, so only a preview shows until asked.
+  const [showAllPlayedWith, setShowAllPlayedWith] = useState(false);
   const [joiningId, setJoiningId] = useState<string | null>(null);
   const authToken = useMemo(
     () => getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" }),
@@ -229,6 +233,7 @@ const PlayerProfilePage = () => {
     setPlayedWithLoading(true);
     setPlayedWithError(false);
     setNetworkFilter("mutual"); // reset to the default (Mutuals) on a new profile
+    setShowAllPlayedWith(false);
 
     getPlayedWith(id, { signal: controller.signal, token: authToken })
       .then((response) => {
@@ -290,6 +295,14 @@ const PlayerProfilePage = () => {
   const canShowMutual = isSignedIn && myPlayerId != null && String(myPlayerId) !== String(id);
   const visiblePlayedWith =
     canShowMutual && networkFilter === "mutual" ? mutualPlayedWith : playedWith;
+  const hiddenPlayedWithCount = Math.max(visiblePlayedWith.length - PLAYED_WITH_PREVIEW_COUNT, 0);
+  const shownPlayedWith = showAllPlayedWith
+    ? visiblePlayedWith
+    : visiblePlayedWith.slice(0, PLAYED_WITH_PREVIEW_COUNT);
+  const chooseNetworkFilter = (filter: "all" | "mutual") => {
+    setNetworkFilter(filter);
+    setShowAllPlayedWith(false);
+  };
   const isOwnProfile = myPlayerId != null && id != null && String(myPlayerId) === String(id);
 
   // Guest summary — proof without exposing individual identities.
@@ -704,7 +717,7 @@ const PlayerProfilePage = () => {
                   role="tab"
                   aria-selected={networkFilter === "mutual"}
                   className={`ppv-network-filter__btn${networkFilter === "mutual" ? " ppv-network-filter__btn--active" : ""}`}
-                  onClick={() => setNetworkFilter("mutual")}
+                  onClick={() => chooseNetworkFilter("mutual")}
                 >
                   Mutuals ({mutualPlayedWith.length})
                 </button>
@@ -713,7 +726,7 @@ const PlayerProfilePage = () => {
                   role="tab"
                   aria-selected={networkFilter === "all"}
                   className={`ppv-network-filter__btn${networkFilter === "all" ? " ppv-network-filter__btn--active" : ""}`}
-                  onClick={() => setNetworkFilter("all")}
+                  onClick={() => chooseNetworkFilter("all")}
                 >
                   Everyone ({playedWith.length})
                 </button>
@@ -749,34 +762,53 @@ const PlayerProfilePage = () => {
             ) : visiblePlayedWith.length === 0 ? (
               <p className="ppv-state-text">No players you&apos;ve both played yet.</p>
             ) : (
-              <div className="ppv-network-grid">
-                {visiblePlayedWith.map((networkPlayer) => (
-                  <article key={networkPlayer.userId} className="ppv-network-card">
-                    <div className="ppv-network-avatar">
-                      {networkPlayer.avatarUrl ? (
-                        <img src={networkPlayer.avatarUrl} alt={`${networkPlayer.name} profile portrait`} />
-                      ) : (
-                        <span aria-hidden="true">{getInitials(networkPlayer.name)}</span>
-                      )}
-                    </div>
-                    <div className="ppv-network-copy">
-                      <h3>{networkPlayer.name}</h3>
-                      <p>
-                        {formatPlayedWithCount(networkPlayer.matchCount)}
-                        {networkPlayer.ntrp !== null ? ` · ${networkPlayer.ntrp} NTRP` : ""}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      className="ppv-network-action"
-                      onClick={() => navigate(`/players/${networkPlayer.userId}`)}
-                      aria-label={`View ${networkPlayer.name}'s profile`}
-                    >
-                      <Users size={16} strokeWidth={2} aria-hidden="true" />
-                    </button>
-                  </article>
-                ))}
-              </div>
+              <>
+                <div className="ppv-network-grid" id="played-with-list">
+                  {shownPlayedWith.map((networkPlayer) => (
+                    <article key={networkPlayer.userId} className="ppv-network-card">
+                      <div className="ppv-network-avatar">
+                        {networkPlayer.avatarUrl ? (
+                          <img src={networkPlayer.avatarUrl} alt={`${networkPlayer.name} profile portrait`} />
+                        ) : (
+                          <span aria-hidden="true">{getInitials(networkPlayer.name)}</span>
+                        )}
+                      </div>
+                      <div className="ppv-network-copy">
+                        <h3>{networkPlayer.name}</h3>
+                        <p>
+                          {formatPlayedWithCount(networkPlayer.matchCount)}
+                          {networkPlayer.ntrp !== null ? ` · ${networkPlayer.ntrp} NTRP` : ""}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className="ppv-network-action"
+                        onClick={() => navigate(`/players/${networkPlayer.userId}`)}
+                        aria-label={`View ${networkPlayer.name}'s profile`}
+                      >
+                        <Users size={16} strokeWidth={2} aria-hidden="true" />
+                      </button>
+                    </article>
+                  ))}
+                </div>
+                {hiddenPlayedWithCount > 0 ? (
+                  <button
+                    type="button"
+                    className="ppv-network-more"
+                    aria-expanded={showAllPlayedWith}
+                    aria-controls="played-with-list"
+                    onClick={() => setShowAllPlayedWith((open) => !open)}
+                  >
+                    {showAllPlayedWith ? "Show fewer" : `Show all ${visiblePlayedWith.length} players`}
+                    <ChevronDown
+                      size={16}
+                      strokeWidth={2.2}
+                      aria-hidden="true"
+                      className={showAllPlayedWith ? "ppv-network-more__icon--open" : undefined}
+                    />
+                  </button>
+                ) : null}
+              </>
             )}
           </section>
 
