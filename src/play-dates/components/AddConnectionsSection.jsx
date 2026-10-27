@@ -1,7 +1,8 @@
-import React, { useState } from "react";
-import { Check, UserPlus } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { Check, Search, UserPlus, X } from "lucide-react";
 import PlayerAvatar from "./PlayerAvatar";
 import { addMatchParticipant, listMatchConnections } from "../services/matches";
+import { filterPlayersByName } from "../utils/playerSearch";
 
 const errorCode = (error) =>
   (error?.response?.data?.error || error?.data?.error || "").toString().trim().toLowerCase();
@@ -19,6 +20,9 @@ const connectionLabel = (player) => {
   return "Hit partner";
 };
 
+// Short lists fit on screen; past this a search box earns its space.
+const SEARCH_THRESHOLD = 6;
+
 // Host-only: seat someone they already play with, no invite needed. The list
 // loads on first open so the match screen doesn't pay for it up front.
 const AddConnectionsSection = ({ matchId, onAdded, onToast, onInviteOthers }) => {
@@ -26,6 +30,13 @@ const AddConnectionsSection = ({ matchId, onAdded, onToast, onInviteOthers }) =>
   const [connections, setConnections] = useState(null);
   const [loadError, setLoadError] = useState(false);
   const [addingId, setAddingId] = useState(null);
+  const [query, setQuery] = useState("");
+
+  const visibleConnections = useMemo(
+    () => filterPlayersByName(connections || [], query),
+    [connections, query],
+  );
+  const showSearch = (connections?.length || 0) >= SEARCH_THRESHOLD;
 
   const load = async () => {
     setLoadError(false);
@@ -40,6 +51,7 @@ const AddConnectionsSection = ({ matchId, onAdded, onToast, onInviteOthers }) =>
   const toggle = () => {
     const next = !open;
     setOpen(next);
+    if (!next) setQuery("");
     if (next && connections === null) load();
   };
 
@@ -96,31 +108,66 @@ const AddConnectionsSection = ({ matchId, onAdded, onToast, onInviteOthers }) =>
               Players you&apos;ve played a match with, or connected with through a hit request, show up here.
             </p>
           ) : (
-            <ul className="max-h-72 divide-y divide-gray-100 overflow-y-auto">
-              {connections.map((player) => (
-                <li key={player.id} className="flex items-center gap-3 p-3">
-                  <PlayerAvatar name={player.full_name} imageUrl={player.profile_picture} size="sm" showBadge={false} />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-bold text-gray-900">{player.full_name}</p>
-                    <p className="text-xs font-semibold text-gray-500">{connectionLabel(player)}</p>
-                  </div>
-                  {player.in_match ? (
-                    <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-700">
-                      <Check className="h-3.5 w-3.5" /> In match
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => add(player)}
-                      disabled={Boolean(addingId)}
-                      className="rounded-lg border border-violet-200 px-3 py-1.5 text-xs font-black text-violet-700 transition hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {addingId === player.id ? "Adding..." : "Add"}
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
+            <>
+              {showSearch && (
+                <div className="border-b border-gray-100 p-2">
+                  <label className="relative block">
+                    <span className="sr-only">Search your players</span>
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="search"
+                      value={query}
+                      onChange={(event) => setQuery(event.target.value)}
+                      placeholder={`Search ${connections.length} players`}
+                      autoComplete="off"
+                      enterKeyHint="search"
+                      className="h-11 w-full rounded-lg border border-gray-200 bg-gray-50 pl-9 pr-10 text-base font-semibold text-gray-900 placeholder:text-gray-400 focus:border-violet-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-100 sm:text-sm [&::-webkit-search-cancel-button]:hidden"
+                    />
+                    {query && (
+                      <button
+                        type="button"
+                        onClick={() => setQuery("")}
+                        aria-label="Clear search"
+                        className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center text-gray-400 hover:text-gray-600"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </label>
+                </div>
+              )}
+              {visibleConnections.length === 0 ? (
+                <p className="p-3 text-sm font-semibold text-gray-600">
+                  No one matching &ldquo;{query.trim()}&rdquo;. Try part of their first or last name.
+                </p>
+              ) : (
+                <ul className="max-h-72 divide-y divide-gray-100 overflow-y-auto">
+                  {visibleConnections.map((player) => (
+                    <li key={player.id} className="flex items-center gap-3 p-3">
+                      <PlayerAvatar name={player.full_name} imageUrl={player.profile_picture} size="sm" showBadge={false} />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-bold text-gray-900">{player.full_name}</p>
+                        <p className="text-xs font-semibold text-gray-500">{connectionLabel(player)}</p>
+                      </div>
+                      {player.in_match ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-700">
+                          <Check className="h-3.5 w-3.5" /> In match
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => add(player)}
+                          disabled={Boolean(addingId)}
+                          className="rounded-lg border border-violet-200 px-3 py-1.5 text-xs font-black text-violet-700 transition hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {addingId === player.id ? "Adding..." : "Add"}
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
           )}
           {onInviteOthers && (
             <button
