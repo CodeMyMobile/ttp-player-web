@@ -677,7 +677,8 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
             </span>
             <strong>-{formatPayLinkMoney(summary.order.discount_amount_cents || 0)}</strong>
           </div>
-        ) : !paymentConfirmed && !demoMode ? (
+        ) : !paymentConfirmed && !demoMode && !summary.order.is_coach_purchase ? (
+          // A coach's own purchase already has the shop's coach discount, and the API refuses codes on it.
           <form
             className="pay-link-discount"
             onSubmit={(event) => {
@@ -713,9 +714,11 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
         {(summary.order.coach_discount_cents || 0) > 0 ? (
           <div className="pay-link-total">
             <span>
-              {summary.order.ordered_by_coach_name
-                ? `Discount from ${summary.order.ordered_by_coach_name}`
-                : "Discount from your coach"}
+              {summary.order.is_coach_purchase
+                ? `Coach discount${summary.order.coach_purchase_discount_pct ? ` (${summary.order.coach_purchase_discount_pct}%)` : ""}`
+                : summary.order.ordered_by_coach_name
+                  ? `Discount from ${summary.order.ordered_by_coach_name}`
+                  : "Discount from your coach"}
             </span>
             <strong>-{formatPayLinkMoney(summary.order.coach_discount_cents || 0)}</strong>
           </div>

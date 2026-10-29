@@ -56,6 +56,9 @@ export interface RestringingPayLinkOrder {
   discount_removable?: boolean;
   /** The coach's commission, given to the player as a discount. Comes off after any other discount. */
   coach_discount_cents?: number | null;
+  /** A coach buying for themselves: coach_discount_cents is the shop's coach discount, not a commission. */
+  is_coach_purchase?: boolean;
+  coach_purchase_discount_pct?: number | null;
   ordered_by_coach_name?: string | null;
   tax_cents: number;
   total_cents: number;
