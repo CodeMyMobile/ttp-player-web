@@ -35,6 +35,37 @@ test("accepted invite with player identity remains a roster occupant", () => {
   assert.deepEqual(uniqueAcceptedInvitees([invite]), [invite]);
 });
 
+test("accepted invite of a player who left the match is not a roster occupant", () => {
+  // Leaving marks the participant "left" but keeps the invite "accepted"; the API
+  // reports joined: false because the player holds no active seat.
+  const participants = [
+    {
+      id: 38,
+      player_id: 6,
+      status: "hosting",
+      profile: { user_id: 6, full_name: "Paul Cochrane" },
+    },
+    {
+      id: 39,
+      player_id: 10,
+      status: "left",
+      profile: { user_id: 10, full_name: "Charlotte Cochrane" },
+    },
+  ];
+  const invitees = [
+    {
+      id: 39,
+      invitee_id: 10,
+      status: "accepted",
+      profile: { user_id: 10, full_name: "Charlotte Cochrane" },
+      joined: false,
+    },
+  ];
+
+  assert.deepEqual(uniqueAcceptedInvitees(invitees), []);
+  assert.equal(uniqueMatchOccupants(participants, invitees).length, 1);
+});
+
 test("generic accepted invites do not inflate match occupant count", () => {
   const participants = [
     {

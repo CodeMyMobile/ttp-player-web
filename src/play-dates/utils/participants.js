@@ -415,6 +415,13 @@ const isInviteActive = (invite) => {
     return false;
   }
 
+  // The API sends joined: false when the invitee holds no active seat. Leaving a match
+  // marks only the participant row "left"; the invite stays "accepted", so without this
+  // a player who dropped out still filled a seat and still read as joined.
+  if (invite.joined === false) {
+    return false;
+  }
+
   const participantStatus = invite.participant_status
     ? invite.participant_status.toString().trim().toLowerCase()
     : invite.participantStatus
