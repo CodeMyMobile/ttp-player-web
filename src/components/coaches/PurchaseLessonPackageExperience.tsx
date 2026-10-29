@@ -12,7 +12,11 @@ import {
   X,
 } from "lucide-react";
 import { Elements } from "@stripe/react-stripe-js";
-import { loadStripe } from "@stripe/stripe-js";
+import {
+  loadStripe,
+  type PaymentRequest as StripePaymentRequest,
+  type PaymentRequestPaymentMethodEvent,
+} from "@stripe/stripe-js";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import type { CoachProfileRecord } from "../../api/coachProfile";
@@ -47,6 +51,9 @@ type PurchaseLessonPackageExperienceProps = {
 };
 
 type PurchaseState = "idle" | "processing" | "success";
+
+// Same two choices as booking a private lesson on the coach profile.
+type PaymentChoice = "card" | "wallet";
 
 type PaymentMethodPayload =
   | PlayerStripePaymentMethod[]
@@ -233,6 +240,9 @@ const PurchaseLessonPackageExperience = ({
   const [purchaseState, setPurchaseState] = useState<PurchaseState>("idle");
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const [processingPurchase, setProcessingPurchase] = useState(false);
+  const [paymentChoice, setPaymentChoice] = useState<PaymentChoice>("card");
+  const [applePayRequest, setApplePayRequest] = useState<StripePaymentRequest | null>(null);
+  const [isApplePayReady, setIsApplePayReady] = useState(false);
   const stripeEnabled = Boolean(stripePromise);
 
   useEffect(() => {
@@ -397,6 +407,57 @@ const PurchaseLessonPackageExperience = ({
     [packages, selectedPackageId],
   );
   const selectedPackagePricing = selectedPackage ? calculatePackagePricing(selectedPackage.total_price) : null;
+  // What the backend charges: the package price plus the card fee.
+  const applePayAmount = selectedPackagePricing ? Math.round(selectedPackagePricing.total * 100) : 0;
+
+  // Prepared ahead, as on the coach profile, so the Apple Pay sheet can open straight from the tap.
+  useEffect(() => {
+    let cancelled = false;
+    setApplePayRequest(null);
+    setIsApplePayReady(false);
+
+    if (!stripePromise || !applePayAmount) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    (async () => {
+      const stripe = await stripePromise;
+      if (!stripe || cancelled) return;
+
+      const request = stripe.paymentRequest({
+        country: "US",
+        currency: "usd",
+        total: {
+          label: "The Tennis Plan",
+          amount: applePayAmount,
+        },
+        requestPayerName: true,
+        requestPayerEmail: true,
+      });
+
+      const canPay = await request.canMakePayment();
+      if (cancelled) return;
+      setApplePayRequest(canPay?.applePay ? request : null);
+      setIsApplePayReady(Boolean(canPay?.applePay));
+    })().catch(() => {
+      if (!cancelled) {
+        setApplePayRequest(null);
+        setIsApplePayReady(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [applePayAmount]);
+
+  useEffect(() => {
+    if (!isApplePayReady && paymentChoice === "wallet") {
+      setPaymentChoice("card");
+    }
+  }, [isApplePayReady, paymentChoice]);
 
   const creditEntries = useMemo(() => {
     const now = new Date();
@@ -430,7 +491,7 @@ const PurchaseLessonPackageExperience = ({
   const modalTitleId = `purchase-package-modal-title-${coach.id}`;
   const dismissLabel = isModal ? "Close purchase dialog" : "Back to coach";
   const coachFirstName = (coach.name ?? coach.fullName ?? coach.headlineBadge ?? "Coach").split(" ")[0];
-  const isAddingNewCard = selectedPaymentMethodId === "new-card";
+  const isAddingNewCard = paymentChoice === "card" && selectedPaymentMethodId === "new-card";
   const paymentMethodId = isAddingNewCard ? "" : customPaymentMethodId.trim() || (selectedPaymentMethodId ?? "").trim();
 
   const handleCardAdded = useCallback(
@@ -467,6 +528,41 @@ const PurchaseLessonPackageExperience = ({
     });
   };
 
+  const requestApplePayPaymentMethod = () => {
+    if (!isApplePayReady || !applePayRequest || !applePayAmount) {
+      return Promise.reject(new Error("Apple Pay isn't available on this device."));
+    }
+
+    return new Promise<{
+      paymentMethodId: string;
+      complete: (status: "success" | "fail") => void;
+    }>((resolve, reject) => {
+      const request = applePayRequest;
+
+      const handlePaymentMethod = (event: PaymentRequestPaymentMethodEvent) => {
+        resolve({
+          paymentMethodId: event.paymentMethod.id,
+          complete: (status) => event.complete(status),
+        });
+      };
+
+      const handleCancel = () => {
+        reject(new Error("Apple Pay was canceled."));
+      };
+
+      request.once("paymentmethod", handlePaymentMethod);
+      request.once("cancel", handleCancel);
+
+      try {
+        request.show();
+      } catch (error) {
+        request.off("paymentmethod", handlePaymentMethod);
+        request.off("cancel", handleCancel);
+        reject(error);
+      }
+    });
+  };
+
   const handlePurchase = async () => {
     if (!authToken) {
       setPurchaseError("Sign in to reserve this package.");
@@ -476,7 +572,7 @@ const PurchaseLessonPackageExperience = ({
       setPurchaseError("Select a package to continue.");
       return;
     }
-    if (!paymentMethodId) {
+    if (paymentChoice === "card" && !paymentMethodId) {
       setPaymentMethodsError("Choose or enter a payment method to continue.");
       return;
     }
@@ -485,16 +581,28 @@ const PurchaseLessonPackageExperience = ({
     setPurchaseError(null);
     setPurchaseState("processing");
 
+    let applePayCompletion: ((status: "success" | "fail") => void) | null = null;
+
     try {
+      let resolvedPaymentMethodId = paymentMethodId;
+      if (paymentChoice === "wallet") {
+        const applePayResult = await requestApplePayPaymentMethod();
+        resolvedPaymentMethodId = applePayResult.paymentMethodId;
+        applePayCompletion = applePayResult.complete;
+      }
+
       await purchaseCoachPackage({
         token: authToken,
         packageId: selectedPackage.id,
-        paymentMethodId,
+        paymentMethodId: resolvedPaymentMethodId,
       });
+      applePayCompletion?.("success");
+      applePayCompletion = null;
       setPurchaseState("success");
       await refreshCredits();
       onSuccess?.();
     } catch (err) {
+      applePayCompletion?.("fail");
       const data = (err as Error & { data?: { error?: string; message?: string } }).data;
       const message = buildPurchaseErrorMessage(
         data?.error as string | undefined,
@@ -736,7 +844,7 @@ const PurchaseLessonPackageExperience = ({
                 <div className="purchase-package-experience__payment-header">
                   <div>
                     <h3>Payment method</h3>
-                    <p>Choose the card to pay with.</p>
+                    <p>Choose how to pay.</p>
                   </div>
                   <span className="purchase-package-experience__payment-secure">
                     <ShieldCheck aria-hidden size={16} /> Secure checkout
@@ -755,8 +863,67 @@ const PurchaseLessonPackageExperience = ({
                     </div>
                   ) : null}
 
+                  {authToken ? (
+                    <div className="purchase-pay-choices" role="radiogroup" aria-label="Payment method">
+                      <label className={`purchase-pay-choice${paymentChoice === "card" ? " purchase-pay-choice--active" : ""}`}>
+                        <input
+                          type="radio"
+                          name="payment-choice"
+                          value="card"
+                          checked={paymentChoice === "card"}
+                          onChange={() => {
+                            setPaymentMethodsError(null);
+                            setPaymentChoice("card");
+                          }}
+                        />
+                        <span className="purchase-pay-choice__icon" aria-hidden="true">💳</span>
+                        <span className="purchase-pay-choice__body">
+                          <span className="purchase-pay-choice__title">Saved card</span>
+                          <span className="purchase-pay-choice__subtitle">
+                            {paymentMethodsLoading
+                              ? "Loading your saved cards..."
+                              : paymentMethods.length > 0
+                                ? `${paymentMethods.length} saved card${paymentMethods.length === 1 ? "" : "s"} available.`
+                                : "Add a card to pay securely at checkout."}
+                          </span>
+                        </span>
+                        {paymentChoice === "card" ? <span className="purchase-pay-choice__check">✓</span> : null}
+                      </label>
+
+                      <label
+                        className={`purchase-pay-choice${paymentChoice === "wallet" ? " purchase-pay-choice--active" : ""}${
+                          !isApplePayReady ? " purchase-pay-choice--disabled" : ""
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="payment-choice"
+                          value="wallet"
+                          checked={paymentChoice === "wallet"}
+                          onChange={() => {
+                            setPaymentMethodsError(null);
+                            setPaymentChoice("wallet");
+                          }}
+                          disabled={!isApplePayReady}
+                        />
+                        <span className="purchase-pay-choice__icon" aria-hidden="true">🍎</span>
+                        <span className="purchase-pay-choice__body">
+                          <span className="purchase-pay-choice__title">Apple Pay / wallet</span>
+                          <span className="purchase-pay-choice__subtitle">
+                            {isApplePayReady
+                              ? "Pay with Apple Pay on this device."
+                              : stripePromise
+                                ? "Apple Pay is not available on this device or browser."
+                                : "Stripe is not configured for Apple Pay."}
+                          </span>
+                        </span>
+                        {paymentChoice === "wallet" ? <span className="purchase-pay-choice__check">✓</span> : null}
+                      </label>
+                    </div>
+                  ) : null}
+
                   <div className="payment-methods__group">
-                    <span className="payment-methods__group-label">Saved cards</span>
+                    {paymentChoice === "card" ? <span className="payment-methods__group-label">Saved cards</span> : null}
                     {!authToken ? (
                       <div className="payment-methods__auth-prompt">
                         <p>Sign in or create an account to save a card and reserve credits.</p>
@@ -765,10 +932,10 @@ const PurchaseLessonPackageExperience = ({
                         </button>
                       </div>
                     ) : null}
-                    {authToken && !paymentMethodsLoading && paymentMethods.length === 0 ? (
+                    {authToken && paymentChoice === "card" && !paymentMethodsLoading && paymentMethods.length === 0 ? (
                       <p className="payment-methods__notice">No saved cards yet.</p>
                     ) : null}
-                    {authToken ? (
+                    {authToken && paymentChoice === "card" ? (
                       <div className="payment-methods__stack">
                         {paymentMethods.map((method) => {
                           const isSelected = selectedPaymentMethodId === method.id;
