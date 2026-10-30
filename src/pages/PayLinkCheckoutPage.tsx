@@ -595,6 +595,11 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
                       ? `Qty ${item.item_qty || 1}`
                       : `${item.racket_make_model || "Racket"} · ${item.string_description || "String to confirm"}`}
                   </div>
+                  {item.service_strings?.length ? (
+                    <div className="pay-link-item__strings">
+                      The shop picks from: {item.service_strings.join(", ")}
+                    </div>
+                  ) : null}
                 </div>
                 <strong>{formatPayLinkMoney(Number(item.unit_price_cents || 0) * Number(item.item_qty || 1))}</strong>
               </div>
