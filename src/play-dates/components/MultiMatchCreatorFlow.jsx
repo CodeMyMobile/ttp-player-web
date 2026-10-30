@@ -3,6 +3,7 @@ import Autocomplete from "react-google-autocomplete";
 import {
   ArrowRight,
   Calendar,
+  MessageSquare,
   Check,
   ChevronRight,
   Globe,
@@ -18,8 +19,20 @@ import PlayerAvatar from "./PlayerAvatar";
 import WhenPicker from "./WhenPicker";
 import LocationPicker from "./LocationPicker";
 import { formatDayLabel, formatTimeLabel } from "../utils/matchTimeLabels";
-import { createMatch, searchPlayers, sendInvites } from "../services/matches";
+import {
+  createMatch,
+  notifyMatchPlayers,
+  notifyMatchSeries,
+  searchPlayers,
+  sendInvites,
+} from "../services/matches";
 import { getMatchGroup, listMatchGroups } from "../services/matchGroups";
+import GroupDetailPage from "../pages/GroupDetailPage";
+import {
+  describeGroupNotifyError,
+  describeGroupNotifyResult,
+  groupNotifyCaption,
+} from "../utils/groupNotify";
 import { getStoredAuthToken } from "../services/authToken";
 import { getPersonalDetails } from "../services/auth";
 import { updatePlayerPersonalDetails } from "../services/player";
@@ -63,6 +76,13 @@ const MAX_PRIVATE_INVITES = 30;
 
 // Fallback, host-editable share message for the open-match success screen.
 const SHARE_MESSAGE = buildAvailabilityShareMessage();
+
+// A group member's user is player_id; its id is the membership row, so it must
+// not be read as the player.
+const groupMemberToPlayer = (member) => {
+  const userId = member?.player_id ?? member?.user_id;
+  return normalizePlayer({ ...member, id: userId, user_id: userId });
+};
 
 const normalizePlayer = (player) => {
   const id = Number(player?.user_id ?? player?.id);
@@ -134,7 +154,6 @@ function MultiMatchCreatorFlow({
   onCancel,
   onReturnHome,
   onMatchCreated,
-  onCreateGroup,
   currentUser,
 }) {
   const [screen, setScreen] = useState("type"); // type|build|when|loc|share|invite|success
@@ -166,6 +185,14 @@ function MultiMatchCreatorFlow({
   const [smsFirstName, setSmsFirstName] = useState("");
   const [smsPhone, setSmsPhone] = useState("");
   const manualSeq = useRef(1);
+
+  // The group editor opens over the flow so nothing typed so far is lost.
+  // `then` says what to do with the saved group: "invite" adds its members to
+  // this match, "notify" ticks it for texting on the success screen.
+  const [groupEditor, setGroupEditor] = useState(null); // { initialMembers, then } | null
+  const [notifyGroupIds, setNotifyGroupIds] = useState([]);
+  const [notifying, setNotifying] = useState(false);
+  const [notifyResult, setNotifyResult] = useState(null); // { ok, text } | null
 
   const showToast = useCallback((message, kind = "success") => {
     setToast({ message, kind });
@@ -308,23 +335,20 @@ function MultiMatchCreatorFlow({
     };
   }, []);
 
-  // load groups lazily when entering the private branch
+  // Groups are used by both branches: private invites and, after creating open
+  // matches, texting a group.
+  const refreshGroups = useCallback(async () => {
+    try {
+      const data = await listMatchGroups();
+      setMatchGroups(Array.isArray(data?.groups) ? data.groups : []);
+    } catch {
+      setMatchGroups([]);
+    }
+  }, []);
+
   useEffect(() => {
-    if (type !== "private") return undefined;
-    let cancelled = false;
-    listMatchGroups()
-      .then((data) => {
-        if (!cancelled) {
-          setMatchGroups(Array.isArray(data?.groups) ? data.groups : []);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setMatchGroups([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [type]);
+    refreshGroups();
+  }, [refreshGroups]);
 
   // debounced player search
   useEffect(() => {
@@ -531,15 +555,68 @@ function MultiMatchCreatorFlow({
   const removeInvitee = (id) =>
     setInvitedPlayers((prev) => prev.filter((p) => p.id !== id));
 
+  const addGroupMembersToInvite = (group) => {
+    const members = Array.isArray(group?.members) ? group.members : [];
+    const normalized = members
+      .map(groupMemberToPlayer)
+      .filter((p) => Number.isFinite(p.id) && String(p.id) !== String(hostId));
+    setInvitedPlayers((prev) => {
+      const seen = new Set(prev.map((p) => p.id));
+      return [...prev, ...normalized.filter((p) => !seen.has(p.id))];
+    });
+    return normalized;
+  };
+
+  const openGroupEditor = (options = {}) =>
+    setGroupEditor({ initialMembers: [], then: null, ...options });
+
+  const handleGroupSaved = async (group) => {
+    const then = groupEditor?.then;
+    setGroupEditor(null);
+    await refreshGroups();
+    if (!group?.id) return;
+    if (then === "invite") {
+      const added = addGroupMembersToInvite(group);
+      showToast(`Saved "${group.name}" and added ${added.length}`);
+      return;
+    }
+    if (then === "notify") {
+      setNotifyGroupIds((prev) => (prev.includes(group.id) ? prev : [...prev, group.id]));
+    }
+    showToast(`Saved "${group.name}"`);
+  };
+
+  const toggleNotifyGroup = (groupId) => {
+    setNotifyResult(null);
+    setNotifyGroupIds((prev) =>
+      prev.includes(groupId) ? prev.filter((id) => id !== groupId) : [...prev, groupId],
+    );
+  };
+
+  // One match keeps POST /:id/notify; a series gets one text per player.
+  const sendGroupNotify = async () => {
+    const matchIds = createResults.filter((r) => r.ok && r.matchId).map((r) => r.matchId);
+    if (!matchIds.length || !notifyGroupIds.length || notifying) return;
+    setNotifying(true);
+    setNotifyResult(null);
+    try {
+      const result =
+        matchIds.length === 1
+          ? await notifyMatchPlayers(matchIds[0], { groupIds: notifyGroupIds })
+          : await notifyMatchSeries({ matchIds, groupIds: notifyGroupIds });
+      setNotifyResult(describeGroupNotifyResult(result));
+      setNotifyGroupIds([]);
+    } catch (error) {
+      setNotifyResult({ ok: false, text: describeGroupNotifyError(error) });
+    } finally {
+      setNotifying(false);
+    }
+  };
+
   const inviteGroup = async (groupId) => {
     try {
       const group = await getMatchGroup(groupId);
-      const members = Array.isArray(group?.members) ? group.members : [];
-      const normalized = members.map(normalizePlayer).filter((p) => Number.isFinite(p.id));
-      setInvitedPlayers((prev) => {
-        const seen = new Set(prev.map((p) => p.id));
-        return [...prev, ...normalized.filter((p) => !seen.has(p.id))];
-      });
+      const normalized = addGroupMembersToInvite(group);
       showToast(`Added ${normalized.length} from group`);
     } catch {
       showToast("Couldn't load that group", "error");
@@ -810,7 +887,8 @@ function MultiMatchCreatorFlow({
               onAddInvitee={addInvitee}
               matchGroups={matchGroups}
               onInviteGroup={inviteGroup}
-              onCreateGroup={onCreateGroup}
+              onCreateGroup={() => openGroupEditor({ then: "invite" })}
+              onSaveInviteesAsGroup={() => openGroupEditor({ initialMembers: invitedPlayers })}
               smsFirstName={smsFirstName}
               setSmsFirstName={setSmsFirstName}
               smsPhone={smsPhone}
@@ -829,6 +907,15 @@ function MultiMatchCreatorFlow({
               onRetry={retryFailed}
               onShareAvailability={handleShareAvailability}
               onDone={onReturnHome}
+              matchGroups={matchGroups}
+              notifyGroupIds={notifyGroupIds}
+              onToggleNotifyGroup={toggleNotifyGroup}
+              onSendGroupNotify={sendGroupNotify}
+              notifying={notifying}
+              notifyResult={notifyResult}
+              onCreateNotifyGroup={() => openGroupEditor({ then: "notify" })}
+              invitedPlayers={invitedPlayers}
+              onSaveInviteesAsGroup={() => openGroupEditor({ initialMembers: invitedPlayers })}
             />
           )}
         </div>
@@ -869,6 +956,17 @@ function MultiMatchCreatorFlow({
           </Footer>
         )}
       </div>
+      {groupEditor && (
+        <div className="absolute inset-0 z-20 overflow-y-auto bg-white">
+          <GroupDetailPage
+            groupId="new"
+            backLabel="Back to your match"
+            initialMembers={groupEditor.initialMembers}
+            onBack={() => setGroupEditor(null)}
+            onSaved={handleGroupSaved}
+          />
+        </div>
+      )}
       <Toast toast={toast} />
     </Shell>
   );
@@ -877,7 +975,7 @@ function MultiMatchCreatorFlow({
 // ===================== presentational pieces =====================
 
 const Shell = ({ children }) => (
-  <div className="mx-auto flex min-h-[640px] w-full max-w-[440px] flex-col overflow-hidden rounded-3xl bg-white shadow-xl ring-1 ring-slate-200">
+  <div className="relative mx-auto flex min-h-[640px] w-full max-w-[440px] flex-col overflow-hidden rounded-3xl bg-white shadow-xl ring-1 ring-slate-200">
     {children}
   </div>
 );
@@ -1531,6 +1629,7 @@ const InviteScreen = ({
   matchGroups,
   onInviteGroup,
   onCreateGroup,
+  onSaveInviteesAsGroup,
   smsFirstName,
   setSmsFirstName,
   smsPhone,
@@ -1578,6 +1677,15 @@ const InviteScreen = ({
             </span>
           ))}
         </div>
+      )}
+      {invitedPlayers.length > 0 && (
+        <button
+          type="button"
+          onClick={onSaveInviteesAsGroup}
+          className="-mt-2 mb-4 inline-flex items-center gap-1.5 text-[13px] font-extrabold text-violet-700"
+        >
+          <Users size={15} /> Save these players as a group
+        </button>
       )}
 
       <div className="mb-4 flex gap-1 rounded-xl bg-slate-100 p-1">
@@ -1759,6 +1867,15 @@ const SuccessScreen = ({
   onRetry,
   onShareAvailability,
   onDone,
+  matchGroups = [],
+  notifyGroupIds = [],
+  onToggleNotifyGroup,
+  onSendGroupNotify,
+  notifying,
+  notifyResult,
+  onCreateNotifyGroup,
+  invitedPlayers = [],
+  onSaveInviteesAsGroup,
 }) => {
   const succeeded = results.filter((r) => r.ok);
   const failed = results.filter((r) => !r.ok);
@@ -1821,6 +1938,92 @@ const SuccessScreen = ({
             Retry failed
           </button>
         </div>
+      )}
+
+      {type === "open" && n > 0 && (
+        <div className="mb-5 w-full text-left">
+          <div className="mb-1.5 text-[11px] font-extrabold uppercase tracking-[0.08em] text-slate-500">
+            Text a group
+          </div>
+          {matchGroups.length === 0 ? (
+            <p className="mb-2.5 text-[13px] font-semibold text-slate-500">
+              Make a group of the players you play with, then text them all at once.
+            </p>
+          ) : (
+            <div className="mb-2.5 rounded-2xl border border-slate-200">
+              {matchGroups.map((group) => {
+                const count = group.member_count || group.members?.length || 0;
+                const checked = notifyGroupIds.includes(group.id);
+                return (
+                  <label
+                    key={group.id}
+                    className="flex cursor-pointer items-center gap-3 border-b border-slate-100 px-3.5 py-3 last:border-b-0"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => onToggleNotifyGroup?.(group.id)}
+                      className="h-4 w-4 accent-violet-600"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[14px] font-extrabold text-slate-900">
+                        {group.name}
+                      </span>
+                      <span className="block text-[12px] font-bold text-slate-500">
+                        {count} player{count === 1 ? "" : "s"}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={onCreateNotifyGroup}
+            className="mb-2.5 inline-flex items-center gap-1.5 text-[13px] font-extrabold text-violet-700"
+          >
+            <Plus size={15} /> {matchGroups.length ? "New group" : "Create a group"}
+          </button>
+          {matchGroups.length > 0 && (
+            <>
+              <button
+                type="button"
+                disabled={!notifyGroupIds.length || notifying}
+                onClick={onSendGroupNotify}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3 text-[15px] font-extrabold text-violet-700 disabled:opacity-50"
+              >
+                <MessageSquare size={17} />
+                {notifying
+                  ? "Sending…"
+                  : notifyGroupIds.length
+                    ? `Text ${notifyGroupIds.length} group${notifyGroupIds.length === 1 ? "" : "s"}`
+                    : "Pick a group to text"}
+              </button>
+              <p className="mt-1.5 text-[12px] font-semibold text-slate-500">
+                {groupNotifyCaption(n)}
+              </p>
+            </>
+          )}
+          {notifyResult && (
+            <p
+              role="status"
+              className={`mt-2 text-[13px] font-bold ${notifyResult.ok ? "text-emerald-700" : "text-rose-600"}`}
+            >
+              {notifyResult.text}
+            </p>
+          )}
+        </div>
+      )}
+
+      {type === "private" && n > 0 && invitedPlayers.length > 0 && (
+        <button
+          type="button"
+          onClick={onSaveInviteesAsGroup}
+          className="mb-4 inline-flex items-center gap-1.5 text-[13.5px] font-extrabold text-violet-700"
+        >
+          <Users size={15} /> Save these players as a group
+        </button>
       )}
 
       {type === "open" && n > 0 && (

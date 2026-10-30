@@ -516,6 +516,15 @@ export const notifyMatchPlayers = (matchId, payload = {}) =>
     }),
   );
 
+// One text per player about several of the host's open matches.
+export const notifyMatchSeries = (payload = {}) =>
+  unwrap(
+    api("/matches/notify-series", {
+      method: "POST",
+      json: payload,
+    }),
+  );
+
 export const listMatchNotifications = (matchId) =>
   unwrap(api(`/matches/${matchId}/notifications`));
 
