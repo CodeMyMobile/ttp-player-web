@@ -61,6 +61,7 @@ const BrowseScreen = ({
   NTRP_LEVELS,
   DISCOVERY_FORMAT_FILTERS,
   DISCOVERY_GENDER_FILTERS,
+  goToGroups,
 }) => {
     // Presentational tab state. "My Matches" and "Hosting" both fetch with
     // activeFilter="my"; Hosting additionally client-filters to hosted matches.
@@ -194,17 +195,29 @@ const BrowseScreen = ({
                   {allWeekMatchCount} open near you this week
                 </p>
               </div>
-              {/* AppNav already renders "New match" on desktop (hidden on mobile via
-                  hideMobileNewMatch), so this header Create is mobile-only to avoid a
-                  duplicate. Same create path as the empty-state button. */}
-              <button
-                type="button"
-                onClick={() => window.dispatchEvent(new CustomEvent("play-dates:new-match"))}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-[11px] bg-gradient-to-br from-violet-500 to-violet-600 px-3.5 py-2.5 text-[13.5px] font-extrabold text-white shadow-md transition hover:from-violet-600 hover:to-violet-700 sm:hidden"
-              >
-                <Plus className="h-4 w-4" />
-                Create
-              </button>
+              <div className="flex shrink-0 items-center gap-2">
+                {goToGroups && (
+                  <button
+                    type="button"
+                    onClick={goToGroups}
+                    className="inline-flex items-center gap-1.5 rounded-[11px] border border-slate-200 bg-white px-3 py-2.5 text-[13.5px] font-extrabold text-slate-700 shadow-sm transition hover:border-violet-300 hover:text-violet-700"
+                  >
+                    <Users className="h-4 w-4" />
+                    My groups
+                  </button>
+                )}
+                {/* AppNav already renders "New match" on desktop (hidden on mobile via
+                    hideMobileNewMatch), so this header Create is mobile-only to avoid a
+                    duplicate. Same create path as the empty-state button. */}
+                <button
+                  type="button"
+                  onClick={() => window.dispatchEvent(new CustomEvent("play-dates:new-match"))}
+                  className="inline-flex items-center gap-1.5 rounded-[11px] bg-gradient-to-br from-violet-500 to-violet-600 px-3.5 py-2.5 text-[13.5px] font-extrabold text-white shadow-md transition hover:from-violet-600 hover:to-violet-700 sm:hidden"
+                >
+                  <Plus className="h-4 w-4" />
+                  Create
+                </button>
+              </div>
             </section>
 
             {topAttentionMatches.length > 0 && (

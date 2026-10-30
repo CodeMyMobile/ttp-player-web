@@ -88,6 +88,7 @@ const userMenuItems = [
   { label: "My Leagues", to: "/leagues", icon: Trophy },
   { label: "Player profile", to: "/settings/profile", icon: UserRound },
   { label: "Player match profile", to: "/settings/match-profile", icon: Target },
+  { label: "My groups", to: "/groups", icon: Users },
   { label: "Log result", to: "/log-result", icon: Trophy },
   { label: "Ladder", to: "/ladder", icon: Trophy },
   { label: "Payment methods", to: "/settings/payment-methods", icon: CreditCard },

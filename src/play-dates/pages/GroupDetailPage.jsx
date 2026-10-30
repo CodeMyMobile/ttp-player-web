@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, Loader2, Plus, Search, Trash2, Users, X } from "lucide-react";
 import PlayerAvatar from "../components/PlayerAvatar";
 import {
@@ -23,8 +23,17 @@ const normalizePlayer = (player) => {
   };
 };
 
-function GroupDetailPage({ groupId, onBack, onSaved }) {
+// initialMembers seeds a new group (e.g. the players just invited to a match),
+// and onSaved receives the saved group so a caller can use it straight away.
+function GroupDetailPage({
+  groupId,
+  onBack,
+  onSaved,
+  backLabel = "Back to groups",
+  initialMembers = [],
+}) {
   const isNew = groupId === "new";
+  const initialMembersRef = useRef(initialMembers);
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -41,7 +50,14 @@ function GroupDetailPage({ groupId, onBack, onSaved }) {
     if (isNew) {
       setName("");
       setDescription("");
-      setMembers([]);
+      setMembers(
+        initialMembersRef.current
+          .map((player) => ({
+            ...normalizePlayer(player),
+            avatarUrl: player?.avatarUrl || normalizePlayer(player).avatarUrl,
+          }))
+          .filter((player) => Number.isFinite(player.id)),
+      );
       setError("");
       setShowPlayerPicker(false);
       setSearchQuery("");
@@ -158,15 +174,17 @@ function GroupDetailPage({ groupId, onBack, onSaved }) {
         playerIds,
         player_ids: playerIds,
       };
-      if (isNew) {
-        await createMatchGroup(payload);
-      } else {
-        await updateMatchGroup(groupId, payload);
-      }
-      onSaved?.();
+      const saved = isNew
+        ? await createMatchGroup(payload)
+        : await updateMatchGroup(groupId, payload);
+      onSaved?.(saved);
     } catch (saveError) {
       console.error(saveError);
-      setError(saveError?.message || "Failed to save group.");
+      setError(
+        saveError?.status === 409
+          ? "You already have a group with that name."
+          : saveError?.message || "Failed to save group.",
+      );
     } finally {
       setSaving(false);
     }
@@ -196,7 +214,7 @@ function GroupDetailPage({ groupId, onBack, onSaved }) {
         className="mb-[18px] inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-200"
       >
         <ChevronLeft className="h-3.5 w-3.5" />
-        Back to groups
+        {backLabel}
       </button>
 
       <section className="mb-6 flex flex-wrap items-center justify-between gap-5">
