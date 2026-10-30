@@ -195,6 +195,13 @@
   font-size: 12.5px;
 }
 
+.pay-link-item__strings {
+  margin-top: 4px;
+  color: var(--pay-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .pay-link-btn {
   display: inline-flex;
   align-items: center;

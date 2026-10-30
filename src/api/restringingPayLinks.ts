@@ -22,6 +22,8 @@ export interface RestringingPayLinkItem {
   racket_make_model?: string | null;
   service_tier_name?: string | null;
   string_description?: string | null;
+  /** For a shop's-choice service: the strings this shop stocks in that service's category. */
+  service_strings?: string[] | null;
   gauge?: string | null;
   tension_lbs_mains?: number | null;
   tension_lbs_crosses?: number | null;
