@@ -1088,6 +1088,160 @@
   cursor: pointer;
 }
 
+/* --- your tennis circle ---------------------------------------------------- */
+
+/* Drawn like the feed's cards so the page reads as one family; its own classes so
+   either can change without moving the other. */
+.home-v2 .home-circle {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.home-v2 .home-circle__head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.home-v2 .home-circle__heading {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.home-v2 .home-circle__sub {
+  margin: 0;
+  font-size: 14px;
+  color: #64748b;
+}
+
+.home-v2 .home-circle__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.home-v2 .home-circle__card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 12px 12px 8px;
+  border-radius: 12px;
+  border-left: 4px solid #f59e0b;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #e2e8f0;
+}
+
+.home-v2 .home-circle__card--class { border-left-color: #0ea5e9; }
+
+.home-v2 .home-circle__avatar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: #f3eeff;
+  color: #6d28d9;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.home-v2 .home-circle__card--class .home-circle__avatar {
+  background: #e0f2fe;
+  color: #075985;
+}
+
+.home-v2 .home-circle__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.home-v2 .home-circle__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+
+.home-v2 .home-circle__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: #b45309;
+}
+
+.home-v2 .home-circle__card--class .home-circle__eyebrow { color: #0284c7; }
+
+.home-v2 .home-circle__chip {
+  padding: 1px 8px;
+  border-radius: 9999px;
+  background: #ecfdf3;
+  color: #067647;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* The name stays on one line; when and where wraps, because the court is the part a
+   phone would otherwise cut off. */
+.home-v2 .home-circle__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-v2 .home-circle__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.home-v2 .home-circle__when {
+  font-size: 13px;
+  color: #475569;
+}
+
+.home-v2 .home-circle__detail {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.home-v2 .home-circle__cta {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border-radius: 8px;
+  background: #8b5cf6;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.home-v2 .home-circle__more {
+  width: 100%;
+  padding: 10px;
+  border: 0;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #e2e8f0;
+  color: #7c3aed;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 /* --- players to hit with (VITE_HOME_FIND_PLAYERS) -------------------------- */
 
 /* A player photo, or their initials in Find Players' avatar colours. */

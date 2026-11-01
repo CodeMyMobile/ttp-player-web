@@ -11,6 +11,7 @@ import { OffCourt } from "../components/home/OffCourt";
 import { PlayersToHitWith } from "../components/home/PlayersToHitWith";
 import { SeasonModule } from "../components/home/SeasonModule";
 import { StatusTiles } from "../components/home/StatusTiles";
+import { TennisCircle } from "../components/home/TennisCircle";
 import { TodayRow } from "../components/home/TodayRow";
 import { useAuth } from "../context/AuthContext";
 import useHomePlayers from "../hooks/useHomePlayers";
@@ -24,6 +25,7 @@ import {
   useHomeInvites,
   useDeclaredLevel,
   useLadderStanding,
+  usePlayerCircle,
   useWeekBookings,
 } from "../hooks/useHomeStatus";
 import { acceptInvite, rejectInvite } from "../services/invites";
@@ -79,6 +81,7 @@ export default function HomePage() {
     myCoachIds,
     loading: feedLoading,
   } = useActivityFeed();
+  const { rows: circleRows } = usePlayerCircle();
   const { seasons } = useActiveSeasons(user);
   const { tip } = useTipOfDay();
 
@@ -134,6 +137,9 @@ export default function HomePage() {
             tilePlacement === "grid" ? <FindPlayersTile state={homePlayers} placement="grid" /> : null
           }
         />
+
+        {/* People the player already knows come before strangers. */}
+        <TennisCircle rows={circleRows} />
 
         {findPlayersOn ? (
           <PlayersToHitWith

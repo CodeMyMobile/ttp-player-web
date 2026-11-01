@@ -1,4 +1,5 @@
 import { request, type RequestQuery } from "./http";
+import type { CircleResponse } from "../utils/homeCircle";
 
 export type TruthyLike = boolean | string | number;
 
@@ -1635,6 +1636,23 @@ export const leaveMatch = async ({
 }) =>
   request<unknown>(`/matches/${matchId}/leave`, {
     method: "POST",
+    token: token ?? undefined,
+    signal,
+  });
+
+/**
+ * The home page's "Your tennis circle": open matches people you know are in, and group
+ * classes from your coaches at your level. Times come already labelled on the venue's clock.
+ * See utils/homeCircle.ts.
+ */
+export const getPlayerCircle = async ({
+  token,
+  signal,
+}: {
+  token?: string | null;
+  signal?: AbortSignal;
+} = {}) =>
+  request<CircleResponse>("/matches/circle", {
     token: token ?? undefined,
     signal,
   });

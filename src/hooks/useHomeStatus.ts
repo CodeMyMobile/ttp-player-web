@@ -5,7 +5,7 @@ import {
 } from "../api/matchResults";
 import { getPlayerUpcomingLessons } from "../api/player";
 import { fetchUpcomingGroupLessons, holdsGroupSpot, mapUpcomingGroupLessonsResponse } from "../api/groupLessons";
-import { listMatches } from "../api/matches";
+import { getPlayerCircle, listMatches } from "../api/matches";
 import { getStoredAuthToken } from "../services/authToken";
 import {
   DEFAULT_POSITION,
@@ -54,6 +54,7 @@ import {
 } from "../utils/activityFeed";
 import { buildHomeAlerts, type HomeAlert } from "../utils/homeAlertStack";
 import { selectHomeInvite, type HomeInviteItem } from "../utils/homeInvite";
+import { buildCircleRows, type CircleRow } from "../utils/homeCircle";
 import { useApiRequest } from "./useApiRequest";
 import type { RatingState } from "../utils/homeTiles";
 
@@ -423,6 +424,18 @@ const activityFeedFetcher = async () => {
  * Normalisation is shared with the legacy dashboard through utils/activityFeed
  * so the two screens cannot disagree about the same payload.
  */
+const circleFetcher = () => getPlayerCircle({ token: getStoredAuthToken() ?? undefined });
+
+/**
+ * "Your tennis circle". A failed request shows nothing rather than an error: the section
+ * is a nicety, and an empty one is hidden anyway.
+ */
+export function usePlayerCircle(skip = false): { loading: boolean; rows: CircleRow[] } {
+  const { data, loading } = useApiRequest(circleFetcher, NO_PARAMS, { skip });
+  const rows = useMemo(() => buildCircleRows(data), [data]);
+  return { loading, rows };
+}
+
 export function useActivityFeed(skip = false) {
   const { data, loading, error } = useApiRequest(activityFeedFetcher, NO_PARAMS, { skip });
 
