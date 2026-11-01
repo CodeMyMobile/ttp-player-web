@@ -22,11 +22,15 @@ export function splitOrders(orders) {
   };
 }
 
+/** A new racket the player's coach ordered for them: nothing to drop off. */
+export const isRacketSaleOrder = (order) =>
+  (Array.isArray(order?.items) ? order.items : []).some((item) => item?.item_type === "racket");
+
 /** The one status chip per order. */
 export function orderStatusChip(order) {
   switch (statusOf(order)) {
     case "pending":
-      return { label: "Drop off racket", tone: "amber" };
+      return isRacketSaleOrder(order) ? { label: "Being prepared", tone: "purple" } : { label: "Drop off racket", tone: "amber" };
     case "dropped_off":
     case "in_progress":
       return { label: "Stringing", tone: "purple" };
@@ -49,7 +53,9 @@ export function orderPaymentNote(order) {
   if (payment === "refunded") return { label: "Refunded", tone: "grey" };
   if (isCancelledOrder(order)) return null;
   if (payment === "paid") return clean(order?.payment_method).toLowerCase() === "comp" ? { label: "Comp", tone: "grey" } : null;
-  if (payment === "unpaid" && isActiveOrder(order)) return { label: "Pay at drop-off", tone: "amber" };
+  if (payment === "unpaid" && isActiveOrder(order)) {
+    return { label: isRacketSaleOrder(order) ? "Pay before pickup" : "Pay at drop-off", tone: "amber" };
+  }
   return null;
 }
 
@@ -117,6 +123,7 @@ const dayCount = (days) => {
 /** The "when will it be ready" line on an active order card. */
 export function readyLine(order, now = new Date()) {
   const status = statusOf(order);
+  if (status === "pending" && isRacketSaleOrder(order)) return "The shop is getting it ready";
   if (status === "pending") {
     const days = dayCount(order.vendor_turnaround_days);
     const today = parseVendorHours(order.vendor_hours);
@@ -139,6 +146,21 @@ const STEP_RANK = { pending: 0, dropped_off: 1, in_progress: 2, ready_for_pickup
 export function orderProgressSteps(order) {
   const status = statusOf(order);
   const rank = STEP_RANK[status] ?? 0;
+  // A new racket is ordered, not dropped off.
+  if (isRacketSaleOrder(order)) {
+    const saleDone = [true, rank >= 3 || Boolean(order?.ready_at), rank >= 4 || Boolean(order?.picked_up_at)];
+    const saleDates = [
+      order?.created_at ? formatShopDate(order.created_at) : "",
+      order?.ready_at ? formatShopDate(order.ready_at) : "",
+      order?.picked_up_at ? formatShopDate(order.picked_up_at) : "",
+    ];
+    const saleCurrent = saleDone.indexOf(false);
+    return ["Ordered", "Ready", "Picked up"].map((label, index) => ({
+      label,
+      state: saleDone[index] ? "done" : index === saleCurrent ? "current" : "todo",
+      date: saleDates[index],
+    }));
+  }
   // in_progress is optional and untimed: Stringing counts as done once the order is ready.
   const done = [
     rank >= 1 || Boolean(order?.dropped_off_at),
@@ -197,6 +219,9 @@ export function formatGauge(gauge) {
 
 /** One line per item: racket as the title, then string · gauge · tension. */
 export function orderItemLine(item) {
+  if (item?.item_type === "racket") {
+    return { title: clean(item.label) || "New racket", detail: "New racket" };
+  }
   if (item?.item_type === "custom") {
     const qty = Number(item.item_qty) || 1;
     return { title: `${clean(item.label) || "Item"}${qty > 1 ? ` × ${qty}` : ""}`, detail: "" };
@@ -206,7 +231,8 @@ export function orderItemLine(item) {
   if (item?.advice_requested && !tension && !clean(item?.gauge) && !clean(item?.custom_string_text)) {
     return { title, detail: "Setup decided at drop-off" };
   }
-  const parts = [itemStringName(item), formatGauge(item?.gauge), tension || "Stringer’s choice tension"];
+  // Strung with a new racket: labor was free.
+  const parts = [itemStringName(item), formatGauge(item?.gauge), tension || "Stringer’s choice tension", item?.labor_waived ? "labor free" : ""];
   return { title, detail: parts.filter(Boolean).join(" · ") };
 }
 
