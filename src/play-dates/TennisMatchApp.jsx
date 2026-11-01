@@ -13,6 +13,7 @@ import {
   getMatch,
   getShareLink,
   listRecommendedPlayers,
+  listMatchLessonOptions,
 } from "./services/matches";
 import { listNotifications } from "./services/notifications";
 import { getStoredAuthToken } from "./services/authToken";
@@ -83,6 +84,7 @@ import {
   RefreshCw,
   Lock,
   Globe2,
+  GraduationCap,
 } from "lucide-react";
 import Autocomplete from "react-google-autocomplete";
 import AppHeader from "./components/AppHeader";
@@ -4792,6 +4794,7 @@ const TennisMatchApp = ({
     const [suggestedPlayers, setSuggestedPlayers] = useState([]);
     const [suggestionsLoading, setSuggestionsLoading] = useState(false);
     const [suggestionsError, setSuggestionsError] = useState("");
+    const [lessonOptions, setLessonOptions] = useState({ coaches: [], group_lessons: [] });
 
     const matchType =
       typeof matchData?.type === "string" ? matchData.type.toLowerCase() : "";
@@ -5031,6 +5034,31 @@ const TennisMatchApp = ({
         alive = false;
       };
     }, [fetchSuggestedPlayers, matchId]);
+
+    // Lessons as a fallback for a host who can't find a partner. Only the host
+    // gets any; on any failure the card just doesn't show.
+    useEffect(() => {
+      let alive = true;
+      setLessonOptions({ coaches: [], group_lessons: [] });
+      if (!matchId || !currentUser) return undefined;
+      listMatchLessonOptions(matchId)
+        .then((data) => {
+          if (!alive) return;
+          setLessonOptions({
+            coaches: Array.isArray(data?.coaches) ? data.coaches : [],
+            group_lessons: Array.isArray(data?.group_lessons) ? data.group_lessons : [],
+          });
+        })
+        .catch((error) => {
+          if (error?.status !== 403) console.error("Failed to load lesson options", error);
+        });
+      return () => {
+        alive = false;
+      };
+    }, [matchId, currentUser]);
+
+    const formatPrice = (amount) =>
+      Number.isInteger(amount) ? `$${amount}` : `$${Number(amount).toFixed(2)}`;
 
     const filteredSuggestions = useMemo(() => {
       if (!Array.isArray(suggestedPlayers) || suggestedPlayers.length === 0) {
@@ -5288,6 +5316,81 @@ const TennisMatchApp = ({
                 </div>
               )}
             </div>
+
+            {/* Lessons instead */}
+            {(lessonOptions.coaches.length > 0 || lessonOptions.group_lessons.length > 0) && (
+              <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                <h3 className="text-sm font-black text-gray-900 uppercase tracking-wider flex items-center gap-2">
+                  <GraduationCap className="w-4 h-4 text-violet-500" /> Or book a lesson instead
+                </h3>
+                <p className="mt-1 mb-4 text-xs font-semibold text-gray-500">
+                  Free times can change until you book.
+                </p>
+                <ul className="space-y-3">
+                  {lessonOptions.coaches.map((coach) => (
+                    <li
+                      key={`coach-${coach.coach_id}`}
+                      className="flex items-center gap-3 rounded-xl border border-gray-100 px-4 py-3"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-bold text-gray-800">
+                          {coach.full_name}
+                          {coach.is_my_coach && (
+                            <span className="ml-2 whitespace-nowrap text-xs font-bold text-violet-600">Your coach</span>
+                          )}
+                        </p>
+                        <p className="text-xs font-semibold text-gray-500">
+                          {[
+                            `Private lesson · free ${coach.time_label}`,
+                            coach.location,
+                            coach.price_per_hour ? `${formatPrice(coach.price_per_hour)}/hr` : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/coaches/${coach.coach_id}/book`)}
+                        className="rounded-lg px-3 py-1.5 text-xs font-black text-white bg-gradient-to-r from-violet-500 to-violet-600 hover:shadow-md hover:scale-105 transition-all"
+                      >
+                        Book
+                      </button>
+                    </li>
+                  ))}
+                  {lessonOptions.group_lessons.map((lesson) => (
+                    <li
+                      key={`class-${lesson.lesson_id}`}
+                      className="flex items-center gap-3 rounded-xl border border-gray-100 px-4 py-3"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-bold text-gray-800">{lesson.title}</p>
+                        <p className="text-xs font-semibold text-gray-500">
+                          {[
+                            `Group class · ${lesson.time_label}`,
+                            lesson.coach_name,
+                            lesson.location,
+                            lesson.price_per_person ? formatPrice(lesson.price_per_person) : null,
+                            typeof lesson.spots_left === "number"
+                              ? `${lesson.spots_left} ${lesson.spots_left === 1 ? "spot" : "spots"} left`
+                              : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/group-lessons/${lesson.lesson_id}`)}
+                        className="rounded-lg px-3 py-1.5 text-xs font-black text-white bg-gradient-to-r from-violet-500 to-violet-600 hover:shadow-md hover:scale-105 transition-all"
+                      >
+                        View
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {/* Search players to invite */}
             <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
