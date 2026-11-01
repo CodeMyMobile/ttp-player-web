@@ -465,6 +465,11 @@ export const listMatchConnections = (matchId) =>
 export const listRecommendedPlayers = (matchId) =>
   unwrap(api(`/matches/${matchId}/recommended-players`));
 
+// Lessons the host could book instead: coaches free around the match time and
+// group classes that day, nearby. Times are the venue's clock, already labelled.
+export const listMatchLessonOptions = (matchId) =>
+  unwrap(api(`/matches/${matchId}/lesson-options`));
+
 export const addMatchParticipant = (matchId, playerId) =>
   unwrap(
     api(`/matches/${matchId}/participants`, {
