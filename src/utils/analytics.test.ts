@@ -69,5 +69,6 @@ test("event names are the agreed strings", () => {
     homeFindPlayersTileClick: "home_find_players_tile_click",
     homeRatingPromptView: "home_rating_prompt_view",
     homeRatingPromptClick: "home_rating_prompt_click",
+    appCrashed: "app_crashed",
   });
 });
