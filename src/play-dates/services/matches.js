@@ -460,6 +460,11 @@ export const openMatchToWaitlist = (matchId) =>
 export const listMatchConnections = (matchId) =>
   unwrap(api(`/matches/${matchId}/connections`));
 
+// Players the host could invite, best first. Each has `reasons`, such as
+// "Played together 2 times" or "Plays at Penmar Park".
+export const listRecommendedPlayers = (matchId) =>
+  unwrap(api(`/matches/${matchId}/recommended-players`));
+
 export const addMatchParticipant = (matchId, playerId) =>
   unwrap(
     api(`/matches/${matchId}/participants`, {
