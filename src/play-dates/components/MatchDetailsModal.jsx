@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Autocomplete from "react-google-autocomplete";
 import {
   AlertCircle,
+  ArrowLeft,
+  GraduationCap,
   Ban,
   Calendar,
   Check,
@@ -42,7 +44,10 @@ import {
   promoteWaitlistEntry,
   removeParticipant,
   removeWaitlistEntry,
+  listMatchLessonOptions,
+  listRecommendedPlayers,
   searchPlayers,
+  sendInvites,
   updateMatch,
 } from "../services/matches";
 import { rejectInvite } from "../services/invites";
@@ -877,7 +882,10 @@ const MatchDetailsModal = ({
   initialStatus,
   onViewPlayerProfile,
   openSuggestTime = false,
+  // "page" renders the match as a full page (the /matches/:id route) instead of a modal.
+  layout = "modal",
 }) => {
+  const isPageLayout = layout === "page";
   const normalizedInitialStatus = initialStatus || "details";
   const [status, setStatus] = useState(normalizedInitialStatus);
   const [joining, setJoining] = useState(false);
@@ -2272,6 +2280,65 @@ const MatchDetailsModal = ({
     }, []);
   }, [declinedInvitees]);
 
+  // Page layout, host only: players they could invite and lessons they could book instead,
+  // for an upcoming match that isn't full.
+  const showFillSuggestions =
+    isPageLayout &&
+    isHost &&
+    Boolean(matchId) &&
+    !isArchived &&
+    !isCancelled &&
+    match?.status !== "draft" &&
+    Boolean(startDate) &&
+    startDate.getTime() > Date.now() &&
+    (remainingSpots === null || remainingSpots > 0);
+  const [suggestedPlayers, setSuggestedPlayers] = useState([]);
+  const [lessonOptions, setLessonOptions] = useState({ coaches: [], group_lessons: [] });
+  const [invitingPlayerId, setInvitingPlayerId] = useState(null);
+  const [invitedPlayerIds, setInvitedPlayerIds] = useState(() => new Set());
+
+  useEffect(() => {
+    if (!showFillSuggestions) {
+      setSuggestedPlayers([]);
+      setLessonOptions({ coaches: [], group_lessons: [] });
+      return undefined;
+    }
+    let alive = true;
+    listRecommendedPlayers(matchId)
+      .then((data) => {
+        if (alive) setSuggestedPlayers(Array.isArray(data?.players) ? data.players : []);
+      })
+      .catch((error) => console.error("Failed to load suggested players", error));
+    listMatchLessonOptions(matchId)
+      .then((data) => {
+        if (!alive) return;
+        setLessonOptions({
+          coaches: Array.isArray(data?.coaches) ? data.coaches : [],
+          group_lessons: Array.isArray(data?.group_lessons) ? data.group_lessons : [],
+        });
+      })
+      .catch((error) => console.error("Failed to load lesson options", error));
+    return () => {
+      alive = false;
+    };
+  }, [showFillSuggestions, matchId]);
+
+  // One tap sends the normal match invite (a text with the link), same as the invite screen.
+  const handleInviteSuggested = async (player) => {
+    const playerId = Number(player?.user_id ?? player?.id);
+    if (!matchId || !Number.isFinite(playerId) || invitingPlayerId) return;
+    setInvitingPlayerId(playerId);
+    try {
+      await sendInvites(matchId, { playerIds: [playerId], phoneNumbers: [] });
+      setInvitedPlayerIds((prev) => new Set(prev).add(playerId));
+      onToast?.(`Invite sent to ${String(player.full_name || "them").split(" ")[0]}.`);
+    } catch (error) {
+      onToast?.(error?.message || "Couldn't send the invite. Please try again.", "error");
+    } finally {
+      setInvitingPlayerId(null);
+    }
+  };
+
   if (!isOpen || !match) return null;
 
   const handleCalendarAction = (type) => {
@@ -2753,7 +2820,9 @@ const MatchDetailsModal = ({
         return (
           <div
             key={player.id}
-            className="flex flex-col gap-2 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+            className={`flex flex-col gap-2 rounded-2xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between ${
+              isPageLayout ? "border-slate-200 bg-white" : "border-gray-100 bg-gray-50"
+            }`}
           >
             <button
               type="button"
@@ -3143,11 +3212,14 @@ const MatchDetailsModal = ({
     </div>
   );
 
-  const renderEditControls = () => {
+  // formOnly: the page layout puts "Edit match" in its side panel and shows only the form here.
+  const renderEditControls = ({ formOnly = false } = {}) => {
     if (!isHost || isArchived || isCancelled) return null;
+    if (formOnly && !isEditing) return null;
     return (
       <section className="space-y-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        {formOnly && <p className="text-sm font-black text-gray-900">Edit match</p>}
+        <div className={`flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between${formOnly ? " hidden" : ""}`}>
           <div>
             <p className="text-sm font-black text-gray-900">Manage match details</p>
             <p className="text-xs font-semibold text-gray-500">
@@ -3380,170 +3452,10 @@ const MatchDetailsModal = ({
     );
   };
 
-  const renderDefaultView = () => {
-    const disabledReason = joinDisabledReason();
-    const showWaitlistPanel = waitlistState.canJoin || waitlistState.isWaitlisted;
-    const shareContainerTone = isHiddenMatch
-      ? "border-amber-200 bg-amber-50"
-      : "border-emerald-100 bg-emerald-50";
-    const shareHeadingTone = isHiddenMatch ? "text-amber-900" : "text-emerald-900";
-    const shareBodyTone = isHiddenMatch ? "text-amber-700" : "text-emerald-700";
-    const shareLinkBorderTone = isHiddenMatch ? "border-amber-200" : "border-emerald-100";
-    const shareCopyButtonTone = isHiddenMatch
-      ? "bg-amber-500 hover:bg-amber-600"
-      : "bg-emerald-500 hover:bg-emerald-600";
-    const shareActionButtonTone = isHiddenMatch
-      ? "text-amber-700 hover:bg-amber-100"
-      : "text-emerald-700 hover:bg-emerald-50";
-    const ShareIcon = isHiddenMatch ? EyeOff : Share2;
-    const shareHeaderLabel = isHiddenMatch ? "Link-only match" : "Invite other players";
-    const shareBodyCopy = isHiddenMatch
-      ? "This match stays off the public feed. Share the invite link directly with players you trust."
-      : "Share this match link with tennis friends so they can grab a spot before it fills up.";
-    return (
-      <div className="flex flex-col">
-        <div className="flex flex-col gap-4 border-b border-gray-100 pb-5">
-          <div className="flex items-center gap-3">
-            <PlayerAvatar
-              name={hostName}
-              imageUrl={hostAvatar}
-              fallback={getAvatarInitials(hostName)}
-              size="lg"
-              variant="emerald"
-            />
-            <div>
-              <h2 id="match-details-heading" className="text-xl font-black text-gray-900">
-                Match Details
-              </h2>
-              <p className="text-sm font-semibold text-gray-500">Hosted by {hostName}</p>
-            </div>
-          </div>
-          {headerChips}
-        </div>
-
-        <div className="space-y-6 py-5">
-          {renderEditControls()}
-          {isOpenMatch && isHiddenMatch && (
-            <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
-              <EyeOff className="h-5 w-5 flex-shrink-0 text-amber-600" />
-              <p className="text-sm font-semibold text-amber-700">
-                This match stays off the public feed. Share the invite link directly with players you trust.
-              </p>
-            </div>
-          )}
-          {renderOfferedSlotSummary()}
-          {isHost && match?.id && !isArchived && !isCancelled && (
-            <TimeSuggestionsSection match={match} onAccepted={reloadMatchQuietly} onToast={onToast} />
-          )}
-          <section className="rounded-2xl bg-gray-50 p-4">
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-100">
-                <MapPin className="h-5 w-5 text-red-600" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-black text-gray-900">Location</p>
-                {match.location_text || match.location ? (
-                  <p className="text-sm font-semibold text-gray-700">
-                    {match.map_url || match.mapUrl ? (
-                      <a
-                        href={match.map_url || match.mapUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-emerald-600 underline-offset-2 hover:underline"
-                      >
-                        {match.location_text || match.location}
-                      </a>
-                    ) : (
-                      match.location_text || match.location
-                    )}
-                  </p>
-                ) : (
-                  <p className="text-sm font-semibold text-gray-500">Location coming soon</p>
-                )}
-              </div>
-            </div>
-          </section>
-
-          <section className="rounded-2xl bg-gray-50 p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <Trophy className="h-4 w-4 text-violet-600" />
-              <p className="text-sm font-black text-gray-900">Match info</p>
-            </div>
-            <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-              <div>
-                <p className="text-xs font-black uppercase tracking-wide text-gray-400">Format</p>
-                <p className="font-semibold text-gray-800">
-                  {match.match_format || match.format || "TBA"}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs font-black uppercase tracking-wide text-gray-400">Level</p>
-                <p className="font-semibold text-gray-800">
-                  {suggestedSkillLevel || "All levels"}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs font-black uppercase tracking-wide text-gray-400">Category</p>
-                <p className="font-semibold text-gray-800">
-                  {genderDisplay || "Any"}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs font-black uppercase tracking-wide text-gray-400">Balls</p>
-                <p className="font-semibold text-gray-800">
-                  {ballsDisplay || "Not specified"}
-                </p>
-              </div>
-            </div>
-            {verifiedOnly && (
-              <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700">
-                Verified rating required
-              </div>
-            )}
-          </section>
-
-          <section className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-emerald-500" />
-              <p className="text-sm font-black text-gray-900">
-                Players
-                {Number.isFinite(capacityLimit) && ` (${capacityLimit} max)`}
-              </p>
-              {waitlistState.count > 0 && (
-                <span className="ml-auto rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-bold text-violet-700">
-                  {formatWaitlistCount(waitlistState.count)}
-                </span>
-              )}
-            </div>
-            {renderPlayers()}
-            {waitlistEntries.length > 0 && renderWaitlist()}
-            {isHost && (
-              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm font-black text-emerald-900">
-                      Message participants
-                    </p>
-                    <p className="text-xs font-semibold text-emerald-700">
-                      {messageParticipantsDescription}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      openSmsComposer(participantPhoneRecipients, onToast)
-                    }
-                    disabled={!canMessageParticipants}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-black text-white shadow-sm transition-all hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                    Message group
-                  </button>
-                </div>
-              </div>
-            )}
-          </section>
-
+  // The host's tools for filling the match: heads-up texts, invite lists, the slot
+  // picker and adding a connection. Shared by the modal and the page layout.
+  const renderFillSections = () => (
+    <>
           {isHost && isOpenMatch && !isArchived && !isCancelled && (
             <section className="space-y-3 rounded-2xl border border-violet-100 bg-violet-50 p-4">
               <div className="flex items-center gap-2">
@@ -3712,7 +3624,29 @@ const MatchDetailsModal = ({
               onInviteOthers={canManageInvites ? handleManageInvites : undefined}
             />
           )}
+    </>
+  );
 
+  const renderShareSection = () => {
+    const shareContainerTone = isHiddenMatch
+      ? "border-amber-200 bg-amber-50"
+      : "border-emerald-100 bg-emerald-50";
+    const shareHeadingTone = isHiddenMatch ? "text-amber-900" : "text-emerald-900";
+    const shareBodyTone = isHiddenMatch ? "text-amber-700" : "text-emerald-700";
+    const shareLinkBorderTone = isHiddenMatch ? "border-amber-200" : "border-emerald-100";
+    const shareCopyButtonTone = isHiddenMatch
+      ? "bg-amber-500 hover:bg-amber-600"
+      : "bg-emerald-500 hover:bg-emerald-600";
+    const shareActionButtonTone = isHiddenMatch
+      ? "text-amber-700 hover:bg-amber-100"
+      : "text-emerald-700 hover:bg-emerald-50";
+    const ShareIcon = isHiddenMatch ? EyeOff : Share2;
+    const shareHeaderLabel = isHiddenMatch ? "Link-only match" : "Invite other players";
+    const shareBodyCopy = isHiddenMatch
+      ? "This match stays off the public feed. Share the invite link directly with players you trust."
+      : "Share this match link with tennis friends so they can grab a spot before it fills up.";
+    return (
+      <>
           {!isArchived && !isCancelled && (
             isOpenMatch ? (
               <section className={`space-y-3 rounded-2xl border ${shareContainerTone} p-4`}>
@@ -3815,7 +3749,12 @@ const MatchDetailsModal = ({
               )
             )
           )}
+      </>
+    );
+  };
 
+  const renderNotes = () => (
+    <>
           {match.notes && (
             <section className="rounded-2xl border border-gray-100 bg-white p-4">
               <div className="flex items-start gap-3">
@@ -3829,7 +3768,13 @@ const MatchDetailsModal = ({
               </div>
             </section>
           )}
+    </>
+  );
 
+  const renderStatusNotices = () => {
+    const showWaitlistPanel = waitlistState.canJoin || waitlistState.isWaitlisted;
+    return (
+      <>
           {matchPrivacy === "private" && (
             <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm font-semibold text-gray-600">
               Private matches can be joined with an invite. Reach out to the organizer if you need access.
@@ -3863,15 +3808,31 @@ const MatchDetailsModal = ({
                 : "You're already on the roster. Reach out to the organizer if you need changes."}
             </div>
           )}
-        </div>
+      </>
+    );
+  };
 
-        <div className="border-t border-gray-100 pt-5">
+  // Join, waitlist, leave and decline: the player's actions for this match.
+  const renderPrimaryActions = () => {
+    // The page uses the app's purple buttons; the modal keeps its own look.
+    const joinButtonClass = isPageLayout
+      ? "flex w-full min-h-[48px] items-center justify-center gap-2 rounded-xl bg-violet-500 px-6 text-[15px] font-semibold text-white transition hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-50"
+      : "flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-500 px-6 py-3 text-sm font-black text-white shadow-lg transition-all hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50";
+    const waitlistButtonClass =
+      "flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-500 to-violet-600 px-6 py-3 text-sm font-black text-white shadow-lg transition-all hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50";
+    const leaveButtonClass = isPageLayout
+      ? "flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-6 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+      : "flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 px-6 py-3 text-sm font-black text-white shadow-lg transition-all hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50";
+    const disabledReason = joinDisabledReason();
+    const showWaitlistPanel = waitlistState.canJoin || waitlistState.isWaitlisted;
+    return (
+      <>
           {canLeaveMatch ? (
             <button
               type="button"
               onClick={handleLeaveMatch}
               disabled={leaving || isArchived || isCancelled}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 px-6 py-3 text-sm font-black text-white shadow-lg transition-all hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50"
+              className={leaveButtonClass}
             >
               {leaving ? "Leaving match..." : "Leave this match"}
             </button>
@@ -3904,7 +3865,7 @@ const MatchDetailsModal = ({
                       type="button"
                       onClick={handleClaimSpot}
                       disabled={Boolean(waitlistAction)}
-                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-500 px-6 py-3 text-sm font-black text-white shadow-lg transition-all hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50"
+                      className={joinButtonClass}
                     >
                       {waitlistAction === "claim" ? "Claiming spot..." : "Claim this spot"}
                     </button>
@@ -3914,7 +3875,7 @@ const MatchDetailsModal = ({
                       type="button"
                       onClick={handleJoinWaitlist}
                       disabled={Boolean(waitlistAction)}
-                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-500 to-violet-600 px-6 py-3 text-sm font-black text-white shadow-lg transition-all hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50"
+                      className={isPageLayout ? joinButtonClass : waitlistButtonClass}
                     >
                       {waitlistAction === "join" ? "Joining waitlist..." : "Join waitlist"}
                     </button>
@@ -3936,7 +3897,7 @@ const MatchDetailsModal = ({
                   type="button"
                   onClick={handleJoin}
                   disabled={joining || !!disabledReason || status !== "details"}
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-500 px-6 py-3 text-sm font-black text-white shadow-lg transition-all hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50"
+                  className={joinButtonClass}
                 >
                   {joining ? "Joining match..." : "Join this match"}
                 </button>
@@ -3986,6 +3947,520 @@ const MatchDetailsModal = ({
               )}
             </>
           )}
+      </>
+    );
+  };
+
+  const renderDefaultView = () => {
+    return (
+      <div className="flex flex-col">
+        <div className="flex flex-col gap-4 border-b border-gray-100 pb-5">
+          <div className="flex items-center gap-3">
+            <PlayerAvatar
+              name={hostName}
+              imageUrl={hostAvatar}
+              fallback={getAvatarInitials(hostName)}
+              size="lg"
+              variant="emerald"
+            />
+            <div>
+              <h2 id="match-details-heading" className="text-xl font-black text-gray-900">
+                Match Details
+              </h2>
+              <p className="text-sm font-semibold text-gray-500">Hosted by {hostName}</p>
+            </div>
+          </div>
+          {headerChips}
+        </div>
+
+        <div className="space-y-6 py-5">
+          {renderEditControls()}
+          {isOpenMatch && isHiddenMatch && (
+            <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <EyeOff className="h-5 w-5 flex-shrink-0 text-amber-600" />
+              <p className="text-sm font-semibold text-amber-700">
+                This match stays off the public feed. Share the invite link directly with players you trust.
+              </p>
+            </div>
+          )}
+          {renderOfferedSlotSummary()}
+          {isHost && match?.id && !isArchived && !isCancelled && (
+            <TimeSuggestionsSection match={match} onAccepted={reloadMatchQuietly} onToast={onToast} />
+          )}
+          <section className="rounded-2xl bg-gray-50 p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-100">
+                <MapPin className="h-5 w-5 text-red-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-black text-gray-900">Location</p>
+                {match.location_text || match.location ? (
+                  <p className="text-sm font-semibold text-gray-700">
+                    {match.map_url || match.mapUrl ? (
+                      <a
+                        href={match.map_url || match.mapUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-emerald-600 underline-offset-2 hover:underline"
+                      >
+                        {match.location_text || match.location}
+                      </a>
+                    ) : (
+                      match.location_text || match.location
+                    )}
+                  </p>
+                ) : (
+                  <p className="text-sm font-semibold text-gray-500">Location coming soon</p>
+                )}
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-2xl bg-gray-50 p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <Trophy className="h-4 w-4 text-violet-600" />
+              <p className="text-sm font-black text-gray-900">Match info</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-gray-400">Format</p>
+                <p className="font-semibold text-gray-800">
+                  {match.match_format || match.format || "TBA"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-gray-400">Level</p>
+                <p className="font-semibold text-gray-800">
+                  {suggestedSkillLevel || "All levels"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-gray-400">Category</p>
+                <p className="font-semibold text-gray-800">
+                  {genderDisplay || "Any"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-gray-400">Balls</p>
+                <p className="font-semibold text-gray-800">
+                  {ballsDisplay || "Not specified"}
+                </p>
+              </div>
+            </div>
+            {verifiedOnly && (
+              <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700">
+                Verified rating required
+              </div>
+            )}
+          </section>
+
+          <section className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-emerald-500" />
+              <p className="text-sm font-black text-gray-900">
+                Players
+                {Number.isFinite(capacityLimit) && ` (${capacityLimit} max)`}
+              </p>
+              {waitlistState.count > 0 && (
+                <span className="ml-auto rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-bold text-violet-700">
+                  {formatWaitlistCount(waitlistState.count)}
+                </span>
+              )}
+            </div>
+            {renderPlayers()}
+            {waitlistEntries.length > 0 && renderWaitlist()}
+            {isHost && (
+              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-black text-emerald-900">
+                      Message participants
+                    </p>
+                    <p className="text-xs font-semibold text-emerald-700">
+                      {messageParticipantsDescription}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openSmsComposer(participantPhoneRecipients, onToast)
+                    }
+                    disabled={!canMessageParticipants}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-black text-white shadow-sm transition-all hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    Message group
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+
+          {renderFillSections()}
+
+          {renderShareSection()}
+
+          {renderNotes()}
+
+          {renderStatusNotices()}
+        </div>
+
+        <div className="border-t border-gray-100 pt-5">
+          {renderPrimaryActions()}
+        </div>
+      </div>
+    );
+  };
+
+  // The /matches/:id page: the group lesson page's layout, details on the left and the
+  // player's or host's main action on the right (first, on a phone).
+  const renderPageView = () => {
+    const formatLabel = match.match_format || match.format || "Match";
+    const locationLabel = match.location_text || match.location || "";
+    const mapUrl = match.map_url || match.mapUrl || "";
+    const title = locationLabel ? `${formatLabel} at ${locationLabel}` : `${formatLabel} match`;
+    const hostLine = isHost ? "Hosted by you" : `Hosted by ${hostName}`;
+    const otherPlayers = Math.max(committedCount - 1, 0);
+    const noOneJoined = showFillSuggestions && otherPlayers === 0;
+    const players = suggestedPlayers.filter(
+      (player) => !participants.some((p) => idsMatch(getParticipantPlayerId(p), player.user_id ?? player.id)),
+    );
+    const hasLessons = lessonOptions.coaches.length > 0 || lessonOptions.group_lessons.length > 0;
+    const spotsLabel = unresolvedSinglesSlot
+      ? "1 singles slot"
+      : remainingSpots === null
+        ? null
+        : remainingSpots === 0
+          ? "Match is full"
+          : `${remainingSpots} spot${remainingSpots === 1 ? "" : "s"} open`;
+    const fillPercent =
+      Number.isFinite(capacityLimit) && capacityLimit > 0
+        ? Math.min(100, Math.round((committedCount / capacityLimit) * 100))
+        : null;
+    const price = (amount) => (Number.isInteger(amount) ? `$${amount}` : `$${Number(amount).toFixed(2)}`);
+    const sectionLabel = "mb-2.5 text-xs font-bold uppercase tracking-wider text-slate-600";
+    const listCard = "divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white";
+    const rowClass = "flex items-center gap-3 px-4 py-3";
+    const smallButton =
+      "inline-flex min-h-[40px] flex-none items-center justify-center rounded-xl border px-3.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60";
+    const pill = "inline-flex h-7 items-center rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700";
+    const initials = (name) => getAvatarInitials(name || "");
+
+    return (
+      <div className="mx-auto w-full max-w-[1120px] px-4 pb-16 pt-4 sm:px-6 sm:pt-6">
+        <div className="mb-5 hidden items-center justify-between sm:flex">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden /> Back to matches
+          </button>
+        </div>
+
+        <header className="mb-6">
+          <div className="mb-3 flex flex-wrap gap-2">
+            {headerDateTimeLabel && (
+              <span className="inline-flex h-7 items-center rounded-full border border-violet-200 bg-violet-50 px-3 text-xs font-bold uppercase tracking-wide text-violet-700">
+                {headerDateTimeLabel}
+              </span>
+            )}
+            {suggestedSkillLevel && <span className={pill}>NTRP {suggestedSkillLevel}</span>}
+            <span className={pill}>{isPrivate ? "Private match" : isHiddenMatch ? "Link-only match" : "Open match"}</span>
+            {genderDisplay && genderDisplay !== "Any" && <span className={pill}>{genderDisplay}</span>}
+            {verifiedOnly && <span className={pill}>Verified-only</span>}
+          </div>
+          <h1 id="match-details-heading" className="text-[28px] font-bold leading-tight tracking-tight text-slate-900 sm:text-4xl">
+            {title}
+          </h1>
+          <p className="mt-2 text-base text-slate-600">{hostLine}</p>
+        </header>
+
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
+          <aside className="flex flex-col gap-3 lg:sticky lg:top-6 lg:col-start-2 lg:row-start-1">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_4px_16px_rgba(16,24,40,0.06)]">
+              <p className={sectionLabel}>{isHost ? "Your match" : isJoined ? "You're playing" : "This match"}</p>
+              {spotsLabel && <p className="text-2xl font-bold text-slate-900">{spotsLabel}</p>}
+              {shareDateTimeLabel && <p className="mt-1 text-sm text-slate-600">{shareDateTimeLabel}</p>}
+              {fillPercent !== null && (
+                <div className="mb-4 mt-4 h-2 rounded-full bg-slate-100" aria-hidden>
+                  <div className="h-2 rounded-full bg-violet-500" style={{ width: `${fillPercent}%` }} />
+                </div>
+              )}
+              {isHost && !isArchived && !isCancelled ? (
+                <div className="mt-4 flex flex-col gap-2.5">
+                  {canManageInvites && (
+                    <button
+                      type="button"
+                      onClick={handleManageInvites}
+                      className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-violet-500 px-4 text-[15px] font-semibold text-white transition hover:bg-violet-600"
+                    >
+                      <UserPlus className="h-4 w-4" aria-hidden /> Invite players
+                    </button>
+                  )}
+                  {isOpenMatch && (
+                    <button
+                      type="button"
+                      onClick={handleCopyShareLink}
+                      disabled={!shareLinkReady}
+                      className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                    >
+                      <Copy className="h-4 w-4" aria-hidden /> {shareCopied ? "Link copied" : "Copy share link"}
+                    </button>
+                  )}
+                  <div className="mt-2 flex flex-col border-t border-slate-100 pt-2">
+                    {canMessageParticipants && (
+                      <button
+                        type="button"
+                        onClick={() => openSmsComposer(participantPhoneRecipients, onToast)}
+                        className="py-2 text-left text-sm font-semibold text-violet-700 hover:text-violet-800"
+                      >
+                        Message players
+                      </button>
+                    )}
+                    {!isEditing && (
+                      <button
+                        type="button"
+                        onClick={handleStartEdit}
+                        className="py-2 text-left text-sm font-semibold text-violet-700 hover:text-violet-800"
+                      >
+                        Edit match
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleCancelMatch}
+                      disabled={cancellingMatch}
+                      className="py-2 text-left text-sm font-semibold text-red-700 hover:text-red-800 disabled:opacity-60"
+                    >
+                      {cancellingMatch ? "Cancelling..." : "Cancel match"}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4">{renderPrimaryActions()}</div>
+              )}
+            </div>
+            {!isHost && eventDetails && isJoined && (
+              <button
+                type="button"
+                onClick={() => handleCalendarAction("ics")}
+                className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                <Calendar className="h-4 w-4" aria-hidden /> Add to calendar
+              </button>
+            )}
+          </aside>
+
+          <section className="flex min-w-0 flex-col gap-7 lg:col-start-1 lg:row-start-1">
+            {renderStatusNotices()}
+
+            {status === "success" && !isHost && (
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3.5">
+                <p className="text-[15px] font-semibold text-emerald-900">You're in</p>
+                <p className="mt-0.5 text-sm text-emerald-800">
+                  We'll email a confirmation and let {hostName.split(" ")[0]} know.
+                </p>
+              </div>
+            )}
+
+            {noOneJoined && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3.5">
+                <p className="text-[15px] font-semibold text-amber-900">No one has joined yet</p>
+                <p className="mt-0.5 text-sm text-amber-800">
+                  {hasLessons
+                    ? "Invite one of the players below, or book a lesson instead."
+                    : "Invite one of the players below, or share the link."}
+                </p>
+              </div>
+            )}
+
+            {renderEditControls({ formOnly: true })}
+            {renderOfferedSlotSummary()}
+            {isHost && match?.id && !isArchived && !isCancelled && (
+              <TimeSuggestionsSection match={match} onAccepted={reloadMatchQuietly} onToast={onToast} />
+            )}
+
+            <div>
+              <p className={sectionLabel}>
+                Who's playing
+                {Number.isFinite(capacityLimit) && ` · ${committedCount} of ${capacityLimit}`}
+              </p>
+              {renderPlayers()}
+              {waitlistEntries.length > 0 && <div className="mt-3">{renderWaitlist()}</div>}
+            </div>
+
+            {showFillSuggestions && players.length > 0 && (
+              <div>
+                <div className="flex items-baseline justify-between">
+                  <p className={sectionLabel}>Players you could invite</p>
+                  {canManageInvites && (
+                    <button type="button" onClick={handleManageInvites} className="text-sm font-semibold text-violet-700">
+                      See all
+                    </button>
+                  )}
+                </div>
+                <ul className={listCard}>
+                  {players.slice(0, 5).map((player) => {
+                    const playerId = Number(player.user_id ?? player.id);
+                    const invited = invitedPlayerIds.has(playerId);
+                    return (
+                      <li key={playerId} className={rowClass}>
+                        <PlayerAvatar
+                          name={player.full_name}
+                          imageUrl={player.profile_picture}
+                          fallback={initials(player.full_name)}
+                          size="sm"
+                          showBadge={false}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[15px] font-semibold text-slate-900">{player.full_name}</p>
+                          {Array.isArray(player.reasons) && player.reasons.length > 0 && (
+                            <p className="text-sm text-slate-600">{player.reasons.join(" · ")}</p>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleInviteSuggested(player)}
+                          disabled={invited || invitingPlayerId === playerId}
+                          className={`${smallButton} ${invited ? "border-slate-200 text-slate-500" : "border-violet-300 text-violet-700 hover:bg-violet-50"}`}
+                        >
+                          {invited ? "Invited" : invitingPlayerId === playerId ? "Sending..." : "Invite"}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+
+            {showFillSuggestions && hasLessons && (
+              <div>
+                <p className={sectionLabel}>Or book a lesson instead</p>
+                <ul className={listCard}>
+                  {lessonOptions.coaches.map((coach) => (
+                    <li key={`coach-${coach.coach_id}`} className={rowClass}>
+                      <PlayerAvatar
+                        name={coach.full_name}
+                        imageUrl={coach.profile_picture}
+                        fallback={initials(coach.full_name)}
+                        size="sm"
+                        showBadge={false}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[15px] font-semibold text-slate-900">
+                          {coach.full_name}
+                          {coach.is_my_coach && (
+                            <span className="ml-2 whitespace-nowrap text-xs font-semibold text-violet-700">Your coach</span>
+                          )}
+                        </p>
+                        <p className="text-sm text-slate-600">
+                          {[
+                            `Private lesson · free ${coach.time_label}`,
+                            coach.location,
+                            coach.price_per_hour ? `${price(coach.price_per_hour)}/hr` : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </p>
+                      </div>
+                      <a href={`#/coaches/${coach.coach_id}/book`} className={`${smallButton} border-slate-300 text-slate-700 hover:bg-slate-50`}>
+                        Book
+                      </a>
+                    </li>
+                  ))}
+                  {lessonOptions.group_lessons.map((lesson) => (
+                    <li key={`class-${lesson.lesson_id}`} className={rowClass}>
+                      <div className="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-violet-50 text-violet-600">
+                        <GraduationCap className="h-5 w-5" aria-hidden />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[15px] font-semibold text-slate-900">{lesson.title}</p>
+                        <p className="text-sm text-slate-600">
+                          {[
+                            `Group class · ${lesson.time_label}`,
+                            lesson.coach_name,
+                            lesson.location,
+                            lesson.price_per_person ? price(lesson.price_per_person) : null,
+                            typeof lesson.spots_left === "number"
+                              ? `${lesson.spots_left} ${lesson.spots_left === 1 ? "spot" : "spots"} left`
+                              : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </p>
+                      </div>
+                      <a href={`#/group-lessons/${lesson.lesson_id}`} className={`${smallButton} border-slate-300 text-slate-700 hover:bg-slate-50`}>
+                        View
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-2 text-xs text-slate-600">Free times can change until you book.</p>
+              </div>
+            )}
+
+            <div>
+              <p className={sectionLabel}>Match details</p>
+              <dl className="grid grid-cols-2 gap-4 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-4">
+                <div>
+                  <dt className="text-sm text-slate-600">Format</dt>
+                  <dd className="mt-0.5 text-[15px] font-semibold text-slate-900">{match.match_format || match.format || "TBA"}</dd>
+                </div>
+                <div>
+                  <dt className="text-sm text-slate-600">Level</dt>
+                  <dd className="mt-0.5 text-[15px] font-semibold text-slate-900">
+                    {suggestedSkillLevel ? `NTRP ${suggestedSkillLevel}` : "All levels"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-sm text-slate-600">Who can join</dt>
+                  <dd className="mt-0.5 text-[15px] font-semibold text-slate-900">{genderDisplay || "Any"}</dd>
+                </div>
+                <div>
+                  <dt className="text-sm text-slate-600">Balls</dt>
+                  <dd className="mt-0.5 text-[15px] font-semibold text-slate-900">{ballsDisplay || "Not specified"}</dd>
+                </div>
+              </dl>
+            </div>
+
+            {match.notes && (
+              <div>
+                <p className={sectionLabel}>{isHost ? "Your note" : `Note from ${hostName.split(" ")[0]}`}</p>
+                <p className="rounded-2xl border border-slate-200 bg-white p-4 text-[15px] leading-relaxed text-slate-700">
+                  {match.notes}
+                </p>
+              </div>
+            )}
+
+            <div>
+              <p className={sectionLabel}>Location</p>
+              <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+                <p className="min-w-0 flex-1 text-[15px] font-semibold text-slate-900">
+                  {locationLabel || "Location coming soon"}
+                </p>
+                {mapUrl && (
+                  <a
+                    href={mapUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`${smallButton} border-slate-300 text-slate-700 hover:bg-slate-50`}
+                  >
+                    <MapPin className="mr-1.5 h-4 w-4" aria-hidden /> Directions
+                  </a>
+                )}
+              </div>
+            </div>
+
+            {isHost && !isArchived && !isCancelled && (
+              <div className="flex flex-col gap-4">
+                <p className={`${sectionLabel} mb-0`}>More ways to fill it</p>
+                {renderFillSections()}
+              </div>
+            )}
+            {!isHost && renderFillSections()}
+            {!isHost && renderShareSection()}
+          </section>
         </div>
       </div>
     );
@@ -4241,6 +4716,8 @@ const MatchDetailsModal = ({
       </div>
     </div>
   );
+
+  if (isPageLayout) return renderPageView();
 
   return (
     <div
