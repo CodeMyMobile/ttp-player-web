@@ -46,6 +46,9 @@ export const ANALYTICS_EVENTS = {
   homeFindPlayersTileClick: "home_find_players_tile_click",
   homeRatingPromptView: "home_rating_prompt_view",
   homeRatingPromptClick: "home_rating_prompt_click",
+  // Home "Your tennis circle". Counts and row kind only, never who.
+  homeCircleView: "home_circle_view",
+  homeCircleClick: "home_circle_click",
   // The crash screen (components/AppErrorBoundary). The error, the route pattern and the
   // component names only: see components/appCrash.js.
   appCrashed: "app_crashed",
