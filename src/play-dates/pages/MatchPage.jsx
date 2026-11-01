@@ -7,6 +7,7 @@ import MatchDetailsModal from "../components/MatchDetailsModal.jsx";
 import { getMatch } from "../services/matches";
 import { ARCHIVE_FILTER_VALUE, isMatchArchivedError } from "../utils/archive";
 import { useAuth } from "../../context/AuthContext";
+import MainLayout from "../../components/MainLayout";
 
 const readStoredObject = (key) => {
   try {
@@ -162,19 +163,33 @@ const MatchPage = () => {
     await queryClient.invalidateQueries({ queryKey: ["play-dates-match-page", id] });
   }, [id, queryClient]);
 
+  // The app's header, with a back arrow and "Match details" on a phone, like the group lesson page.
+  const withChrome = (content) => (
+    <MainLayout
+      mobileChrome="default"
+      showDesktopNav
+      onMobileBack={handleClose}
+      mobileCenter={<span className="text-base font-bold text-slate-900">Match details</span>}
+      hideMobileLocation
+      pageClassName="match-details-page"
+    >
+      {content}
+    </MainLayout>
+  );
+
   if (matchQuery.isLoading && !matchData) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+    return withChrome(
+      <div className="flex min-h-[60vh] items-center justify-center px-4">
         <div className="rounded-2xl border border-slate-200 bg-white px-6 py-5 text-sm font-semibold text-slate-600 shadow-sm">
           Loading match details...
         </div>
-      </div>
+      </div>,
     );
   }
 
   if (matchQuery.isError && !matchData) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+    return withChrome(
+      <div className="flex min-h-[60vh] items-center justify-center px-4">
         <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-start gap-3 text-slate-900">
             <AlertCircle className="mt-0.5 h-5 w-5 text-rose-500" />
@@ -201,12 +216,12 @@ const MatchPage = () => {
             </Link>
           </div>
         </div>
-      </div>
+      </div>,
     );
   }
 
-  return (
-    <div className="min-h-screen bg-slate-100">
+  return withChrome(
+    <div className="min-h-screen">
       {toast ? (
         <div
           role="status"
@@ -234,8 +249,9 @@ const MatchPage = () => {
         formatDateTime={formatDateTime}
         onManageInvites={handleManageInvites}
         openSuggestTime={Boolean(location.state?.suggestTime)}
+        layout="page"
       />
-    </div>
+    </div>,
   );
 };
 
