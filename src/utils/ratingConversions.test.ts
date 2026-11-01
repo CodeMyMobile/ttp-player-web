@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { deriveNtrp, deriveUtr } from "./ratingConversions";
+import { deriveNtrp, deriveUtr, ladderNtrpLabel, ladderUtrLabel } from "./ratingConversions";
 
 /* The bug these guard against: Number(null) is 0, and 0 is finite, so the
    "no rating" branch never fired and the estimate formula ran on a zero that
@@ -35,13 +35,13 @@ test("no estimated UTR is ever negative or below the real floor", () => {
       assert.ok(Number(value) >= 1.0, `TPR ${tpr} produced UTR ${value}`);
     }
   }
-  assert.equal(deriveUtr(null, 2.5).value, null, "TPR 2.5 estimates UTR 0.0 — not a rating");
+  assert.equal(deriveUtr(null, 2.0).value, null, "TPR 2.0 estimates UTR 0.5 — not a rating");
 });
 
-test("plausible TPRs still estimate as before", () => {
-  assert.deepEqual(deriveUtr(null, 3.0), { value: "1.0", estimated: true });
-  assert.deepEqual(deriveUtr(null, 4.0), { value: "3.0", estimated: true });
+test("plausible TPRs estimate with the API's formula, the same for everyone", () => {
+  assert.deepEqual(deriveUtr(null, 3.0), { value: "2.0", estimated: true });
   assert.deepEqual(deriveUtr(null, 5.0), { value: "5.0", estimated: true });
+  assert.deepEqual(deriveUtr(null, 8.0), { value: "9.5", estimated: true });
 });
 
 test("a real direct rating still wins and is not flagged as estimated", () => {
@@ -66,4 +66,20 @@ test("NTRP estimates stay inside the real scale", () => {
     const n = Number(value);
     assert.ok(n >= 2.5 && n <= 6.0, `TPR ${tpr} produced NTRP ${value}`);
   }
+});
+
+test("ladder NTRP says when it's the women's scale or the player's own", () => {
+  assert.equal(ladderNtrpLabel({ calculated_ntrp: 4.75, rating_gender: "M" }), "4.75");
+  assert.equal(ladderNtrpLabel({ calculated_ntrp: "5.25", rating_gender: "F" }), "5.25 (W)");
+  // No rating gender, so no conversion: what they told us, marked as theirs.
+  assert.equal(ladderNtrpLabel({ calculated_ntrp: null, usta_rating: "5.0", current_rating: 8 }), "5.00 (self)");
+  assert.equal(ladderNtrpLabel({ calculated_ntrp: null, usta_rating: null }), null);
+});
+
+test("ladder UTR comes from the TPR before anything the player typed", () => {
+  assert.equal(ladderUtrLabel({ calculated_utr: 9.73 }), "9.7");
+  // An older API sent no UTR without a rating gender: still worked out from the TPR.
+  assert.equal(ladderUtrLabel({ calculated_utr: null, uta_rating: 11, current_rating: 8 }), "9.5");
+  assert.equal(ladderUtrLabel({ uta_rating: "11.0" }), "11.0 (self)");
+  assert.equal(ladderUtrLabel({}), null);
 });

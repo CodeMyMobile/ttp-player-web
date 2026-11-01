@@ -26,7 +26,7 @@ import {
 import { buildApiUrl } from "../api/config";
 import type { ConnectIntent } from "../types/matchPlay";
 import { shouldShowEstimateBadge } from "../utils/ratingBadges";
-import { deriveNtrp, deriveUtr } from "../utils/ratingConversions";
+import { deriveNtrp, ladderNtrpLabel, ladderUtrLabel } from "../utils/ratingConversions";
 
 export type Ranking = {
   rank: number;
@@ -284,11 +284,12 @@ const initials = (name: string) => {
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
 };
 
+// From the results where we can, marked "(W)" on the women's scale and "(self)" when it's
+// what the player told us; an estimate from the TPR only when there's nothing else.
 const estimateNtrp = (ranking: Ranking) =>
-  deriveNtrp(ranking.calculated_ntrp ?? ranking.usta_rating, ranking.current_rating, ranking.rating_gender).value ?? "-";
+  ladderNtrpLabel(ranking) ?? deriveNtrp(null, ranking.current_rating, ranking.rating_gender).value ?? "-";
 
-const estimateUtr = (ranking: Ranking) =>
-  deriveUtr(ranking.calculated_utr ?? ranking.uta_rating, ranking.current_rating).value ?? "-";
+const estimateUtr = (ranking: Ranking) => ladderUtrLabel(ranking) ?? "-";
 
 export const decorateRankings = (rankings: Ranking[]): DecoratedRanking[] =>
   rankings
@@ -970,6 +971,18 @@ function Badge({ children, tone = "violet" }: { children: React.ReactNode; tone?
   return <span className={`rounded-lg px-2.5 py-1 text-xs font-black tabular-nums ${classes[tone]}`}>{children}</span>;
 }
 
+// "5.25 (W)" as the number with its note small underneath, so it fits the 82px columns.
+function RatingBadgeText({ label }: { label: string }) {
+  const match = /^(.*?) \((W|self)\)$/.exec(label);
+  if (!match) return <>{label}</>;
+  return (
+    <span className="inline-flex flex-col items-center leading-tight" title={match[2] === "W" ? "Women's NTRP" : "Self-reported, not from results"}>
+      <span>{match[1]}</span>
+      <span className="text-[9px] font-bold uppercase tracking-wide opacity-75">{match[2] === "W" ? "Women's" : "Self"}</span>
+    </span>
+  );
+}
+
 function Change({ value }: { value: unknown }) {
   const change = displayChange(value);
   return (
@@ -1018,8 +1031,8 @@ function LadderRow({
         </span>
       </span>
       <span className="text-center"><Badge>TPR {ranking.ratingLabel}</Badge></span>
-      <span className="text-center"><Badge tone="green">{ranking.ntrpLabel}</Badge></span>
-      <span className="text-center"><Badge tone="blue">{ranking.utrLabel}</Badge></span>
+      <span className="text-center"><Badge tone="green"><RatingBadgeText label={ranking.ntrpLabel} /></Badge></span>
+      <span className="text-center"><Badge tone="blue"><RatingBadgeText label={ranking.utrLabel} /></Badge></span>
       <span className="text-center text-sm font-black tabular-nums">{recordLabel(ranking)}</span>
       <span className="text-right">
         {viewer ? <Change value={ranking.rating_change} /> : (

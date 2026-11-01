@@ -1,5 +1,6 @@
 import type { LeaguePlayer, LeagueStanding } from "../api/leagues";
 import type { ConnectIntent } from "../types/matchPlay";
+import { ladderNtrpLabel, ladderUtrLabel } from "../utils/ratingConversions";
 
 export interface LeagueLadderRow {
   playerId: string;
@@ -30,11 +31,6 @@ const numeric = (value: unknown): number | null => {
   if (value === null || value === undefined || value === "") return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
-};
-
-const formatFixed = (value: unknown, digits: number) => {
-  const parsed = numeric(value);
-  return parsed === null ? "-" : parsed.toFixed(digits);
 };
 
 const displayRating = (player: LeaguePlayer) => {
@@ -117,8 +113,8 @@ export const buildLeagueLadderRows = ({
         rating: rating.rating,
         ratingLabel: rating.ratingLabel,
         ratingType: rating.ratingType,
-        ntrpLabel: formatFixed(player.calculated_ntrp ?? player.usta_rating, 2),
-        utrLabel: formatFixed(player.calculated_utr ?? player.uta_rating, 1),
+        ntrpLabel: ladderNtrpLabel(player) ?? "-",
+        utrLabel: ladderUtrLabel(player) ?? "-",
         recordLabel: `${record.wins}-${record.losses}`,
         wins: record.wins,
         losses: record.losses,
