@@ -12,6 +12,7 @@ import {
   sendInvites,
   getMatch,
   getShareLink,
+  listRecommendedPlayers,
 } from "./services/matches";
 import { listNotifications } from "./services/notifications";
 import { getStoredAuthToken } from "./services/authToken";
@@ -127,7 +128,6 @@ import {
   normalizeListingVisibility,
 } from "./utils/listingVisibility";
 import { getAvatarInitials, getAvatarUrlFromPlayer } from "./utils/avatar";
-import { buildRecentPartnerSuggestions } from "./utils/inviteSuggestions";
 import {
   loadRecentLocations as loadStoredLocations,
   recordRecentLocation as persistRecentLocation,
@@ -4894,7 +4894,7 @@ const TennisMatchApp = ({
     const fetchSuggestedPlayers = useCallback(
       async (aliveCheck = () => true) => {
         if (!aliveCheck()) return;
-        if (!isPrivateMatch || !currentUser) {
+        if (!matchId || !currentUser) {
           if (aliveCheck()) {
             setSuggestedPlayers([]);
             setSuggestionsError("");
@@ -4907,20 +4907,17 @@ const TennisMatchApp = ({
         setSuggestionsError("");
 
         try {
-          const data = await listMatches("my", { perPage: 25, includeHidden: true });
+          // Ranked by the API: who the host has played with, who plays at this
+          // court, and who lives nearby at the match's level.
+          const data = await listRecommendedPlayers(matchId);
           if (!aliveCheck()) return;
-          const matches = Array.isArray(data?.matches) ? data.matches : [];
-          const suggestions = buildRecentPartnerSuggestions({
-            matches,
-            currentUser,
-            memberIdentities: memberIdentityIds,
-          });
-          if (!aliveCheck()) return;
-          setSuggestedPlayers(suggestions);
+          setSuggestedPlayers(Array.isArray(data?.players) ? data.players : []);
         } catch (error) {
-          console.error("Failed to load suggested players", error);
           if (!aliveCheck()) return;
           setSuggestedPlayers([]);
+          // Only the host gets suggestions; anyone else just doesn't see any.
+          if (error?.status === 403 || error?.response?.status === 403) return;
+          console.error("Failed to load suggested players", error);
           setSuggestionsError(
             "We couldn't load suggestions right now. Try refreshing.",
           );
@@ -4930,7 +4927,7 @@ const TennisMatchApp = ({
           }
         }
       },
-      [isPrivateMatch, currentUser, memberIdentityIds],
+      [matchId, currentUser],
     );
 
     const toastShareError = React.useCallback(
@@ -5051,11 +5048,6 @@ const TennisMatchApp = ({
         return true;
       });
     }, [suggestedPlayers, existingPlayerIds, selectedPlayers]);
-
-    const topSuggestions = useMemo(
-      () => filteredSuggestions.slice(0, 6),
-      [filteredSuggestions],
-    );
 
     const handleAddSuggestedPlayer = useCallback(
       (player) => {
@@ -5215,6 +5207,87 @@ const TennisMatchApp = ({
                 )}
               </div>
             )}
+
+            {/* Suggested players */}
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h3 className="text-sm font-black text-gray-900 uppercase tracking-wider flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-500" /> Suggested players
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => fetchSuggestedPlayers(() => true)}
+                  disabled={suggestionsLoading}
+                  className="text-xs font-bold text-blue-600 transition-colors hover:text-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Refresh
+                </button>
+              </div>
+              {suggestionsLoading ? (
+                <p className="text-sm text-gray-500">
+                  Finding players who could join…
+                </p>
+              ) : suggestionsError ? (
+                <div className="flex flex-col gap-3 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600 sm:flex-row sm:items-center sm:justify-between">
+                  <span>{suggestionsError}</span>
+                  <button
+                    type="button"
+                    onClick={() => fetchSuggestedPlayers(() => true)}
+                    className="text-xs font-bold text-red-700 hover:text-red-800"
+                  >
+                    Try again
+                  </button>
+                </div>
+              ) : filteredSuggestions.length > 0 ? (
+                <ul className="space-y-3">
+                  {filteredSuggestions.map((player) => {
+                    const name = player.full_name || "Unknown player";
+                    const pid = Number(getPlayerSearchId(player));
+                    const selected = Number.isFinite(pid) && selectedPlayers.has(pid);
+                    return (
+                      <li
+                        key={pid}
+                        className="flex items-center gap-3 rounded-xl border border-gray-100 px-4 py-3"
+                      >
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-gray-100 to-gray-200 text-xs font-black text-gray-700">
+                          {name
+                            .split(" ")
+                            .filter(Boolean)
+                            .map((part) => part[0])
+                            .join("")
+                            .slice(0, 2)
+                            .toUpperCase()}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-bold text-gray-800">{name}</p>
+                          {Array.isArray(player.reasons) && player.reasons.length > 0 && (
+                            <p className="text-xs font-semibold text-gray-500">
+                              {player.reasons.join(" · ")}
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleAddSuggestedPlayer(player)}
+                          disabled={selected}
+                          className={`rounded-lg px-3 py-1.5 text-xs font-black transition-all ${
+                            selected
+                              ? "bg-gray-100 text-gray-400 cursor-default"
+                              : "bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-md hover:scale-105"
+                          }`}
+                        >
+                          {selected ? "Added" : "Invite"}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-600">
+                  No suggestions yet. Search for players by name below.
+                </div>
+              )}
+            </div>
 
             {/* Search players to invite */}
             <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
@@ -5404,87 +5477,7 @@ const TennisMatchApp = ({
               </div>
             </div>
             {/* Quick Share */}
-            {isPrivateMatch ? (
-              <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <h3 className="text-sm font-black text-gray-900 uppercase tracking-wider flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-amber-500" /> Suggested players
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={() => fetchSuggestedPlayers(() => true)}
-                    disabled={suggestionsLoading}
-                    className="text-xs font-bold text-blue-600 transition-colors hover:text-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Refresh
-                  </button>
-                </div>
-                {suggestionsLoading ? (
-                  <p className="text-sm text-gray-500">
-                    Finding players you've teamed up with recently…
-                  </p>
-                ) : suggestionsError ? (
-                  <div className="flex flex-col gap-3 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600 sm:flex-row sm:items-center sm:justify-between">
-                    <span>{suggestionsError}</span>
-                    <button
-                      type="button"
-                      onClick={() => fetchSuggestedPlayers(() => true)}
-                      className="text-xs font-bold text-red-700 hover:text-red-800"
-                    >
-                      Try again
-                    </button>
-                  </div>
-                ) : topSuggestions.length > 0 ? (
-                  <ul className="space-y-3">
-                    {topSuggestions.map((player) => {
-                      const name = player.full_name || "Unknown player";
-                      const pid = Number(getPlayerSearchId(player));
-                      const selected = Number.isFinite(pid) && selectedPlayers.has(pid);
-                      return (
-                        <li
-                          key={pid}
-                          className="flex items-center gap-3 rounded-xl border border-gray-100 px-4 py-3"
-                        >
-                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-gray-100 to-gray-200 text-xs font-black text-gray-700">
-                            {name
-                              .split(" ")
-                              .filter(Boolean)
-                              .map((part) => part[0])
-                              .join("")
-                              .slice(0, 2)
-                              .toUpperCase()}
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-sm font-bold text-gray-800">{name}</p>
-                            {player.lastPlayedAt && (
-                              <p className="text-xs font-semibold text-gray-500">
-                                Last played {formatDateTime(player.lastPlayedAt)}
-                              </p>
-                            )}
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleAddSuggestedPlayer(player)}
-                            disabled={selected}
-                            className={`rounded-lg px-3 py-1.5 text-xs font-black transition-all ${
-                              selected
-                                ? "bg-gray-100 text-gray-400 cursor-default"
-                                : "bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-md hover:scale-105"
-                            }`}
-                          >
-                            {selected ? "Added" : "Invite"}
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                ) : (
-                  <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-600">
-                    We'll suggest partners you recently played with once we have a little more history.
-                  </div>
-                )}
-              </div>
-            ) : (
+            {!isPrivateMatch && (
               <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
                 <h3 className="text-sm font-black text-gray-900 mb-4 uppercase tracking-wider">
                   Share Link
