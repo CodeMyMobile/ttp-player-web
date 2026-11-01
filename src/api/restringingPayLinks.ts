@@ -16,7 +16,7 @@ export interface RestringingPayLinkVendor {
 
 export interface RestringingPayLinkItem {
   id: number;
-  item_type?: "restring" | "custom";
+  item_type?: "restring" | "custom" | "racket";
   label?: string | null;
   item_qty?: number | null;
   racket_make_model?: string | null;
@@ -31,6 +31,11 @@ export interface RestringingPayLinkItem {
   unit_price_cents?: number;
   /** Set when the item is an add-on the player bought here at its bundle price. */
   add_on_offer_id?: number | null;
+  /** A new racket the player's coach ordered: its grip and photo. */
+  grip_size?: string | null;
+  image_url?: string | null;
+  /** A string job bought with a new racket: labor is free, unit_price_cents is the string only. */
+  labor_waived?: boolean;
 }
 
 /** A product the shop sells at a bundle price alongside a restring. */
@@ -234,11 +239,12 @@ const formatTension = (mains: number | null | undefined, crosses: number | null 
 
 export const getItemSpecs = (item: Pick<
   RestringingPayLinkItem,
-  "item_type" | "advice_requested" | "gauge" | "tension_lbs_mains" | "tension_lbs_crosses"
+  "item_type" | "advice_requested" | "gauge" | "tension_lbs_mains" | "tension_lbs_crosses" | "labor_waived"
 >): PayLinkSpecTile[] => {
-  if (item.item_type === "custom") return [];
+  if (item.item_type === "custom" || item.item_type === "racket") return [];
   if (item.advice_requested) {
-    return [{ label: "Specs", value: "TBD", sublabel: "at drop-off", pending: true }];
+    // A new racket is already at the shop: there is no drop-off to agree specs at.
+    return [{ label: "Specs", value: "TBD", sublabel: item.labor_waived ? "set by the stringer" : "at drop-off", pending: true }];
   }
 
   return [
@@ -255,6 +261,24 @@ export const getItemSpecs = (item: Pick<
       pending: false,
     },
   ];
+};
+
+/** An order for a new racket the player's coach chose for them, rather than a restring. */
+export const isRacketSale = (items: Pick<RestringingPayLinkItem, "item_type">[] | null | undefined) =>
+  (items || []).some((item) => item.item_type === "racket");
+
+/** The bold line for an item on the pay link. */
+export const payLinkItemTitle = (item: RestringingPayLinkItem) => {
+  if (item.item_type === "racket") return item.label || "New racket";
+  if (item.item_type === "custom") return item.label || "Custom item";
+  return item.service_tier_name || "Racket service";
+};
+
+/** The line under it. */
+export const payLinkItemDetail = (item: RestringingPayLinkItem) => {
+  if (item.item_type === "racket") return "New racket, picked up at the shop";
+  if (item.item_type === "custom") return `Qty ${item.item_qty || 1}`;
+  return `${item.racket_make_model || "Racket"} · ${item.string_description || "String to confirm"}`;
 };
 
 export const shouldShowAccountPrompt = (account: RestringingPayLinkAccount | null | undefined) =>

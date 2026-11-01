@@ -6,6 +6,7 @@ import {
   formatOrderTotal,
   formatShopDate,
   isCancelledOrder,
+  isRacketSaleOrder,
   orderItemLine,
   orderPaymentNote,
   orderProgressSteps,
@@ -121,7 +122,13 @@ function ActiveOrderCard({ order, showVendor, onCancel }) {
           ) : null}
         </div>
       </footer>
-      {order.fulfillment_status === "pending" ? <p className="mo-fine">Free cancellation, with a full refund, until your racket is dropped off.</p> : null}
+      {order.fulfillment_status === "pending" ? (
+        <p className="mo-fine">
+          {isRacketSaleOrder(order)
+            ? "Free cancellation, with a full refund, until the shop starts on it."
+            : "Free cancellation, with a full refund, until your racket is dropped off."}
+        </p>
+      ) : null}
     </article>
   );
 }

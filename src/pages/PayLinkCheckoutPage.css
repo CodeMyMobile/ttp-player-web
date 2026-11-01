@@ -261,6 +261,21 @@
   white-space: nowrap;
 }
 
+/* A new racket's photo, beside its name. */
+.pay-link-item__photo {
+  flex: 0 0 auto;
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  background: #fff;
+  object-fit: contain;
+}
+
+.pay-link-item__text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .pay-link-specs {
   display: flex;
   flex-wrap: wrap;

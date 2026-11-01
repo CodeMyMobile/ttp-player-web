@@ -15,8 +15,11 @@ import {
   getRestringingPayLink,
   isRestringingPayLinkPaid,
   isPayLinkDemoMode,
+  isRacketSale,
   payLinkAddOnErrorMessage,
   payLinkDiscountErrorMessage,
+  payLinkItemDetail,
+  payLinkItemTitle,
   removeRestringingPayLinkDiscountCode,
   setRestringingPayLinkAddOnQuantity,
   shouldShowAccountPrompt,
@@ -522,6 +525,7 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
   const vendorTel = buildVendorTelHref(summary?.vendor.phone);
   const vendorHoursText = formatVendorHours(summary?.vendor.hours ?? null);
   const firstItem = summary?.order.items[0];
+  const racketSale = isRacketSale(summary?.order.items);
 
   const renderSavedPaymentMethods = () => {
     if (!hasAuthToken) return null;
@@ -586,15 +590,15 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
           {summary.order.items.map((item) => (
             <div className="pay-link-item" key={item.id}>
               <div className="pay-link-item__line">
-                <div>
-                  <div className="pay-link-item__name">
-                    {item.item_type === "custom" ? item.label || "Custom item" : item.service_tier_name || "Racket service"}
-                  </div>
-                  <div className="pay-link-muted">
-                    {item.item_type === "custom"
-                      ? `Qty ${item.item_qty || 1}`
-                      : `${item.racket_make_model || "Racket"} · ${item.string_description || "String to confirm"}`}
-                  </div>
+                {item.item_type === "racket" && item.image_url ? (
+                  <img className="pay-link-item__photo" src={item.image_url} alt="" />
+                ) : null}
+                <div className="pay-link-item__text">
+                  <div className="pay-link-item__name">{payLinkItemTitle(item)}</div>
+                  <div className="pay-link-muted">{payLinkItemDetail(item)}</div>
+                  {item.labor_waived ? (
+                    <div className="pay-link-item__strings">Stringing labor: free with your new racket</div>
+                  ) : null}
                   {item.service_strings?.length ? (
                     <div className="pay-link-item__strings">
                       The shop picks from: {item.service_strings.join(", ")}
@@ -826,9 +830,19 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
               <section className="pay-link-card pay-link-panel">
                 <h2>What happens next</h2>
                 <div className="pay-link-steps">
-                  <div className="pay-link-step"><span>1</span><div><strong>Drop off your racket</strong><p>{[summary.vendor.address, vendorHoursText].filter(Boolean).join(" · ")}</p></div></div>
-                  <div className="pay-link-step"><span>2</span><div><strong>We string it</strong><p>{firstItem?.advice_requested ? "Gauge and tension will be agreed at drop-off." : `${firstItem?.tension_lbs_mains ?? "TBD"} lbs · gauge ${firstItem?.gauge ?? "TBD"}`}</p></div></div>
-                  <div className="pay-link-step"><span>3</span><div><strong>We text you when ready</strong><p>SMS to {summary.order.masked_phone || "your phone"}</p></div></div>
+                  {racketSale ? (
+                    <>
+                      <div className="pay-link-step"><span>1</span><div><strong>We get your racket ready</strong><p>{summary.order.items.some((item) => item.labor_waived) ? "Strung with the string you chose." : "Set aside for you at the shop."}</p></div></div>
+                      <div className="pay-link-step"><span>2</span><div><strong>We text you when ready</strong><p>SMS to {summary.order.masked_phone || "your phone"}</p></div></div>
+                      <div className="pay-link-step"><span>3</span><div><strong>Pick it up</strong><p>{[summary.vendor.address, vendorHoursText].filter(Boolean).join(" · ")}</p></div></div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="pay-link-step"><span>1</span><div><strong>Drop off your racket</strong><p>{[summary.vendor.address, vendorHoursText].filter(Boolean).join(" · ")}</p></div></div>
+                      <div className="pay-link-step"><span>2</span><div><strong>We string it</strong><p>{firstItem?.advice_requested ? "Gauge and tension will be agreed at drop-off." : `${firstItem?.tension_lbs_mains ?? "TBD"} lbs · gauge ${firstItem?.gauge ?? "TBD"}`}</p></div></div>
+                      <div className="pay-link-step"><span>3</span><div><strong>We text you when ready</strong><p>SMS to {summary.order.masked_phone || "your phone"}</p></div></div>
+                    </>
+                  )}
                 </div>
                 {vendorTel ? <a className="pay-link-btn pay-link-btn--white pay-link-btn--sm" href={vendorTel}><Phone size={15} aria-hidden /> Call {summary.vendor.name}</a> : null}
               </section>
@@ -837,7 +851,11 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
             <>
               <div className="pay-link-greeting">
                 <h1>Hi {summary.order.customer_first_name} 👋</h1>
-                <p>Review your racket service from {summary.vendor.name} and pay below.</p>
+                <p>
+                  {racketSale
+                    ? `Review your new racket from ${summary.vendor.name} and pay below.`
+                    : `Review your racket service from ${summary.vendor.name} and pay below.`}
+                </p>
               </div>
               {renderOrderSummary()}
               {accountVisible ? (
