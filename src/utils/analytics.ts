@@ -46,6 +46,9 @@ export const ANALYTICS_EVENTS = {
   homeFindPlayersTileClick: "home_find_players_tile_click",
   homeRatingPromptView: "home_rating_prompt_view",
   homeRatingPromptClick: "home_rating_prompt_click",
+  // The crash screen (components/AppErrorBoundary). The error, the route pattern and the
+  // component names only: see components/appCrash.js.
+  appCrashed: "app_crashed",
 } as const;
 
 /** Constant until a ranking exists. Becomes "v1" without the schema changing. */
