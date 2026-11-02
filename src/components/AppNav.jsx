@@ -456,7 +456,11 @@ const AppNav = ({
           onShareLink={() => setShareView("sheet")}
         />
       ) : null}
-      <header className={`app-nav${mobileCenter ? " app-nav--has-mobile-center" : ""}`}>
+      <header
+        className={`app-nav${mobileCenter ? " app-nav--has-mobile-center" : ""}${
+          isUserMenuOpen || isNotificationsOpen ? " app-nav--menu-open" : ""
+        }`}
+      >
         <div className="app-nav__left">
           {showBack ? (
             <button

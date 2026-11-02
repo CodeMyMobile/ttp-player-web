@@ -625,6 +625,13 @@
   font-weight: 800;
 }
 
+/* While a menu is open, lift the whole nav (its dropdowns can't escape its layer) above page
+   bars that share or beat its z-index: the coach profile's sticky header is also 80 and comes
+   later in the page, and the league dashboard's bottom bar is 90. Still below modals. */
+.app-nav--menu-open {
+  z-index: 200;
+}
+
 .app-nav__dropdown {
   position: absolute;
   right: 0;
@@ -714,6 +721,16 @@
 @media (max-width: 820px) {
   .app-nav__menu-item--mobile {
     display: flex;
+  }
+
+  /* The profile menu is taller than a small phone, and the nav is sticky, so scrolling the page
+     never brings its last items (Log Out) into view. Fit it to the screen and scroll inside it. */
+  .app-nav__dropdown {
+    max-height: calc(100vh - 88px);
+    max-height: calc(100dvh - 88px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 }
 
