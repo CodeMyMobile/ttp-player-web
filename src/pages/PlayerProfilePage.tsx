@@ -19,8 +19,10 @@ import { getStoredLocation, DEFAULT_COORDINATES } from "../utils/userLocation";
 import { formatPlayedWithCount, type PlayedWithPlayer } from "../utils/playedWith";
 import {
   extractSuggestedPlayer,
+  levelEvidenceLabel,
   mapPublicPlayerProfileRecord,
   mapSuggestedPlayer,
+  VOUCHES_NEEDED,
   type DirectoryPlayer,
 } from "../utils/suggestedPlayer";
 import useHitRequest, { canReceiveHitRequest } from "../hooks/useHitRequest";
@@ -141,7 +143,6 @@ const PlayerProfilePage = () => {
   const [loading, setLoading] = useState(!fastPathPlayer);
   const [loadError, setLoadError] = useState(false);
   const [verifyingLevel, setVerifyingLevel] = useState(false);
-  const [levelConfirmed, setLevelConfirmed] = useState(false);
   const [verificationCountDelta, setVerificationCountDelta] = useState(0);
   const [connectModalOpen, setConnectModalOpen] = useState(false);
   const hitRequest = useHitRequest();
@@ -471,7 +472,6 @@ const PlayerProfilePage = () => {
   const firstName = player.name.split(" ")[0];
   const primaryLocation = player.location || normalizeStringArray(player.raw?.playerLocations)[0] || "Location unavailable";
   const playerLevel = player.level || (typeof player.raw?.skillLevel === "string" ? player.raw.skillLevel : undefined);
-  const isLevelConfirmed = player.verified || Boolean(player.raw?.isLevelConfirmed);
   const verificationCountRaw = player.verificationCount ?? player.raw?.verifiedLevelCount;
   const verificationCount =
     typeof verificationCountRaw === "number"
@@ -480,7 +480,16 @@ const PlayerProfilePage = () => {
         ? Number.parseInt(verificationCountRaw, 10)
         : undefined;
   const resolvedVerificationCount = Math.max(0, (verificationCount ?? 0) + verificationCountDelta);
-  const resolvedLevelConfirmed = isLevelConfirmed || levelConfirmed;
+  // A vouch made here can be the one that crosses the bar, so recount locally.
+  const resolvedLevelSource =
+    player.levelSource === "self" && resolvedVerificationCount >= VOUCHES_NEEDED ? "vouched" : player.levelSource;
+  const levelEvidence = levelEvidenceLabel({
+    levelSource: resolvedLevelSource,
+    resultsMatches: player.resultsMatches,
+    verificationCount: resolvedVerificationCount,
+  });
+  // A level from results needs no vouching; vouches back a level a player gave us.
+  const canVouch = resolvedLevelSource === "self" || resolvedLevelSource === "vouched";
   const matchPreferences =
     (Array.isArray(player.matchPreferences) && player.matchPreferences.length > 0
       ? player.matchPreferences
@@ -580,7 +589,7 @@ const PlayerProfilePage = () => {
       return;
     }
 
-    const confirmed = window.confirm(`Do you confirm ${player.name}'s tennis level as "${level}"?`);
+    const confirmed = window.confirm(`Vouch that ${player.name} plays at ${level}?`);
     if (!confirmed) {
       return;
     }
@@ -588,9 +597,8 @@ const PlayerProfilePage = () => {
     try {
       setVerifyingLevel(true);
       await verifyUserLevel({ token, userId, level });
-      setLevelConfirmed(true);
       setVerificationCountDelta((current) => current + 1);
-      window.alert("Thanks. Your level verification has been recorded.");
+      window.alert("Thanks. Your vouch has been recorded.");
     } catch (requestError) {
       window.alert(
         requestError instanceof Error
@@ -631,13 +639,17 @@ const PlayerProfilePage = () => {
             <div className="ppv-id-head">
               <h1 className="ppv-name">{player.name}</h1>
               <div className="ppv-creds">
-                {resolvedLevelConfirmed ? (
-                  <span className="ppv-cred ppv-cred--verified">
-                    <BadgeCheck size={13} strokeWidth={2.2} aria-hidden="true" />
-                    Verified
+                {playerLevel ? <span className="ppv-cred ppv-cred--level">{playerLevel} NTRP</span> : null}
+                {levelEvidence ? (
+                  <span
+                    className={`ppv-cred ${resolvedLevelSource === "self" ? "ppv-cred--self" : "ppv-cred--verified"}`}
+                  >
+                    {resolvedLevelSource === "self" ? null : (
+                      <BadgeCheck size={13} strokeWidth={2.2} aria-hidden="true" />
+                    )}
+                    {levelEvidence}
                   </span>
                 ) : null}
-                {playerLevel ? <span className="ppv-cred ppv-cred--level">{playerLevel} NTRP</span> : null}
               </div>
             </div>
           </div>
@@ -825,10 +837,14 @@ const PlayerProfilePage = () => {
             <div className="ppv-card">
               <div className="ppv-card-head">
                 <h3 className="ppv-card-title">Player level</h3>
-                {resolvedLevelConfirmed ? (
-                  <span className="ppv-cred ppv-cred--verified">
-                    <BadgeCheck size={13} strokeWidth={2.2} aria-hidden="true" />
-                    Verified
+                {levelEvidence ? (
+                  <span
+                    className={`ppv-cred ${resolvedLevelSource === "self" ? "ppv-cred--self" : "ppv-cred--verified"}`}
+                  >
+                    {resolvedLevelSource === "self" ? null : (
+                      <BadgeCheck size={13} strokeWidth={2.2} aria-hidden="true" />
+                    )}
+                    {levelEvidence}
                   </span>
                 ) : null}
               </div>
@@ -838,27 +854,42 @@ const PlayerProfilePage = () => {
                   <span className="ppv-level-l">NTRP</span>
                 </div>
                 <p className="ppv-level-txt">
-                  {resolvedVerificationCount > 0 ? (
+                  {resolvedLevelSource === "results" ? (
                     <>
-                      Community-verified.{" "}
+                      From {firstName}&apos;s rated match results
+                      {player.resultsMatches ? (
+                        <>
+                          {" "}
+                          over <b>{player.resultsMatches} {player.resultsMatches === 1 ? "match" : "matches"}</b>
+                        </>
+                      ) : null}
+                      .
+                    </>
+                  ) : resolvedVerificationCount > 0 ? (
+                    <>
                       <b>
                         {resolvedVerificationCount} {resolvedVerificationCount === 1 ? "player" : "players"}
                       </b>{" "}
-                      {resolvedVerificationCount === 1 ? "has" : "have"} confirmed {firstName} plays at this level.
+                      who {resolvedVerificationCount === 1 ? "has" : "have"} played {firstName} vouched for this level
+                      {resolvedLevelSource === "self"
+                        ? `. It takes ${VOUCHES_NEEDED} to show as vouched.`
+                        : "."}
                     </>
                   ) : (
-                    `Be the first to confirm ${firstName}'s level.`
+                    `${firstName} set this level. Played with them? Vouch for it.`
                   )}
                 </p>
               </div>
-              <button
-                type="button"
-                className="ppv-verify"
-                onClick={handleVerifyLevel}
-                disabled={verifyingLevel}
-              >
-                {verifyingLevel ? "Verifying…" : "Verify level"}
-              </button>
+              {canVouch ? (
+                <button
+                  type="button"
+                  className="ppv-verify"
+                  onClick={handleVerifyLevel}
+                  disabled={verifyingLevel}
+                >
+                  {verifyingLevel ? "Vouching…" : "Vouch for this level"}
+                </button>
+              ) : null}
             </div>
 
             {availabilityOptions.length > 0 ? (

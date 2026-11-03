@@ -25,17 +25,47 @@ export type SuggestedPlayerRecord = {
   verifiedLevelCount?: string | number;
   /** NTRP from the player's match results; null until they've played a rated match. */
   resultsNtrp?: number | string | null;
+  /** Rated matches behind resultsNtrp; null when there is no results NTRP. */
+  resultsMatchesPlayed?: number | string | null;
   is_favorite?: boolean;
   [key: string]: unknown;
 };
 
 /**
- * Where a player's shown level comes from: "results" when their rated matches put
- * them there, "self" when it is only what they told us in their match profile.
+ * Where a player's shown level comes from, strongest first:
+ *   "results"  their rated matches put them there
+ *   "vouched"  enough players who have played them vouched for the level they gave
+ *              (the API counts only vouches for their current level)
+ *   "self"     only what they told us in their match profile
  */
-export type LevelSource = "results" | "self" | null;
+export type LevelSource = "results" | "vouched" | "self" | null;
 
-export type DirectoryPlayer = Player & { raw: SuggestedPlayerRecord; levelSource: LevelSource };
+export type DirectoryPlayer = Player & {
+  raw: SuggestedPlayerRecord;
+  levelSource: LevelSource;
+  /** Rated matches behind a "results" level, else null. */
+  resultsMatches: number | null;
+};
+
+/** Vouches the API needs before a level counts as vouched (VOUCHES_NEEDED in ttp-api). */
+export const VOUCHES_NEEDED = 3;
+
+/**
+ * The few words that say how a level is known: "12 matches", "Vouched by 4" or
+ * "Self-rated". Null when there is no level to explain.
+ */
+export const levelEvidenceLabel = (
+  player: Pick<DirectoryPlayer, "levelSource" | "resultsMatches" | "verificationCount">,
+): string | null => {
+  if (player.levelSource === "results") {
+    const count = player.resultsMatches;
+    if (!count) return "From match results";
+    return `${count} ${count === 1 ? "match" : "matches"}`;
+  }
+  if (player.levelSource === "vouched") return `Vouched by ${player.verificationCount}`;
+  if (player.levelSource === "self") return "Self-rated";
+  return null;
+};
 
 /** "3.5" for a half level, "3.75" for a quarter, as the ladder writes them. */
 const formatNtrp = (value: number) =>
@@ -102,8 +132,16 @@ export const mapSuggestedPlayer = (record: SuggestedPlayerRecord): DirectoryPlay
   // Results first: a level their matches back up outranks the one they gave us.
   const resultsLevel = resultsLevelOf(record);
   const normalizedLevel = resultsLevel ?? (selfLevel || "Unknown");
-  const levelSource: LevelSource = resultsLevel ? "results" : selfLevel ? "self" : null;
   const verificationCount = Number.parseInt(String(record.verifiedLevelCount ?? "0"), 10) || 0;
+  const levelSource: LevelSource = resultsLevel
+    ? "results"
+    : selfLevel
+      ? record.isLevelConfirmed
+        ? "vouched"
+        : "self"
+      : null;
+  const resultsMatchCount = Number.parseInt(String(record.resultsMatchesPlayed ?? ""), 10);
+  const resultsMatches = resultsLevel && resultsMatchCount > 0 ? resultsMatchCount : null;
   const normalizedGender = (() => {
     const rawGender = typeof record.gender === "string" ? record.gender.trim().toLowerCase() : "";
     if (rawGender === "male") return "Male" as const;
@@ -126,6 +164,7 @@ export const mapSuggestedPlayer = (record: SuggestedPlayerRecord): DirectoryPlay
     gender: normalizedGender,
     level: normalizedLevel,
     levelSource,
+    resultsMatches,
     availability,
     matchPreferences: lookingFor,
     bio,

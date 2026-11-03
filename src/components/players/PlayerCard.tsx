@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { handleImageTransformError, sizedImageUrl } from "../../utils/playerImage";
-import { isMeaningfulBio } from "../../utils/suggestedPlayer";
+import { isMeaningfulBio, levelEvidenceLabel, type LevelSource } from "../../utils/suggestedPlayer";
 import { CheckCircle2, MapPin } from "lucide-react";
 import type { Player } from "../../data/mockPlayers";
 
@@ -8,11 +8,17 @@ import "../coaches/coaches.css";
 import "./players.css";
 
 type PlayerCardProps = {
-  /** levelSource: "self" when the level is only what the player told us. */
-  player: Player & { levelSource?: "results" | "self" | null };
+  /** levelSource and resultsMatches say how the level is known; see levelEvidenceLabel. */
+  player: Player & { levelSource?: LevelSource; resultsMatches?: number | null };
   canConnect: boolean;
   onConnect: (player: Player) => void;
   onViewProfile?: (player: Player) => void;
+};
+
+const EVIDENCE_TITLES: Record<NonNullable<LevelSource>, string> = {
+  results: "From this player's rated match results",
+  vouched: "Players who have played them vouched for this level",
+  self: "The level this player gave us. Nobody has backed it up yet.",
 };
 
 const formatCourtLocation = (court: string) => {
@@ -45,6 +51,11 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
     }
   };
 
+  const evidence = levelEvidenceLabel({
+    levelSource: player.levelSource ?? null,
+    resultsMatches: player.resultsMatches ?? null,
+    verificationCount: player.verificationCount,
+  });
   const bio = useMemo(
     () => (isMeaningfulBio(player.bio) ? String(player.bio).trim() : ""),
     [player.bio],
@@ -83,34 +94,21 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
           </div>
           <div className="fp-card__identity">
             <h3 className="fp-card__name">{player.name}</h3>
-            <div
-              className="fp-card__badges"
-              aria-label={`NTRP ${player.level}${
-                player.levelSource === "self" ? ", self-rated" : player.levelSource === "results" ? ", from match results" : ""
-              }${player.verified ? ", verified rating" : ""}`}
-            >
-              <span
-                className="fp-card__badge fp-card__badge--level"
-                title={player.levelSource === "results" ? "From this player's match results" : undefined}
-              >
+            <div className="fp-card__badges">
+              <span className="fp-card__badge fp-card__badge--level">
                 NTRP <strong>{player.level}</strong>
               </span>
-              {player.levelSource === "self" ? (
+              {evidence ? (
                 <span
-                  className="fp-card__badge fp-card__badge--self"
-                  title="The level this player gave us. They haven't played a rated match yet."
+                  className={`fp-card__badge ${
+                    player.levelSource === "self" ? "fp-card__badge--self" : "fp-card__badge--verified"
+                  }`}
+                  title={EVIDENCE_TITLES[player.levelSource ?? "self"]}
                 >
-                  Self-rated
-                </span>
-              ) : null}
-              {player.verified ? (
-                <span
-                  className="fp-card__badge fp-card__badge--verified"
-                  aria-label="Verified rating"
-                  title="Verified players have confirmed their identity and NTRP level through community reviews."
-                >
-                  <CheckCircle2 size={14} strokeWidth={2} aria-hidden="true" />
-                  Verified rating
+                  {player.levelSource === "self" ? null : (
+                    <CheckCircle2 size={14} strokeWidth={2} aria-hidden="true" />
+                  )}
+                  {evidence}
                 </span>
               ) : null}
             </div>
