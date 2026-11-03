@@ -17,7 +17,7 @@ type PlayerCardProps = {
 
 const EVIDENCE_TITLES: Record<NonNullable<LevelSource>, string> = {
   results: "From this player's rated match results",
-  vouched: "Players who have played them vouched for this level",
+  vouched: "Other players vouched for this level",
   self: "The level this player gave us. Nobody has backed it up yet.",
 };
 
