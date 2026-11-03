@@ -27,6 +27,7 @@ import {
   X,
 } from "lucide-react";
 import PlayerAvatar from "./PlayerAvatar";
+import { MatchLevelPrompt } from "../../components/matches/MatchLevelPrompt";
 import AddConnectionsSection from "./AddConnectionsSection";
 import SuggestTimeSection from "./SuggestTimeSection";
 import TimeSuggestionsSection from "./TimeSuggestionsSection";
@@ -2873,6 +2874,15 @@ const MatchDetailsModal = ({
                 )}
               </div>
             </button>
+            {!player.rating &&
+              status !== "success" &&
+              match?.id &&
+              currentUser?.id &&
+              idsMatch(player.playerId, currentUser.id) && (
+                <div className="pl-[52px] sm:pl-0">
+                  <MatchLevelPrompt matchId={match.id} variant="link" onSaved={reloadMatchQuietly} />
+                </div>
+              )}
             {(phoneLink || canDm || canRemove) && (
               <div className="flex items-center gap-2 sm:ml-4">
                 {phoneLink}
@@ -4278,6 +4288,10 @@ const MatchDetailsModal = ({
               </div>
             )}
 
+            {status === "success" && !isHost && match?.id && (
+              <MatchLevelPrompt matchId={match.id} variant="card" onSaved={reloadMatchQuietly} />
+            )}
+
             {noOneJoined && (
               <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3.5">
                 <p className="text-[15px] font-semibold text-amber-900">No one has joined yet</p>
@@ -4508,6 +4522,9 @@ const MatchDetailsModal = ({
             <p>We'll email a confirmation and notify the organizer.</p>
           </div>
         </div>
+        {match?.id && (
+          <MatchLevelPrompt matchId={match.id} variant="card" onSaved={reloadMatchQuietly} />
+        )}
       </div>
 
       {renderOfferedSlotSummary()}

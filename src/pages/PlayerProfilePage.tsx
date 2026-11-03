@@ -27,6 +27,7 @@ import useHitRequest, { canReceiveHitRequest } from "../hooks/useHitRequest";
 
 type OpenMatch = Record<string, unknown>;
 
+import { MatchLevelPrompt } from "../components/matches/MatchLevelPrompt";
 import "./PlayerProfilePage.css";
 
 // "Open match play" = the app's canonical open/upcoming definition
@@ -160,6 +161,8 @@ const PlayerProfilePage = () => {
   // A big network buries the rest of the profile, so only a preview shows until asked.
   const [showAllPlayedWith, setShowAllPlayedWith] = useState(false);
   const [joiningId, setJoiningId] = useState<string | null>(null);
+  // The match just joined from a card here, for the level prompt under the list.
+  const [joinedMatchId, setJoinedMatchId] = useState<string | null>(null);
   const authToken = useMemo(
     () => getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" }),
     [user],
@@ -328,6 +331,7 @@ const PlayerProfilePage = () => {
         setJoiningId(matchId);
         // Matches offered at several times need the chosen one, or the API rejects the join.
         await joinMatch(matchId, slot);
+        setJoinedMatchId(matchId);
         await loadOpenMatches({ silent: true });
       } catch (error) {
         window.alert(
@@ -699,6 +703,11 @@ const PlayerProfilePage = () => {
                 })}
               </div>
             )}
+            {joinedMatchId ? (
+              <div className="ppv-match-level-prompt">
+                <MatchLevelPrompt matchId={joinedMatchId} variant="card" />
+              </div>
+            ) : null}
           </section>
 
           <section className="ppv-section" aria-labelledby="played-with-heading">
