@@ -1105,6 +1105,28 @@
   gap: 2px;
 }
 
+.home-v2 .home-circle__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* To the Circle tab on the profile, where the player picks who's in it. */
+.home-v2 .home-circle__manage {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #7c3aed;
+  text-decoration: none;
+}
+
+.home-v2 .home-circle__manage:hover {
+  text-decoration: underline;
+}
+
 .home-v2 .home-circle__heading {
   margin: 0;
   font-size: 18px;

@@ -156,6 +156,47 @@
   background: #ecfdf5;
 }
 
+/* "Add to your circle": quieter than Connect, a toggle once added. */
+.ppv-circle {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 10px;
+  padding: 11px;
+  border-radius: 13px;
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  color: #475569;
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.ppv-circle:hover {
+  background: #f8fafc;
+}
+
+.ppv-circle--in {
+  border-color: #ddd6fe;
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+
+.ppv-circle:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.ppv-circle-error {
+  margin: 8px 0 0;
+  color: #b42318;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .ppv-block-link {
   display: none;
   width: 100%;

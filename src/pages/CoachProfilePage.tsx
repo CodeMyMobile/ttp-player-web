@@ -19,6 +19,8 @@ import {
   Heart,
   MapPin,
   MessageCircle,
+  UserCheck,
+  UserPlus,
   Users,
   Wallet,
   X,
@@ -63,6 +65,7 @@ import { recordCoachMessageTap } from "../api/playerCoaches";
 import { useAuth } from "../context/AuthContext";
 import { useCoachRoster } from "../hooks/useCoachRoster";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
+import { useCircleMembership } from "../hooks/useCircleMembership";
 import { getStoredAuthToken } from "../services/authToken";
 import BookingStatusModal, { type BookingStatus } from "../components/booking/BookingStatusModal";
 import LessonDetailCard from "../components/LessonDetailCard";
@@ -838,6 +841,8 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
   const authToken = isAuthenticated ? rawAuthToken : undefined;
   const isLoggedIn = Boolean(isAuthenticated && authToken);
   const { loading, profile, error: profileError } = useCoachProfile(id, authToken);
+  // Signed-in players can keep a coach in their tennis circle. Hidden until we know either way.
+  const circle = useCircleMembership(Number(id), isLoggedIn);
 
   const {
     rosterStatus,
@@ -4265,6 +4270,19 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                       <MessageCircle size={17} /> Message
                     </button>
                   )}
+                  {circle.inCircle !== null ? (
+                    <button
+                      type="button"
+                      className={`coach-hero-m__btn coach-hero-m__btn--secondary coach-hero-m__btn--icon${circle.inCircle ? " coach-circle--in" : ""}`}
+                      onClick={circle.toggle}
+                      disabled={circle.saving}
+                      aria-pressed={circle.inCircle}
+                      aria-label={circle.inCircle ? "In your circle. Remove" : "Add to your circle"}
+                      title={circle.inCircle ? "In your circle" : "Add to your circle"}
+                    >
+                      {circle.inCircle ? <UserCheck size={17} /> : <UserPlus size={17} />}
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     className="coach-hero-m__btn coach-hero-m__btn--primary"
@@ -4277,6 +4295,11 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                     Book a lesson
                   </button>
                 </div>
+                {circle.error ? (
+                  <p className="coach-circle-error" role="alert">
+                    {circle.error}
+                  </p>
+                ) : null}
               </section>
 
               <section className="coach-profile-hero-v2">
@@ -4326,6 +4349,23 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                             <MessageCircle size={16} /> Message
                           </button>
                         )}
+                        {circle.inCircle !== null ? (
+                          <button
+                            type="button"
+                            className={`coach-profile-top-action coach-profile-top-action--outline${circle.inCircle ? " coach-circle--in" : ""}`}
+                            onClick={circle.toggle}
+                            disabled={circle.saving}
+                            aria-pressed={circle.inCircle}
+                          >
+                            {circle.inCircle ? <UserCheck size={16} /> : <UserPlus size={16} />}
+                            {circle.inCircle ? "In your circle" : "Add to circle"}
+                          </button>
+                        ) : null}
+                        {circle.error ? (
+                          <p className="coach-circle-error" role="alert">
+                            {circle.error}
+                          </p>
+                        ) : null}
                       </div>
                     </div>
                     <div className="coach-profile-hero-v2__chips">

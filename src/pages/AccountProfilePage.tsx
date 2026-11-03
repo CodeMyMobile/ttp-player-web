@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import MainLayout from "../components/MainLayout";
 import ProfileManager from "../components/ProfileManager";
@@ -6,13 +6,26 @@ import AccountSignInSection from "../components/AccountSignInSection";
 import PurchaseHistorySection from "../components/PurchaseHistorySection";
 import BookedLessonsSection from "../components/BookedLessonsSection";
 import PublicLinkSetting from "../components/profileShare/PublicLinkSetting";
+import CircleTab from "../components/circle/CircleTab";
 
 import "./PlayerSettingsPages.css";
 
-type ProfileTab = "personal" | "history";
+type ProfileTab = "personal" | "circle" | "history";
+
+const TABS: { key: ProfileTab; label: string }[] = [
+  { key: "personal", label: "Account" },
+  { key: "circle", label: "Circle" },
+  { key: "history", label: "Purchases" },
+];
 
 const AccountProfilePage = () => {
-  const [tab, setTab] = useState<ProfileTab>("personal");
+  // "?tab=circle" opens the Circle tab, so Home and the weekly email can link straight to it.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab: ProfileTab = TABS.some((entry) => entry.key === searchParams.get("tab"))
+    ? (searchParams.get("tab") as ProfileTab)
+    : "personal";
+  const setTab = (next: ProfileTab) =>
+    setSearchParams(next === "personal" ? {} : { tab: next }, { replace: true });
 
   return (
     <MainLayout mobileChrome="home" desktopChrome="home" showDesktopNav={true}>
@@ -21,33 +34,25 @@ const AccountProfilePage = () => {
           <header className="settings-hero">
             <span className="settings-hero__badge">Account settings</span>
             <h1 className="settings-hero__title">Player profile</h1>
-            <p className="settings-hero__subtitle">Your account details and lesson purchases.</p>
+            <p className="settings-hero__subtitle">Your account details, tennis circle and lesson purchases.</p>
           </header>
 
           <section className="settings-section">
             <div className="settings-tabs" role="tablist" aria-label="Profile sections">
-              <button
-                type="button"
-                role="tab"
-                id="tab-personal"
-                aria-selected={tab === "personal"}
-                aria-controls="panel-personal"
-                className={`settings-tab${tab === "personal" ? " settings-tab--active" : ""}`}
-                onClick={() => setTab("personal")}
-              >
-                Personal info
-              </button>
-              <button
-                type="button"
-                role="tab"
-                id="tab-history"
-                aria-selected={tab === "history"}
-                aria-controls="panel-history"
-                className={`settings-tab${tab === "history" ? " settings-tab--active" : ""}`}
-                onClick={() => setTab("history")}
-              >
-                Purchase history
-              </button>
+              {TABS.map((entry) => (
+                <button
+                  key={entry.key}
+                  type="button"
+                  role="tab"
+                  id={`tab-${entry.key}`}
+                  aria-selected={tab === entry.key}
+                  aria-controls={`panel-${entry.key}`}
+                  className={`settings-tab${tab === entry.key ? " settings-tab--active" : ""}`}
+                  onClick={() => setTab(entry.key)}
+                >
+                  {entry.label}
+                </button>
+              ))}
             </div>
 
             {tab === "personal" ? (
@@ -58,6 +63,10 @@ const AccountProfilePage = () => {
                 {/* TODO(delete-account): the "Delete account" danger zone attaches here once a
                     delete-account endpoint exists. No live control is rendered today because the
                     backend exposes none (reported as a Sahil gap) — deliberately no dead button. */}
+              </div>
+            ) : tab === "circle" ? (
+              <div id="panel-circle" role="tabpanel" aria-labelledby="tab-circle" className="settings-panel">
+                <CircleTab />
               </div>
             ) : (
               <div id="panel-history" role="tabpanel" aria-labelledby="tab-history" className="settings-panel">
