@@ -870,13 +870,13 @@ const PlayerProfilePage = () => {
                       <b>
                         {resolvedVerificationCount} {resolvedVerificationCount === 1 ? "player" : "players"}
                       </b>{" "}
-                      who {resolvedVerificationCount === 1 ? "has" : "have"} played {firstName} vouched for this level
+                      {resolvedVerificationCount === 1 ? "has" : "have"} vouched for this level
                       {resolvedLevelSource === "self"
                         ? `. It takes ${VOUCHES_NEEDED} to show as vouched.`
                         : "."}
                     </>
                   ) : (
-                    `${firstName} set this level. Played with them? Vouch for it.`
+                    `${firstName} set this level. Know their game? Vouch for it.`
                   )}
                 </p>
               </div>

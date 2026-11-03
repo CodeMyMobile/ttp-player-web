@@ -34,7 +34,7 @@ export type SuggestedPlayerRecord = {
 /**
  * Where a player's shown level comes from, strongest first:
  *   "results"  their rated matches put them there
- *   "vouched"  enough players who have played them vouched for the level they gave
+ *   "vouched"  enough other players vouched for the level they gave
  *              (the API counts only vouches for their current level)
  *   "self"     only what they told us in their match profile
  */
