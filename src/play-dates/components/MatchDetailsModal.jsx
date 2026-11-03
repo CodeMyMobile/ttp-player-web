@@ -127,6 +127,26 @@ const safeDate = (value) => {
   return Number.isNaN(date.getTime()) ? null : date;
 };
 
+// The platform's NTRP, as the ladder shows it, before the player's own declared
+// USTA level: calculated_ntrp comes from their match results (ttp-api
+// rating_equivalents.js), and is null until they have a rating and rating gender.
+const playerRatingLabel = (profile = {}, fallback = null) => {
+  const calculated = Number(profile.calculated_ntrp);
+  if (profile.calculated_ntrp != null && Number.isFinite(calculated)) {
+    return Number.isInteger(calculated * 10)
+      ? calculated.toFixed(1)
+      : calculated.toFixed(2);
+  }
+  return (
+    profile.usta_rating ||
+    profile.rating ||
+    profile.skill_rating ||
+    profile.ntrp_rating ||
+    fallback ||
+    null
+  );
+};
+
 const distanceLabel = (distance) => {
   const numeric = Number(distance);
   if (!Number.isFinite(numeric)) return null;
@@ -1347,7 +1367,7 @@ const MatchDetailsModal = ({
             entry?.name ||
             (playerId ? `Player ${playerId}` : `Player ${index + 1}`),
           avatar: getParticipantProfileImage(entry),
-          rating: profile.usta_rating || profile.rating || null,
+          rating: playerRatingLabel(profile),
           joinedLabel: joinedOn ? `Joined ${joinedOn}` : "",
         };
       }),
@@ -2075,13 +2095,7 @@ const MatchDetailsModal = ({
           (playerId ? `Player ${playerId}` : `Player ${index + 1}`),
         avatar,
         isHost: match?.host_id ? idsMatch(playerId, match.host_id) : false,
-        rating:
-          profile.usta_rating ||
-          profile.rating ||
-          profile.skill_rating ||
-          profile.ntrp_rating ||
-          participant.rating ||
-          null,
+        rating: playerRatingLabel(profile, participant.rating),
         profileUrl,
         phoneDisplay,
         phoneHref,
