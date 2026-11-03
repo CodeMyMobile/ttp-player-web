@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, BadgeCheck, ChevronDown, Gauge, MapPin, MessageCircle, Users } from "lucide-react";
+import { ArrowLeft, BadgeCheck, ChevronDown, Gauge, MapPin, MessageCircle, UserCheck, UserPlus, Users } from "lucide-react";
 import moment from "moment";
 
 import MainLayout from "../components/MainLayout";
@@ -30,6 +30,7 @@ import useHitRequest, { canReceiveHitRequest } from "../hooks/useHitRequest";
 type OpenMatch = Record<string, unknown>;
 
 import { MatchLevelPrompt } from "../components/matches/MatchLevelPrompt";
+import { useCircleMembership } from "../hooks/useCircleMembership";
 import "./PlayerProfilePage.css";
 
 // "Open match play" = the app's canonical open/upcoming definition
@@ -308,6 +309,7 @@ const PlayerProfilePage = () => {
     setShowAllPlayedWith(false);
   };
   const isOwnProfile = myPlayerId != null && id != null && String(myPlayerId) === String(id);
+  const circle = useCircleMembership(Number(id), !isOwnProfile);
 
   // Guest summary — proof without exposing individual identities.
   const networkCount = playedWithTotal || playedWith.length;
@@ -673,6 +675,28 @@ const PlayerProfilePage = () => {
             )}
             {isOwnProfile ? "Check my rating" : `Connect with ${firstName}`}
           </button>
+
+          {!isOwnProfile && circle.inCircle !== null ? (
+            <button
+              type="button"
+              className={`ppv-circle${circle.inCircle ? " ppv-circle--in" : ""}`}
+              onClick={circle.toggle}
+              disabled={circle.saving}
+              aria-pressed={circle.inCircle}
+            >
+              {circle.inCircle ? (
+                <UserCheck size={18} strokeWidth={2.2} aria-hidden="true" />
+              ) : (
+                <UserPlus size={18} strokeWidth={2.2} aria-hidden="true" />
+              )}
+              {circle.inCircle ? "In your circle" : "Add to your circle"}
+            </button>
+          ) : null}
+          {circle.error ? (
+            <p className="ppv-circle-error" role="alert">
+              {circle.error}
+            </p>
+          ) : null}
 
           {!isOwnProfile ? (
             <button type="button" className="ppv-block-link" onClick={blockPlayer}>

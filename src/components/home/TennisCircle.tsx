@@ -48,7 +48,12 @@ export function TennisCircle({ rows }: TennisCircleProps) {
   return (
     <section className="home-circle" aria-label="Your tennis circle">
       <header className="home-circle__head">
-        <h2 className="home-circle__heading">Your tennis circle</h2>
+        <div className="home-circle__title-row">
+          <h2 className="home-circle__heading">Your tennis circle</h2>
+          <Link className="home-circle__manage" to="/settings/profile?tab=circle">
+            Manage
+          </Link>
+        </div>
         <p className="home-circle__sub">Games with people you know, and classes from your coaches</p>
       </header>
 

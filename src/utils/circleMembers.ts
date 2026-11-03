@@ -1,0 +1,111 @@
+// The player's own tennis circle (GET /player/circle): the friends and coaches they picked as
+// their go-to people, and suggestions to add. This turns the API's rows into what the Circle
+// tab on the profile draws, so the wording is tested (there is no React test harness here).
+
+export type CircleRole = "player" | "coach";
+export type CircleLevelSource = "results" | "self" | null;
+
+export interface CirclePersonRow {
+  id: number;
+  full_name: string | null;
+  profile_picture: string | null;
+  role: CircleRole;
+  level: number | null;
+  level_source: CircleLevelSource;
+}
+
+export interface CircleMember extends CirclePersonRow {
+  added_at: string | null;
+}
+
+export interface CircleSuggestion extends CirclePersonRow {
+  reason: "your_coach" | "played_together";
+  played_together: number | null;
+}
+
+export interface CircleListResponse {
+  members?: CircleMember[];
+  suggestions?: CircleSuggestion[];
+  weekly_email?: boolean;
+}
+
+export interface CircleListItem {
+  id: number;
+  name: string;
+  initials: string;
+  avatarUrl: string | null;
+  /** "Coach", "3.5 · from results", "3.5 · self-rated". */
+  detail: string | null;
+  /** Suggestions only: why they're suggested. */
+  reason: string | null;
+  href: string;
+}
+
+const clean = (value: unknown) => (typeof value === "string" ? value.trim() : "");
+
+export const initialsOf = (name: unknown): string =>
+  clean(name)
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]!.toUpperCase())
+    .join("");
+
+const toNumber = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+};
+
+/** Levels are shown to one decimal, as the rest of the app shows NTRP: 3.5, 4.0, 3.75 stays. */
+export const levelText = (level: number): string =>
+  Number.isInteger(level * 2) ? level.toFixed(1) : String(level);
+
+export const personDetail = (person: Pick<CirclePersonRow, "role" | "level" | "level_source">): string | null => {
+  if (person.role === "coach") return "Coach";
+  const level = toNumber(person.level);
+  if (level === null) return null;
+  if (person.level_source === "results") return `${levelText(level)} · from results`;
+  if (person.level_source === "self") return `${levelText(level)} · self-rated`;
+  return levelText(level);
+};
+
+export const suggestionReason = (suggestion: Pick<CircleSuggestion, "reason" | "played_together">): string | null => {
+  if (suggestion.reason === "your_coach") return "Your coach";
+  const times = toNumber(suggestion.played_together);
+  if (suggestion.reason !== "played_together" || !times || times < 1) return null;
+  return times === 1 ? "Played together once" : `Played together ${times} times`;
+};
+
+/** Coaches open their coach page; players their player profile. */
+export const profileHref = (person: Pick<CirclePersonRow, "id" | "role">): string =>
+  person.role === "coach" ? `/coaches/${person.id}` : `/players/${person.id}`;
+
+const toItem = (person: CirclePersonRow, reason: string | null): CircleListItem => ({
+  id: person.id,
+  name: clean(person.full_name) || (person.role === "coach" ? "Coach" : "Player"),
+  initials: initialsOf(person.full_name) || "?",
+  avatarUrl: clean(person.profile_picture) || null,
+  detail: personDetail(person),
+  reason,
+  href: profileHref(person),
+});
+
+const validId = (person: { id?: unknown } | null | undefined) => toNumber(person?.id) !== null;
+
+export const memberItems = (response: CircleListResponse | null | undefined): CircleListItem[] =>
+  (response?.members ?? []).filter(validId).map((member) => toItem({ ...member, id: Number(member.id) }, null));
+
+/** Suggestions, less anyone already in the circle (the list can be stale after an add). */
+export const suggestionItems = (
+  response: CircleListResponse | null | undefined,
+  memberIds: ReadonlySet<number> = new Set(),
+): CircleListItem[] =>
+  (response?.suggestions ?? [])
+    .filter(validId)
+    .filter((suggestion) => !memberIds.has(Number(suggestion.id)))
+    .map((suggestion) => toItem({ ...suggestion, id: Number(suggestion.id) }, suggestionReason(suggestion)));
+
+/** "No one yet", "1 person", "5 people". */
+export const circleCountLabel = (count: number): string =>
+  count === 0 ? "No one yet" : count === 1 ? "1 person" : `${count} people`;
