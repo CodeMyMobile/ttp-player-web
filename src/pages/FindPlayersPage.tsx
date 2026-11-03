@@ -18,6 +18,7 @@ import {
 import type { Player } from "../data/mockPlayers";
 import {
   extractSuggestedPlayers,
+  levelFilterBucket,
   mapSuggestedPlayer,
   toInitials,
   type DirectoryPlayer,
@@ -108,7 +109,7 @@ const playerMatchesFilters = (player: DirectoryPlayer, filters: PlayerFilters, v
       ? !viewerLevel || isNearLevel(viewerLevel, player.level)
       : filters.level === "4.5+"
       ? Number.parseFloat(player.level) >= 4.5
-      : player.level === filters.level);
+      : levelFilterBucket(player.level) === filters.level);
 
   const matchesGender =
     filters.gender === genderOptions[0] || normalize(player.gender) === normalize(filters.gender);
@@ -624,6 +625,9 @@ const BestMatchCard = ({ player, onConnect, onViewProfile, isMobile }: BestMatch
               >
                 NTRP {player.level}
               </span>
+              {player.levelSource === "self" ? (
+                <span style={{ fontSize: "11px", fontWeight: 500, color: "#475467" }}>Self-rated</span>
+              ) : null}
               {player.verified && (
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                   <circle cx="7" cy="7" r="6" fill="#ECFDF5" stroke="#A7F3D0" />
@@ -736,6 +740,9 @@ const BestMatchCard = ({ player, onConnect, onViewProfile, isMobile }: BestMatch
             >
               NTRP {player.level}
             </span>
+            {player.levelSource === "self" ? (
+              <span style={{ fontSize: "11px", fontWeight: 500, color: "#475467" }}>Self-rated</span>
+            ) : null}
             {player.verified && (
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <circle cx="7" cy="7" r="6" fill="#ECFDF5" stroke="#A7F3D0" />
@@ -1291,7 +1298,7 @@ const FindPlayersPage = () => {
       position: typeof position === "number" ? position + 1 : null,
       resultCount: filteredPlayers.length,
       rankingVersion: RANKING_VERSION_NONE,
-      inRange: nearRange.length > 0 ? nearRange.includes(player.level) : null,
+      inRange: nearRange.length > 0 ? nearRange.includes(levelFilterBucket(player.level) ?? "") : null,
       viewerTier,
       targetConfirmed: Boolean(player.verified),
       targetConfirmationCount: player.verificationCount ?? 0,

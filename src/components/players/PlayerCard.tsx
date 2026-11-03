@@ -8,7 +8,8 @@ import "../coaches/coaches.css";
 import "./players.css";
 
 type PlayerCardProps = {
-  player: Player;
+  /** levelSource: "self" when the level is only what the player told us. */
+  player: Player & { levelSource?: "results" | "self" | null };
   canConnect: boolean;
   onConnect: (player: Player) => void;
   onViewProfile?: (player: Player) => void;
@@ -84,11 +85,24 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
             <h3 className="fp-card__name">{player.name}</h3>
             <div
               className="fp-card__badges"
-              aria-label={`NTRP ${player.level}${player.verified ? ", verified rating" : ""}`}
+              aria-label={`NTRP ${player.level}${
+                player.levelSource === "self" ? ", self-rated" : player.levelSource === "results" ? ", from match results" : ""
+              }${player.verified ? ", verified rating" : ""}`}
             >
-              <span className="fp-card__badge fp-card__badge--level">
+              <span
+                className="fp-card__badge fp-card__badge--level"
+                title={player.levelSource === "results" ? "From this player's match results" : undefined}
+              >
                 NTRP <strong>{player.level}</strong>
               </span>
+              {player.levelSource === "self" ? (
+                <span
+                  className="fp-card__badge fp-card__badge--self"
+                  title="The level this player gave us. They haven't played a rated match yet."
+                >
+                  Self-rated
+                </span>
+              ) : null}
               {player.verified ? (
                 <span
                   className="fp-card__badge fp-card__badge--verified"

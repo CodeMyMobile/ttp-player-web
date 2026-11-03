@@ -23,11 +23,41 @@ export type SuggestedPlayerRecord = {
   genderAdditionalText?: string;
   isLevelConfirmed?: boolean;
   verifiedLevelCount?: string | number;
+  /** NTRP from the player's match results; null until they've played a rated match. */
+  resultsNtrp?: number | string | null;
   is_favorite?: boolean;
   [key: string]: unknown;
 };
 
-export type DirectoryPlayer = Player & { raw: SuggestedPlayerRecord };
+/**
+ * Where a player's shown level comes from: "results" when their rated matches put
+ * them there, "self" when it is only what they told us in their match profile.
+ */
+export type LevelSource = "results" | "self" | null;
+
+export type DirectoryPlayer = Player & { raw: SuggestedPlayerRecord; levelSource: LevelSource };
+
+/** "3.5" for a half level, "3.75" for a quarter, as the ladder writes them. */
+const formatNtrp = (value: number) =>
+  Number.isInteger(value * 2) ? value.toFixed(1) : value.toFixed(2);
+
+/** The results NTRP when it is a usable level, else null. */
+export const resultsLevelOf = (record: Pick<SuggestedPlayerRecord, "resultsNtrp">): string | null => {
+  const raw = record.resultsNtrp;
+  if (raw === null || raw === undefined || raw === "") return null;
+  const value = Number(raw);
+  return Number.isFinite(value) && value > 0 && value <= 7 ? formatNtrp(value) : null;
+};
+
+/**
+ * The level-filter option a level falls under: a 3.75 from results is a 3.5
+ * player, so it counts under "3.5" rather than under no option at all.
+ */
+export const levelFilterBucket = (level: string | null | undefined): string | null => {
+  const value = Number.parseFloat(String(level ?? ""));
+  if (!Number.isFinite(value) || value <= 0) return null;
+  return (Math.floor(value * 2) / 2).toFixed(1);
+};
 
 export const toInitials = (name: string): string => {
   const segments = name
@@ -68,7 +98,11 @@ export const mapSuggestedPlayer = (record: SuggestedPlayerRecord): DirectoryPlay
   const initialsSource = record.full_name ?? record.email ?? "TTP Player";
   const skillLabel = typeof record.skillLevel === "string" ? record.skillLevel.trim() : "";
   const levelMatch = skillLabel.match(/NTRP\s*([0-9.]+)/i);
-  const normalizedLevel = levelMatch?.[1] ?? (skillLabel || "Unknown");
+  const selfLevel = levelMatch?.[1] ?? skillLabel;
+  // Results first: a level their matches back up outranks the one they gave us.
+  const resultsLevel = resultsLevelOf(record);
+  const normalizedLevel = resultsLevel ?? (selfLevel || "Unknown");
+  const levelSource: LevelSource = resultsLevel ? "results" : selfLevel ? "self" : null;
   const verificationCount = Number.parseInt(String(record.verifiedLevelCount ?? "0"), 10) || 0;
   const normalizedGender = (() => {
     const rawGender = typeof record.gender === "string" ? record.gender.trim().toLowerCase() : "";
@@ -91,6 +125,7 @@ export const mapSuggestedPlayer = (record: SuggestedPlayerRecord): DirectoryPlay
     distanceMiles: 0,
     gender: normalizedGender,
     level: normalizedLevel,
+    levelSource,
     availability,
     matchPreferences: lookingFor,
     bio,
