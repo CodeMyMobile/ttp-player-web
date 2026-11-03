@@ -136,8 +136,8 @@ const CircleTab = () => {
           <span className="circle-head__count">{circleCountLabel(members.length)}</span>
         </div>
         <p className="settings-card__subtitle">
-          Your go-to players and coaches. Their open games show on Home. Only you can see who&apos;s in your
-          circle.
+          Everyone you&apos;ve played is added for you, and you can add anyone else. Their open games show on
+          Home. Only you can see who&apos;s in your circle.
         </p>
 
         {rowError ? (
@@ -154,7 +154,9 @@ const CircleTab = () => {
                   <CircleAvatar item={item} />
                   <span className="circle-row__text">
                     <span className="circle-row__name">{item.name}</span>
-                    {item.detail ? <span className="circle-row__detail">{item.detail}</span> : null}
+                    {[item.reason, item.detail].filter(Boolean).length ? (
+                      <span className="circle-row__detail">{[item.reason, item.detail].filter(Boolean).join(" · ")}</span>
+                    ) : null}
                   </span>
                 </Link>
                 <button
@@ -171,8 +173,8 @@ const CircleTab = () => {
           </ul>
         ) : (
           <p className="circle-empty">
-            Add the people you play with most. You can add anyone from their profile, or pick from the
-            suggestions below.
+            Play a match and your opponents join your circle. You can also add anyone from their profile, or
+            pick from the suggestions below.
           </p>
         )}
 
@@ -189,7 +191,7 @@ const CircleTab = () => {
       {suggestions.length ? (
         <div className="settings-card">
           <h2 className="settings-card__title">People you might add</h2>
-          <p className="settings-card__subtitle">Your coaches and people you&apos;ve played with.</p>
+          <p className="settings-card__subtitle">Your coaches.</p>
           <ul className="circle-list">
             {suggestions.map((item) => (
               <li key={item.id} className="circle-row">
