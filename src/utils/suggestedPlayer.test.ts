@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { isMeaningfulBio, levelFilterBucket, mapSuggestedPlayer } from "./suggestedPlayer";
+import { isMeaningfulBio, levelEvidenceLabel, levelFilterBucket, mapSuggestedPlayer } from "./suggestedPlayer";
 
 test("a real bio is meaningful", () => {
   assert.equal(isMeaningfulBio("Been playing since college, looking for weekend hits."), true);
@@ -70,4 +70,28 @@ test("a quarter level is filtered under the half level below it", () => {
   assert.equal(levelFilterBucket("4.0"), "4.0");
   assert.equal(levelFilterBucket("4.5+"), "4.5");
   assert.equal(levelFilterBucket("Unknown"), null);
+});
+
+test("each level says how it is known, results first", () => {
+  const results = mapSuggestedPlayer({
+    userId: 1,
+    skillLevel: "NTRP 3.5",
+    resultsNtrp: 3.75,
+    resultsMatchesPlayed: 12,
+    isLevelConfirmed: true,
+    verifiedLevelCount: 4,
+  });
+  assert.equal(results.levelSource, "results");
+  assert.equal(levelEvidenceLabel(results), "12 matches");
+  assert.equal(levelEvidenceLabel({ ...results, resultsMatches: 1 }), "1 match");
+
+  const vouched = mapSuggestedPlayer({ userId: 2, skillLevel: "NTRP 3.5", isLevelConfirmed: true, verifiedLevelCount: "4" });
+  assert.equal(vouched.levelSource, "vouched");
+  assert.equal(levelEvidenceLabel(vouched), "Vouched by 4");
+
+  // Two vouches are under the bar, so the level is still only what they told us.
+  const fewVouches = mapSuggestedPlayer({ userId: 3, skillLevel: "NTRP 3.5", isLevelConfirmed: false, verifiedLevelCount: 2 });
+  assert.equal(levelEvidenceLabel(fewVouches), "Self-rated");
+
+  assert.equal(levelEvidenceLabel(mapSuggestedPlayer({ userId: 4 })), null);
 });

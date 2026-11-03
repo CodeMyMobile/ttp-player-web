@@ -18,6 +18,7 @@ import {
 import type { Player } from "../data/mockPlayers";
 import {
   extractSuggestedPlayers,
+  levelEvidenceLabel,
   levelFilterBucket,
   mapSuggestedPlayer,
   toInitials,
@@ -625,21 +626,17 @@ const BestMatchCard = ({ player, onConnect, onViewProfile, isMobile }: BestMatch
               >
                 NTRP {player.level}
               </span>
-              {player.levelSource === "self" ? (
-                <span style={{ fontSize: "11px", fontWeight: 500, color: "#475467" }}>Self-rated</span>
+              {levelEvidenceLabel(player) ? (
+                <span
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    color: player.levelSource === "self" ? "#475467" : "#15803d",
+                  }}
+                >
+                  {levelEvidenceLabel(player)}
+                </span>
               ) : null}
-              {player.verified && (
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <circle cx="7" cy="7" r="6" fill="#ECFDF5" stroke="#A7F3D0" />
-                  <path
-                    d="M10 5L6 9L4 7"
-                    stroke="#059669"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              )}
             </div>
             <div style={{ display: "flex", alignItems: "center", fontSize: "12px", color: "#6B7280" }}>
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ marginRight: 4 }}>
@@ -740,15 +737,17 @@ const BestMatchCard = ({ player, onConnect, onViewProfile, isMobile }: BestMatch
             >
               NTRP {player.level}
             </span>
-            {player.levelSource === "self" ? (
-              <span style={{ fontSize: "11px", fontWeight: 500, color: "#475467" }}>Self-rated</span>
+            {levelEvidenceLabel(player) ? (
+              <span
+                style={{
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  color: player.levelSource === "self" ? "#475467" : "#15803d",
+                }}
+              >
+                {levelEvidenceLabel(player)}
+              </span>
             ) : null}
-            {player.verified && (
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <circle cx="7" cy="7" r="6" fill="#ECFDF5" stroke="#A7F3D0" />
-                <path d="M10 5L6 9L4 7" stroke="#059669" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            )}
           </div>
 
           <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "6px" }}>

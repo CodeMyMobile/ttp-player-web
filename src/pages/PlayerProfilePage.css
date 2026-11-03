@@ -93,6 +93,11 @@
   color: #047857;
 }
 
+.ppv-cred--self {
+  background: #f2f4f7;
+  color: #475467;
+}
+
 .ppv-cred--level {
   background: #ede9fe;
   color: #7c3aed;

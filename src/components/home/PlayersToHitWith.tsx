@@ -9,7 +9,7 @@ import {
   HOME_RATING_QUIZ_HREF,
   type PlayerSuggestion,
 } from "../../utils/homePlayerSuggestions";
-import type { DirectoryPlayer } from "../../utils/suggestedPlayer";
+import { levelEvidenceLabel, type DirectoryPlayer } from "../../utils/suggestedPlayer";
 import { PlayerPhoto } from "./PlayerPhoto";
 
 const PROMPT_PHOTOS = 5;
@@ -232,7 +232,15 @@ function Carousel({
                   <span className="home-players__level">
                     NTRP <strong>{player.level}</strong>
                   </span>
-                  {player.verified ? <span className="home-players__verified">Verified</span> : null}
+                  {levelEvidenceLabel(player) ? (
+                    <span
+                      className={
+                        player.levelSource === "self" ? "home-players__self-rated" : "home-players__verified"
+                      }
+                    >
+                      {levelEvidenceLabel(player)}
+                    </span>
+                  ) : null}
                 </div>
                 {court ? (
                   <p className="home-players__court">
