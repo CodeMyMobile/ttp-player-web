@@ -104,7 +104,11 @@ export const suggestionItems = (
   (response?.suggestions ?? [])
     .filter(validId)
     .filter((suggestion) => !memberIds.has(Number(suggestion.id)))
-    .map((suggestion) => toItem({ ...suggestion, id: Number(suggestion.id) }, suggestionReason(suggestion)));
+    .map((suggestion) => {
+      const item = toItem({ ...suggestion, id: Number(suggestion.id) }, suggestionReason(suggestion));
+      // "Your coach" already says they coach; "Your coach · Coach" says it twice.
+      return suggestion.reason === "your_coach" ? { ...item, detail: null } : item;
+    });
 
 /** "No one yet", "1 person", "5 people". */
 export const circleCountLabel = (count: number): string =>
