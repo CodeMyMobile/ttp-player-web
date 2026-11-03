@@ -83,7 +83,7 @@ test("suggestions leave out anyone already in the circle", () => {
   );
   assert.deepEqual(
     rows.map((row) => [row.id, row.reason, row.detail]),
-    [[5, "Your coach", "Coach"]],
+    [[5, "Your coach", null]],
   );
 });
 
