@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { isMeaningfulBio, mapSuggestedPlayer } from "./suggestedPlayer";
+import { isMeaningfulBio, levelFilterBucket, mapSuggestedPlayer } from "./suggestedPlayer";
 
 test("a real bio is meaningful", () => {
   assert.equal(isMeaningfulBio("Been playing since college, looking for weekend hits."), true);
@@ -47,4 +47,27 @@ test("the mapper accepts the privacy-safe courts field", () => {
     mapSuggestedPlayer({ userId: 1, full_name: "A B", courts: ["Central Courts"] }).favoriteCourt,
     "Central Courts",
   );
+});
+
+test("a level from match results comes before the self-rated one", () => {
+  const player = mapSuggestedPlayer({ userId: 1, skillLevel: "NTRP 3.5", resultsNtrp: 3.75 });
+  assert.equal(player.level, "3.75");
+  assert.equal(player.levelSource, "results");
+  assert.equal(mapSuggestedPlayer({ userId: 2, skillLevel: "NTRP 3.5", resultsNtrp: "4" }).level, "4.0");
+});
+
+test("without results the survey level shows, marked self-rated", () => {
+  const player = mapSuggestedPlayer({ userId: 1, skillLevel: "NTRP 3.5", resultsNtrp: null });
+  assert.equal(player.level, "3.5");
+  assert.equal(player.levelSource, "self");
+  const none = mapSuggestedPlayer({ userId: 2 });
+  assert.equal(none.level, "Unknown");
+  assert.equal(none.levelSource, null);
+});
+
+test("a quarter level is filtered under the half level below it", () => {
+  assert.equal(levelFilterBucket("3.75"), "3.5");
+  assert.equal(levelFilterBucket("4.0"), "4.0");
+  assert.equal(levelFilterBucket("4.5+"), "4.5");
+  assert.equal(levelFilterBucket("Unknown"), null);
 });
