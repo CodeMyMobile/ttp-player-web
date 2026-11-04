@@ -16,6 +16,8 @@ export interface CirclePersonRow {
 
 export interface CircleMember extends CirclePersonRow {
   added_at: string | null;
+  /** Days the two have played. Everyone played is in the circle; null for someone only added. */
+  played_together?: number | null;
 }
 
 export interface CircleSuggestion extends CirclePersonRow {
@@ -70,11 +72,16 @@ export const personDetail = (person: Pick<CirclePersonRow, "role" | "level" | "l
   return levelText(level);
 };
 
+/** "Played together once", "Played together 3 times", or null for none. */
+export const playedLabel = (count: unknown): string | null => {
+  const times = toNumber(count);
+  if (!times || times < 1) return null;
+  return times === 1 ? "Played together once" : `Played together ${times} times`;
+};
+
 export const suggestionReason = (suggestion: Pick<CircleSuggestion, "reason" | "played_together">): string | null => {
   if (suggestion.reason === "your_coach") return "Your coach";
-  const times = toNumber(suggestion.played_together);
-  if (suggestion.reason !== "played_together" || !times || times < 1) return null;
-  return times === 1 ? "Played together once" : `Played together ${times} times`;
+  return suggestion.reason === "played_together" ? playedLabel(suggestion.played_together) : null;
 };
 
 /** Coaches open their coach page; players their player profile. */
@@ -94,7 +101,9 @@ const toItem = (person: CirclePersonRow, reason: string | null): CircleListItem 
 const validId = (person: { id?: unknown } | null | undefined) => toNumber(person?.id) !== null;
 
 export const memberItems = (response: CircleListResponse | null | undefined): CircleListItem[] =>
-  (response?.members ?? []).filter(validId).map((member) => toItem({ ...member, id: Number(member.id) }, null));
+  (response?.members ?? [])
+    .filter(validId)
+    .map((member) => toItem({ ...member, id: Number(member.id) }, playedLabel(member.played_together)));
 
 /** Suggestions, less anyone already in the circle (the list can be stale after an add). */
 export const suggestionItems = (

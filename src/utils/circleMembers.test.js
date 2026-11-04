@@ -52,7 +52,7 @@ test("coaches link to their coach page, players to their profile", () => {
 test("members become rows, with initials and a fallback name", () => {
   const rows = memberItems({
     members: [
-      { ...person(2, "Casey Morgan", { level: 3.5, level_source: "results" }), added_at: "2026-11-01T00:00:00Z" },
+      { ...person(2, "Casey Morgan", { level: 3.5, level_source: "results" }), added_at: "2026-11-01T00:00:00Z", played_together: 2 },
       { ...person(3, null, { role: "coach" }), added_at: null },
       { ...person(null, "No id"), added_at: null },
     ],
@@ -64,7 +64,7 @@ test("members become rows, with initials and a fallback name", () => {
       initials: "CM",
       avatarUrl: null,
       detail: "3.5 · from results",
-      reason: null,
+      reason: "Played together 2 times",
       href: "/players/2",
     },
     { id: 3, name: "Coach", initials: "?", avatarUrl: null, detail: "Coach", reason: null, href: "/coaches/3" },
