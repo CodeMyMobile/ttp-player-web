@@ -36,22 +36,34 @@ test("reads the external listings' ranges, including quarter levels", () => {
   assert.deepEqual(classLevelBand({ title: "3.5-4.0 Ladies Liveball" }), { min: 3.5, max: 4 });
   assert.equal(fitsPlayerLevel(classLevelBand({ title: "2.75 - 3.25 Live Ball" }), 3), true);
   assert.equal(fitsPlayerLevel(classLevelBand({ title: "2.75 - 3.25 Live Ball" }), 3.5), true);
-  assert.equal(fitsPlayerLevel(classLevelBand({ title: "Skills & Drills: 2.5 - 3.0" }), 3.5), false);
+  // Half a level down: a 3.5 can play in a class that tops out at 3.0.
+  assert.equal(fitsPlayerLevel(classLevelBand({ title: "Skills & Drills: 2.5 - 3.0" }), 3.5), true);
+  assert.equal(fitsPlayerLevel(classLevelBand({ title: "Skills & Drills: 2.5 - 3.0" }), 4), false);
   assert.equal(fitsPlayerLevel(classLevelBand({ title: "2.75 - 3.25 Live Ball" }), 4.5), false);
 });
 
-test("a 3.5 player sees the 3.5 classes, not the 3.0 clinic or the 4.0 and 4.5+ liveballs", () => {
-  const fits = Object.entries(LIVE)
-    .filter(([, lesson]) => fitsPlayerLevel(classLevelBand(lesson), 3.5))
+const fitsFor = (level) =>
+  Object.entries(LIVE)
+    .filter(([, lesson]) => fitsPlayerLevel(classLevelBand(lesson), level))
     .map(([name]) => name);
-  assert.deepEqual(fits, ["sal35", "intensive", "chaparal"]);
+
+test("a 3.5 player sees the 3.5 and 3.0 classes, not the 4.0 and 4.5+ liveballs", () => {
+  assert.deepEqual(fitsFor(3.5), ["sal35", "advBeginner", "intensive", "chaparal"]);
 });
 
-test("a 4.5 player sees the 4.5+ liveball, not the 3.5 and 4.0 classes", () => {
-  const fits = Object.entries(LIVE)
-    .filter(([, lesson]) => fitsPlayerLevel(classLevelBand(lesson), 4.5))
-    .map(([name]) => name);
-  assert.deepEqual(fits, ["liveball45", "chaparal"]);
+test("a 4.5 player sees the 4.0 and 4.5 classes, not the 3.5+ liveball", () => {
+  assert.deepEqual(fitsFor(4.5), ["liveball40", "liveball45", "intensive", "chaparal"]);
+});
+
+test("a 4.0 player may join a 3.5+ class; a 3.5+ isn't half a level below a 4.5", () => {
+  assert.equal(fitsPlayerLevel({ min: 3.5, max: null }, 4), true);
+  assert.equal(fitsPlayerLevel({ min: 3.5, max: null }, 4.5), false);
+});
+
+test("a played rating is matched at the level the player is shown", () => {
+  // 4.6 and 4.74 both show as 4.5, so they get a 4.5's classes, the 4.0 ones included.
+  assert.deepEqual(fitsFor(4.6), fitsFor(4.5));
+  assert.deepEqual(fitsFor(4.74), fitsFor(4.5));
 });
 
 test("a class with no level is open to everyone", () => {

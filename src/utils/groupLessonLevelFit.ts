@@ -69,23 +69,32 @@ export const classLevelBand = (lesson: {
 };
 
 /**
- * How far outside a class's range still counts as a fit. A quarter level: enough that a
- * 3.5 sees a "2.75 - 3.25" listing and a played 3.67 sees the 3.5 classes, not so much that
- * a 3.5 is shown 2.5 - 3.0 drills and 4.0 liveballs. Half a level let in nine classes in
- * ten, which is not a filter.
+ * How far a class may sit from the player's level and still fit. Players often play down,
+ * so a class up to half a level below fits: a 4.5 sees the 4.0 classes, a 3.5 the 3.0
+ * ones. Playing up is harder, so only a quarter above: a 3.5 sees a 3.75 listing but not
+ * the 4.0 liveballs.
  */
-const TOLERANCE = 0.25;
+const PLAY_DOWN = 0.5;
+const PLAY_UP = 0.25;
 
 /**
- * Whether a class suits a player of this level.
- *
- * An open band ("3.5+") is read as reaching half a level above its floor, not to the top of
- * the scale: a 5.0 is allowed into a 3.5+ liveball but it is not a class for them.
+ * How far above its floor an open band ("3.5+") reaches before playing down applies. A
+ * "3.5+" is a 3.5 class that stronger players may join, not a class for every level above:
+ * with playing down it reaches 4.0 players, and a 4.5 isn't told a 3.5+ liveball is at
+ * their level.
+ */
+const PLUS_REACH = 0;
+
+/**
+ * Whether a class suits a player of this level. Compared at the level the player is shown
+ * (the nearest half, as on the "Your level" chip), so a played 4.6 listed as 4.5 gets the
+ * same classes as a 4.5.
  */
 export const fitsPlayerLevel = (band: LevelBand | null, playerLevel: number): boolean => {
   if (band === null) return true;
-  const top = band.max ?? band.min + 0.5;
-  return playerLevel >= band.min - TOLERANCE && playerLevel <= top + TOLERANCE;
+  const level = Math.round(playerLevel * 2) / 2;
+  const top = band.max ?? band.min + PLUS_REACH;
+  return level >= band.min - PLAY_UP && level <= top + PLAY_DOWN;
 };
 
 const positive = (value: unknown): number | null => {
