@@ -2100,6 +2100,8 @@ const MatchDetailsModal = ({
         profileUrl,
         phoneDisplay,
         phoneHref,
+        // Their answer to the day-before "Still on?" text: "yes", "waiting" or null (not asked).
+        stillOn: participant.still_on || null,
         participant,
       };
     });
@@ -2864,6 +2866,19 @@ const MatchDetailsModal = ({
                   {player.isHost && (
                     <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">
                       Host
+                    </span>
+                  )}
+                  {player.stillOn === "yes" && !isArchived && !isCancelled && (
+                    <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700">
+                      ✓ Confirmed
+                    </span>
+                  )}
+                  {player.stillOn === "waiting" && !isArchived && !isCancelled && (
+                    <span
+                      className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-700"
+                      title="We texted them to check they're still on, and they haven't replied yet"
+                    >
+                      Hasn't replied
                     </span>
                   )}
                 </p>
