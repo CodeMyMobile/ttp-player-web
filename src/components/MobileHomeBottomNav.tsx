@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, CalendarPlus, Home, Plus, ClipboardList, Search, Trophy, Users } from "lucide-react";
+import { CalendarDays, CalendarPlus, Home, Plus, ClipboardList, Search, Trophy, Users, type LucideIcon } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { listMyLeagues } from "../api/leagues";
 import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
+import { isMyWeekEnabled } from "../utils/featureFlags";
+import { isTabActive, leaguesDestination, primaryNavTabs, type NavTabKey } from "../utils/navTabs";
 
 import "./MobileHomeBottomNav.css";
 
@@ -17,7 +19,7 @@ import "./MobileHomeBottomNav.css";
 type TabDef = {
   key: string;
   label: string;
-  icon: typeof Home;
+  icon: LucideIcon;
   // Simple route tabs navigate straight to `to`; Leagues resolves at click time.
   to?: string;
   // Active when the current path matches one of these prefixes.
@@ -127,6 +129,15 @@ const QuickActionSheet = ({
   );
 };
 
+const TAB_ICONS: Record<NavTabKey, LucideIcon> = {
+  home: Home,
+  coaches: Users,
+  leagues: Trophy,
+  schedule: CalendarDays,
+  play: Trophy,
+  "my-week": CalendarDays,
+};
+
 const MobileHomeBottomNav = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -157,9 +168,7 @@ const MobileHomeBottomNav = () => {
 
   // Leagues tab: 1 league → straight to its dashboard; else → the list picker.
   const goLeagues = useCallback(async () => {
-    const leagues = await resolveLeagues();
-    if (leagues.length === 1) navigate(`/leagues/${leagues[0].id}/dashboard`);
-    else navigate("/leagues");
+    navigate(leaguesDestination(await resolveLeagues()));
   }, [navigate, resolveLeagues]);
 
   // Create a Match → the same match creator as the header's "+ New match" (AppNav → /create).
@@ -183,15 +192,14 @@ const MobileHomeBottomNav = () => {
     navigate("/matches");
   }, [navigate]);
 
-  const isActive = (prefixes: string[]) =>
-    prefixes.some((p) => location.pathname === p || location.pathname.startsWith(`${p}/`));
+  const isActive = (prefixes: string[]) => isTabActive(location.pathname, prefixes);
 
-  const tabs: TabDef[] = [
-    { key: "home", label: "Home", icon: Home, to: "/", match: ["/", "/restring"] },
-    { key: "coaches", label: "Coaches", icon: Users, to: "/my-coaches", match: ["/my-coaches"] },
-    { key: "leagues", label: "Leagues", icon: Trophy, match: ["/leagues"], onClick: goLeagues },
-    { key: "schedule", label: "Schedule", icon: CalendarDays, to: "/player/calendar", match: ["/player/calendar"] },
-  ];
+  // Play and My Week replace Leagues and Schedule while My Week is on (utils/navTabs).
+  const tabs: TabDef[] = primaryNavTabs(isMyWeekEnabled()).map((tab) => ({
+    ...tab,
+    icon: TAB_ICONS[tab.key],
+    onClick: tab.key === "leagues" ? goLeagues : undefined,
+  }));
 
   const renderTab = (tab: TabDef) => {
     const active = isActive(tab.match);

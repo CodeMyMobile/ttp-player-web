@@ -6,7 +6,8 @@ import { AuthDrawerProvider, useAuthDrawer } from "./context/AuthDrawerContext";
 import DashboardPage from "./pages/DashboardPage";
 import LandingPage from "./pages/LandingPage";
 import HomePage from "./pages/HomePage";
-import { isHomeV2Enabled, isVendorPageEnabled } from "./utils/featureFlags";
+import { isHomeV2Enabled, isMyWeekEnabled, isVendorPageEnabled } from "./utils/featureFlags";
+import { MY_WEEK_PATH, PLAY_PATH, SCHEDULE_PATH } from "./utils/navTabs";
 import { readDirectPage } from "./utils/directPage";
 import PlayDatesMatchesApp from "./play-dates/TennisMatchApp";
 import PlayDatesInvitationPage from "./play-dates/InvitationPage";
@@ -63,6 +64,7 @@ import NotificationsPage from "./pages/NotificationsPage";
 import RatingQuizPage from "./pages/RatingQuizPage";
 import SaveQuizLevelPage from "./pages/SaveQuizLevelPage";
 import PlayerCalendar from "./screens/Player/PlayerCalendar";
+import PlayPage from "./pages/PlayPage";
 import LogResultPage from "./pages/log-result";
 import ConfirmResultPage from "./pages/log-result/ConfirmResultPage";
 import MobileHomeBottomNav from "./components/MobileHomeBottomNav";
@@ -732,13 +734,31 @@ const AppRoutes = () => (
       path="/player/lesson/:id"
       element={<PlayerLessonDetailsPage />}
     />
+    {/* With My Week on, Schedule's address forwards to My Week, so the links to it keep
+        working. Until the My Week screen ships, /my-week shows the schedule. */}
     <Route
-      path="/player/calendar"
-      element={(
+      path={SCHEDULE_PATH}
+      element={isMyWeekEnabled() ? <Navigate to={MY_WEEK_PATH} replace /> : (
         <ProtectedRoute>
           <PlayerCalendar />
         </ProtectedRoute>
       )}
+    />
+    <Route
+      path={MY_WEEK_PATH}
+      element={isMyWeekEnabled() ? (
+        <ProtectedRoute>
+          <PlayerCalendar />
+        </ProtectedRoute>
+      ) : <Navigate to={SCHEDULE_PATH} replace />}
+    />
+    <Route
+      path={PLAY_PATH}
+      element={isMyWeekEnabled() ? (
+        <ProtectedRoute>
+          <PlayPage />
+        </ProtectedRoute>
+      ) : <Navigate to="/" replace />}
     />
     <Route
       path="/settings/profile"
