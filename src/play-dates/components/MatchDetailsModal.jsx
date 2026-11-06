@@ -2818,9 +2818,12 @@ const MatchDetailsModal = ({
           typeof onViewPlayerProfile === "function" || Boolean(player.profileUrl);
         const canRemove =
           isHost && !player.isHost && !isArchived && !isCancelled;
+        // Opens a text to them, like "Message group". Only when the API has shared their number:
+        // the host sees every player's, anyone else only numbers players chose to share.
+        const textNumber = normalizePhoneValue(getParticipantPhone(player.participant));
         const canDm =
           isJoined &&
-          !player.isHost &&
+          Boolean(textNumber) &&
           !idsMatch(player.playerId, currentUser?.id) &&
           !isArchived &&
           !isCancelled;
@@ -2904,9 +2907,9 @@ const MatchDetailsModal = ({
                 {canDm && (
                   <button
                     type="button"
-                    onClick={() => handleSendDm(player)}
+                    onClick={() => openSmsComposer([textNumber], onToast)}
                     className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-violet-500 transition-colors hover:bg-violet-50"
-                    aria-label={`Message ${player.name}`}
+                    aria-label={`Text ${player.name}`}
                   >
                     <MessageCircle className="h-4 w-4" />
                   </button>
