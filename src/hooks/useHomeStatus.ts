@@ -183,7 +183,10 @@ const bookingsFetcher = async (): Promise<WeekBooking[]> => {
   const bookings: WeekBooking[] = [];
 
   if (lessons.status === "fulfilled" && lessons.value) {
-    const rows = (lessons.value as { data?: unknown[] })?.data;
+    // The API answers { lessons: [...] }. Reading .data found nothing, so no
+    // private lesson ever reached the week.
+    const body = lessons.value as { lessons?: unknown[]; data?: unknown[] };
+    const rows = body?.lessons ?? body?.data;
     bookings.push(...lessonsToBookings(Array.isArray(rows) ? rows : []));
   }
 

@@ -64,10 +64,23 @@ export interface PlayerNotification {
 }
 
 export interface NotificationCount {
+  /** Unseen notifications. ttp-api sends `{ count }`, as a string (Postgres counts are bigint). */
+  count?: number | string;
   unread?: number;
   total?: number;
   [key: string]: unknown;
 }
+
+/**
+ * The bell's number from /notification_count. The bell read `unread`, which the API never
+ * sends, so it never lit up. `unread` is still honoured in case the API is changed to send it.
+ */
+export const unreadNotificationCount = (response: unknown): number => {
+  const body = response as (NotificationCount & { data?: NotificationCount }) | null | undefined;
+  const data = body?.data ?? body;
+  const value = Number(data?.count ?? data?.unread ?? 0);
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+};
 
 export type NotificationListResponse =
   | PlayerNotification[]

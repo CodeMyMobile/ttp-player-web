@@ -162,18 +162,30 @@ export const summariseWeekBookings = (
 // --- adapters ---------------------------------------------------------------
 
 /**
- * Private lessons. Confirmed is status 1 AND payment_status 1, matching the
- * numeric convention the group-lesson helpers already use.
+ * Private and semi-private lessons from /player/upcoming_lessons. Booked is
+ * status 1 (confirmed by the coach). payment_status is not part of it: that
+ * endpoint doesn't send it, and on coach_lessons it's empty for nearly every
+ * lesson, so requiring it kept every private lesson off the week.
+ *
+ * The same endpoint also returns open group lessons (types 3 and 4) the player
+ * joined. Those are counted by groupLessonsToBookings, so they're skipped here
+ * rather than counted twice.
+ *
+ * Times: start_date_time is a true UTC instant for these lessons, while
+ * start_date_time_tz holds the venue's wall clock with a trailing Z (ttp-api
+ * utils/lessonTime.js). The _tz value is read as a wall clock when present.
  */
 export const lessonsToBookings = (rows: unknown[]): WeekBooking[] =>
   (Array.isArray(rows) ? rows : []).flatMap((raw) => {
     const row = raw as Record<string, unknown>;
-    const startsAt = toEpoch(
-      pick(row, ["start_date_time_tz", "start_date_time", "startTime"]),
-    );
+    const lessonType = numeric(row.lessontype_id);
+    if (lessonType === 3 || lessonType === 4) return [];
+    const wallClock = parseFloatingLocal(row.start_date_time_tz);
+    const startsAt = wallClock
+      ? wallClock.getTime()
+      : toEpoch(pick(row, ["start_date_time", "startTime"]));
     if (startsAt === null) return [];
     if (numeric(row.status) !== 1) return [];
-    if (numeric(row.payment_status) !== 1) return [];
     // PlayerLesson declares only id/status/startTime/endTime/coachId — a title
     // and venue are not part of the contract, so probe and accept null. A 1:1
     // lesson today then shows its time with no sub-line, which is honest.
