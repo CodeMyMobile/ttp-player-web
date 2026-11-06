@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, LogIn } from "lucide-react";
 
 import { useQuery, useQueryClient } from "../utils/react-query-shim";
 import MatchDetailsModal from "../components/MatchDetailsModal.jsx";
@@ -8,6 +8,7 @@ import { getMatch } from "../services/matches";
 import { ARCHIVE_FILTER_VALUE, isMatchArchivedError } from "../utils/archive";
 import { useAuth } from "../../context/AuthContext";
 import MainLayout from "../../components/MainLayout";
+import { isAppleMobileBrowser } from "../../utils/homeScreenApp";
 
 const readStoredObject = (key) => {
   try {
@@ -71,7 +72,10 @@ const MatchPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  // In Safari or Chrome on an iPhone, a player signed in on the home-screen app is signed
+  // out here: links never open in that app. Say so, so the sign-in doesn't look like a bug.
+  const onAppleMobileBrowser = useMemo(() => isAppleMobileBrowser(), []);
   const [matchData, setMatchData] = useState(null);
   // The modal produces a message for every refusal — full match, invite-only,
   // archived, a 403 from the API. This was `() => {}`, so all of them were
@@ -234,6 +238,36 @@ const MatchPage = () => {
           }}
         >
           {toast.text}
+        </div>
+      ) : null}
+      {/* In the match page's own column (MatchDetailsModal's page layout), above it. */}
+      {!authLoading && !isAuthenticated && matchData?.match ? (
+        <div className="mx-auto w-full max-w-[1120px] px-4 pt-4 sm:px-6 sm:pt-6">
+          <section
+            aria-labelledby="match-signed-out-title"
+            className="flex flex-col gap-3 rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div>
+              <h2 id="match-signed-out-title" className="text-[15px] font-bold text-slate-900">
+                You&apos;re signed out in this browser
+              </h2>
+              <p className="mt-1 text-sm text-slate-600">Sign in to join this match or message the players.</p>
+              {onAppleMobileBrowser ? (
+                <p className="mt-1 text-[13px] leading-snug text-slate-500">
+                  Use The Tennis Plan from your home screen? Links open here, in your browser, which keeps its own
+                  sign-in. Sign in once and it&apos;ll remember you, or open the app and find the match under Matches.
+                </p>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={handleRequireSignIn}
+              className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] px-[18px] text-[15px] font-bold text-white"
+            >
+              <LogIn size={16} strokeWidth={2.2} aria-hidden="true" />
+              Sign in
+            </button>
+          </section>
         </div>
       ) : null}
       <MatchDetailsModal

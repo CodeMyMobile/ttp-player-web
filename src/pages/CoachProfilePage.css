@@ -2281,6 +2281,69 @@
   line-height: 1.55;
 }
 
+.coach-auth-sheet__copy p.coach-auth-sheet__hint {
+  margin-top: -12px;
+  font-size: 13px;
+}
+
+.coach-signed-out {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 12px 16px;
+  padding: 14px 16px;
+  border: 1px solid #ddd6fe;
+  border-radius: 16px;
+  background: #f5f3ff;
+}
+
+.coach-signed-out__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #101828;
+}
+
+.coach-signed-out__body,
+.coach-signed-out__hint {
+  margin: 4px 0 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: #475467;
+}
+
+.coach-signed-out__hint {
+  font-size: 13px;
+  color: #667085;
+}
+
+.coach-signed-out__btn {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 18px;
+  white-space: nowrap;
+  border: none;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@media (min-width: 1024px) {
+  .coach-signed-out {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    margin: 12px 24px 0;
+  }
+}
+
 .coach-auth-sheet__actions {
   display: flex;
   flex-direction: column;
