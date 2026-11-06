@@ -38,6 +38,7 @@ import { usableAvatar } from "../utils/avatar";
 import {
   extractNotificationList,
   getNotificationCount,
+  unreadNotificationCount,
   getNotifications,
 } from "../api/notification";
 import {
@@ -226,11 +227,7 @@ const AppNav = ({
     const controller = new AbortController();
 
     getNotificationCount({ token, signal: controller.signal })
-      .then((response) => {
-        const data = response?.data ?? response;
-        const unread = Number(data?.unread ?? 0);
-        setUnreadCount(Number.isFinite(unread) ? unread : 0);
-      })
+      .then((response) => setUnreadCount(unreadNotificationCount(response)))
       .catch(() => setUnreadCount(0));
 
     return () => controller.abort();

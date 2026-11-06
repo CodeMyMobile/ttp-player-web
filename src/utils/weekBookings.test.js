@@ -49,22 +49,45 @@ test("empty week yields a zero count and no next", () => {
   assert.deepEqual(summariseWeekBookings([], NOW), { count: 0, next: null });
 });
 
-test("private lessons count only when booked and paid", () => {
+test("private lessons count once the coach confirms them, paid or not", () => {
   const rows = [
-    { id: 1, start_date_time: at(HOUR), status: 1, payment_status: 1 },
-    { id: 2, start_date_time: at(2 * HOUR), status: 1, payment_status: 0 },
-    { id: 3, start_date_time: at(3 * HOUR), status: 2, payment_status: 1 },
+    // /player/upcoming_lessons sends no payment_status at all.
+    { id: 1, start_date_time: at(HOUR), status: 1, lessontype_id: 1 },
+    { id: 2, start_date_time: at(2 * HOUR), status: 1, lessontype_id: 2, payment_status: 0 },
+    { id: 3, start_date_time: at(3 * HOUR), status: 2, lessontype_id: 1 },
+    { id: 4, start_date_time: at(4 * HOUR), status: 0, lessontype_id: 1 },
   ];
 
-  assert.deepEqual(lessonsToBookings(rows).map((b) => b.id), ["1"]);
+  assert.deepEqual(lessonsToBookings(rows).map((b) => b.id), ["1", "2"]);
 });
 
-test("lessons prefer the timezone-qualified start field", () => {
-  const [booking] = lessonsToBookings([
-    { id: 9, start_date_time_tz: at(HOUR), start_date_time: at(5 * DAY), status: 1, payment_status: 1 },
-  ]);
+test("open group lessons are left to the group adapter, so they aren't counted twice", () => {
+  const rows = [
+    { id: 5, start_date_time: at(HOUR), status: 1, lessontype_id: 3 },
+    { id: 6, start_date_time: at(HOUR), status: 1, lessontype_id: 4 },
+  ];
+
+  assert.deepEqual(lessonsToBookings(rows), []);
+});
+
+test("a private lesson's start_date_time is a real instant", () => {
+  const [booking] = lessonsToBookings([{ id: 9, start_date_time: at(HOUR), status: 1, lessontype_id: 1 }]);
 
   assert.equal(booking.startsAt, NOW + HOUR);
+});
+
+test("start_date_time_tz is the venue's wall clock, not UTC, and wins when present", () => {
+  const [booking] = lessonsToBookings([
+    {
+      id: 9,
+      start_date_time_tz: "2026-08-16T18:30:00.000Z",
+      start_date_time: "2026-08-17T01:30:00.000Z",
+      status: 1,
+      lessontype_id: 1,
+    },
+  ]);
+
+  assert.equal(booking.startsAt, new Date(2026, 7, 16, 18, 30).getTime());
 });
 
 test("group lessons defer the confirmed rule to the caller", () => {
@@ -89,7 +112,7 @@ test("matches count when hosting or participating, never as a viewer", () => {
 });
 
 test("items without a usable start time are dropped rather than counted as now", () => {
-  assert.deepEqual(lessonsToBookings([{ id: 1, status: 1, payment_status: 1 }]), []);
+  assert.deepEqual(lessonsToBookings([{ id: 1, status: 1 }]), []);
   assert.deepEqual(matchesToBookings([{ id: 2, relationship: "host" }]), []);
   assert.deepEqual(groupLessonsToBookings([{ id: 3 }], () => true), []);
 });
@@ -196,7 +219,7 @@ test("a booking with neither title nor location yields no meta line at all", () 
   // PlayerLesson declares neither, so this is the ordinary 1:1 lesson case —
   // it must produce null, not "undefined · undefined" and not a bare "·".
   const [lesson] = lessonsToBookings([
-    { id: 1, status: 1, payment_status: 1, start_date_time: at(HOUR) },
+    { id: 1, status: 1, start_date_time: at(HOUR) },
   ]);
 
   assert.equal(lesson.title, null);
