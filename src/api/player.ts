@@ -38,9 +38,15 @@ export interface UploadUrlResponse {
   [key: string]: unknown;
 }
 
-export const getPlayerUpcomingLessons = async (token: string) =>
+/**
+ * The player's upcoming lessons: private and semi-private ones, and group classes they joined.
+ * The API answers { lessons }, or 404 when there are none. `to` (ISO) keeps lessons starting
+ * before it; group classes are compared by their venue clock time.
+ */
+export const getPlayerUpcomingLessons = async (token: string, { to }: { to?: string } = {}) =>
   request<PaginatedResponse<PlayerLesson>>("/player/upcoming_lessons", {
     token,
+    ...(to ? { query: { to } } : {}),
   });
 
 export const getDynamicFilters = async (token: string) =>
