@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, Home, Plus, ClipboardList, Search, Trophy, Users } from "lucide-react";
+import { CalendarDays, CalendarPlus, Home, Plus, ClipboardList, Search, Trophy, Users } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { listMyLeagues } from "../api/leagues";
@@ -27,10 +27,12 @@ type TabDef = {
 
 const QuickActionSheet = ({
   onClose,
+  onCreateMatch,
   onLogScore,
   onFindMatch,
 }: {
   onClose: () => void;
+  onCreateMatch: () => void;
   onLogScore: () => void;
   onFindMatch: () => void;
 }) => {
@@ -102,6 +104,12 @@ const QuickActionSheet = ({
       >
         <div className="mbn-sheet__handle" aria-hidden="true" />
         <p className="mbn-sheet__title">Quick actions</p>
+        <button type="button" className="mbn-sheet__action" onClick={onCreateMatch}>
+          <span className="mbn-sheet__action-icon">
+            <CalendarPlus size={20} />
+          </span>
+          Create a Match
+        </button>
         <button type="button" className="mbn-sheet__action" onClick={onLogScore}>
           <span className="mbn-sheet__action-icon">
             <ClipboardList size={20} />
@@ -153,6 +161,12 @@ const MobileHomeBottomNav = () => {
     if (leagues.length === 1) navigate(`/leagues/${leagues[0].id}/dashboard`);
     else navigate("/leagues");
   }, [navigate, resolveLeagues]);
+
+  // Create a Match → the match-creation wizard, the same one "Create match" opens elsewhere.
+  const goCreateMatch = useCallback(() => {
+    setSheetOpen(false);
+    navigate("/matches/create");
+  }, [navigate]);
 
   // "+" sheet actions use the GENERAL (non-league) flows as the default — they
   // work whether or not you're in a league, and you can reach leagues from them.
@@ -224,6 +238,7 @@ const MobileHomeBottomNav = () => {
       {sheetOpen ? (
         <QuickActionSheet
           onClose={() => setSheetOpen(false)}
+          onCreateMatch={goCreateMatch}
           onLogScore={goLogScore}
           onFindMatch={goFindMatch}
         />
