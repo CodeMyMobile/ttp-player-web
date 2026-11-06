@@ -60,13 +60,24 @@ import {
   USER_LOCATION_REQUEST_EVENT,
 } from "../utils/userLocation";
 import { getAuthNavState } from "../utils/authNavState";
+import { isMyWeekEnabled } from "../utils/featureFlags";
+import { isTabActive, primaryNavTabs } from "../utils/navTabs";
 import "./AppNav.css";
 
-const navItems = [
-  { label: "Home", to: "/", icon: Home },
-  { label: "My Coaches", to: "/my-coaches", icon: Users },
-  { label: "Schedule", to: "/player/calendar", icon: CalendarDays },
-];
+// The desktop links, from the same list as the mobile tabs (utils/navTabs). Leagues isn't one:
+// on desktop it lives in the user menu, and under Play once My Week is on.
+const NAV_ICONS = { home: Home, coaches: Users, schedule: CalendarDays, play: Trophy, "my-week": CalendarDays };
+const DESKTOP_LABELS = { coaches: "My Coaches" };
+
+const buildNavItems = (myWeek) =>
+  primaryNavTabs(myWeek)
+    .filter((tab) => tab.to)
+    .map((tab) => ({
+      label: DESKTOP_LABELS[tab.key] ?? tab.label,
+      to: tab.to,
+      icon: NAV_ICONS[tab.key],
+      match: tab.match,
+    }));
 
 const reverseGeocodeDeviceLocation = async ({ latitude, longitude }) => {
   try {
@@ -96,10 +107,6 @@ const userMenuItems = [
   { label: "Blocked users", to: "/settings/blocked-users", icon: ShieldX },
 ];
 
-const isPathActive = (pathname, target) => {
-  if (target === "/") return pathname === "/";
-  return pathname === target || pathname.startsWith(`${target}/`);
-};
 
 const AppNav = ({
   onNewMatch,
@@ -111,6 +118,7 @@ const AppNav = ({
   mobileCenter = null,
 }) => {
   const { isAuthenticated, logout, user } = useAuth();
+  const navItems = buildNavItems(isMyWeekEnabled());
   const identity = usePlayerIdentity();
   const authNavState = getAuthNavState({
     isAuthenticated,
@@ -483,7 +491,7 @@ const AppNav = ({
               <Link
                 key={item.label}
                 to={item.to}
-                className={isPathActive(location.pathname, item.to) ? "active" : ""}
+                className={isTabActive(location.pathname, item.match) ? "active" : ""}
               >
                 {createElement(item.icon, { size: 16 })}
                 <span>{item.label}</span>

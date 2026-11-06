@@ -6,7 +6,9 @@ import AppErrorBoundary from './components/AppErrorBoundary.jsx'
 import { consumeAppleAuthRedirect } from './services/auth.js'
 import { clearLegacySharedAuthCookies } from './play-dates/services/authToken.js'
 import { initAnalytics } from './utils/analyticsProvider.ts'
+import { applyFlagOverridesFromUrl } from './utils/featureFlags.ts'
 
+applyFlagOverridesFromUrl()
 clearLegacySharedAuthCookies()
 consumeAppleAuthRedirect()
 initAnalytics()
