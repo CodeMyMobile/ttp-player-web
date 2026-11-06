@@ -162,10 +162,10 @@ const MobileHomeBottomNav = () => {
     else navigate("/leagues");
   }, [navigate, resolveLeagues]);
 
-  // Create a Match → the match-creation wizard, the same one "Create match" opens elsewhere.
+  // Create a Match → the same match creator as the header's "+ New match" (AppNav → /create).
   const goCreateMatch = useCallback(() => {
     setSheetOpen(false);
-    navigate("/matches/create");
+    navigate("/create");
   }, [navigate]);
 
   // "+" sheet actions use the GENERAL (non-league) flows as the default — they
