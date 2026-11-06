@@ -1,5 +1,5 @@
 import moment from "moment";
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   loadStripe,
@@ -62,6 +62,22 @@ import {
 } from "../api/playerStripe";
 import { getPlayerCoachLessonHistory, getPlayerUpcomingLessons, updatePlayerLesson, type PlayerLesson } from "../api/player";
 import { recordCoachMessageTap } from "../api/playerCoaches";
+import {
+  EXPERIENCE_OPTIONS,
+  GOAL_OPTIONS,
+  NOTE_MAX_LENGTH,
+  TIME_OF_DAY_OPTIONS,
+  WHO_FOR_OPTIONS,
+  lessonRequestErrorCode,
+  lessonRequestErrorMessage,
+  readCoachConnection,
+  sendCoachLessonRequest,
+  type CoachConnectionStatus,
+  type LessonRequestExperience,
+  type LessonRequestGoal,
+  type LessonRequestTimeOfDay,
+  type LessonRequestWhoFor,
+} from "../api/coachLessonRequests";
 import { useAuth } from "../context/AuthContext";
 import { useCoachRoster } from "../hooks/useCoachRoster";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
@@ -961,6 +977,24 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
   const [authPromptOpen, setAuthPromptOpen] = useState(false);
   const [authPromptReturnState, setAuthPromptReturnState] = useState<Record<string, unknown> | undefined>();
   const [authPromptIntent, setAuthPromptIntent] = useState<"book" | "message">("book");
+  // Asking a coach for lessons, for players not on their roster (who don't get the coach's number).
+  const [lessonRequestOpen, setLessonRequestOpen] = useState(false);
+  const [lessonRequestForm, setLessonRequestForm] = useState<{
+    whoFor: LessonRequestWhoFor | "";
+    experience: LessonRequestExperience | "";
+    goals: LessonRequestGoal[];
+    timesOfDay: LessonRequestTimeOfDay[];
+    note: string;
+  }>({ whoFor: "", experience: "", goals: [], timesOfDay: [], note: "" });
+  const [lessonRequestSending, setLessonRequestSending] = useState(false);
+  const [lessonRequestError, setLessonRequestError] = useState<string | null>(null);
+  const [lessonRequestSent, setLessonRequestSent] = useState(false);
+  // Set once this visit's request goes through, ahead of the profile saying so.
+  const [connectionOverride, setConnectionOverride] = useState<CoachConnectionStatus | null>(null);
+  useEffect(() => {
+    setConnectionOverride(null);
+    setLessonRequestOpen(false);
+  }, [profile?.id]);
   const [bookingFocusActive, setBookingFocusActive] = useState(false);
   const [upsellDismissed, setUpsellDismissed] = useState(false);
   const [coachHistoryLoaded, setCoachHistoryLoaded] = useState(false);
@@ -2732,6 +2766,102 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
   const handleMessageTap = () => {
     if (authToken && profile?.id) void recordCoachMessageTap({ token: authToken, coachId: profile.id });
   };
+  // Null when the API doesn't say (an older API): then "Message coach" works as it always has.
+  const connectionStatus = connectionOverride ?? readCoachConnection(profile);
+  const canSendLessonRequest = Boolean(
+    lessonRequestForm.whoFor &&
+      lessonRequestForm.experience &&
+      lessonRequestForm.goals.length &&
+      lessonRequestForm.timesOfDay.length,
+  );
+  const openLessonRequest = () => {
+    setLessonRequestError(null);
+    setLessonRequestSent(false);
+    setLessonRequestForm((current) => ({
+      ...current,
+      whoFor: current.whoFor || (introForm.who === "My child" ? "my_child" : introForm.who === "Myself" ? "myself" : ""),
+    }));
+    setLessonRequestOpen(true);
+  };
+  const toggleLessonRequestValue = <K extends "goals" | "timesOfDay">(key: K, value: (typeof lessonRequestForm)[K][number]) =>
+    setLessonRequestForm((current) => {
+      const values = current[key] as string[];
+      return {
+        ...current,
+        [key]: values.includes(value) ? values.filter((item) => item !== value) : [...values, value],
+      };
+    });
+  const submitLessonRequest = async () => {
+    if (!authToken || !profile?.id || !canSendLessonRequest || lessonRequestSending) return;
+    setLessonRequestSending(true);
+    setLessonRequestError(null);
+    try {
+      await sendCoachLessonRequest({
+        token: authToken,
+        coachId: profile.id,
+        answers: {
+          who_for: lessonRequestForm.whoFor as LessonRequestWhoFor,
+          experience: lessonRequestForm.experience as LessonRequestExperience,
+          goals: lessonRequestForm.goals,
+          times_of_day: lessonRequestForm.timesOfDay,
+          note: lessonRequestForm.note.trim() || undefined,
+        },
+      });
+      setLessonRequestSent(true);
+      setConnectionOverride("requested");
+    } catch (caught) {
+      setLessonRequestError(lessonRequestErrorMessage(lessonRequestErrorCode(caught), coachFirstName));
+    } finally {
+      setLessonRequestSending(false);
+    }
+  };
+  // Every "Message coach" spot: a text to the coach for players on their roster, a lesson
+  // request for everyone else, and a sign-up prompt for visitors.
+  const renderContactAction = (
+    className: string,
+    labels: { message: ReactNode; request: ReactNode; requested: ReactNode },
+  ) => {
+    if (smsHref) {
+      return (
+        <a href={smsHref} onClick={handleMessageTap} className={className}>
+          {labels.message}
+        </a>
+      );
+    }
+    if (!isLoggedIn) {
+      return (
+        <button type="button" className={className} onClick={() => openAuthPrompt(undefined, "message")}>
+          {labels.message}
+        </button>
+      );
+    }
+    if (connectionStatus === "none") {
+      return (
+        <button type="button" className={className} onClick={openLessonRequest}>
+          {labels.request}
+        </button>
+      );
+    }
+    if (connectionStatus === "requested") {
+      return (
+        <button type="button" className={className} disabled title={`We'll text you when ${coachFirstName} replies`}>
+          {labels.requested}
+        </button>
+      );
+    }
+    if (connectionStatus === "declined") {
+      return (
+        <button type="button" className={className} disabled title={`${coachFirstName} isn't taking new players right now`}>
+          {labels.request}
+        </button>
+      );
+    }
+    return (
+      <button type="button" className={className} disabled>
+        {labels.message}
+      </button>
+    );
+  };
   const handleOpenPurchaseModal = () => {
     if (!profile?.id) {
       return;
@@ -3323,23 +3453,11 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                 <button type="button" onClick={() => setSelectedDate("all")}>
                   See all availability
                 </button>
-                {smsHref ? (
-                  <a href={smsHref} onClick={handleMessageTap} className="is-secondary coach-empty-card__link">
-                    Message coach
-                  </a>
-                ) : !isLoggedIn ? (
-                  <button
-                    type="button"
-                    className="is-secondary coach-empty-card__link"
-                    onClick={() => openAuthPrompt(undefined, "message")}
-                  >
-                    Message coach
-                  </button>
-                ) : (
-                  <button type="button" className="is-secondary" disabled>
-                    Message coach
-                  </button>
-                )}
+                {renderContactAction("is-secondary coach-empty-card__link", {
+                  message: "Message coach",
+                  request: "Request lessons",
+                  requested: "Request sent",
+                })}
               </div>
             ) : null}
           </div>
@@ -4149,29 +4267,13 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                   <button type="button" className="coach-profile-top-action" onClick={handleBackToFindCoaches}>
                     <ArrowLeft size={16} /> <span className="coach-profile-top-action__label">Find a Coach</span>
                   </button>
-                  {smsHref ? (
-                    <a
-                      href={smsHref} onClick={handleMessageTap}
-                      className="coach-profile-top-action coach-profile-top-action--outline coach-profile-top-action--mobile-only"
-                    >
-                      <MessageCircle size={16} /> Message
-                    </a>
-                  ) : !isLoggedIn ? (
-                    <button
-                      type="button"
-                      className="coach-profile-top-action coach-profile-top-action--outline coach-profile-top-action--mobile-only"
-                      onClick={() => openAuthPrompt(undefined, "message")}
-                    >
-                      <MessageCircle size={16} /> Message
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="coach-profile-top-action coach-profile-top-action--outline coach-profile-top-action--mobile-only"
-                      disabled
-                    >
-                      <MessageCircle size={16} /> Message
-                    </button>
+                  {renderContactAction(
+                    "coach-profile-top-action coach-profile-top-action--outline coach-profile-top-action--mobile-only",
+                    {
+                      message: <><MessageCircle size={16} /> Message</>,
+                      request: <><MessageCircle size={16} /> Request lessons</>,
+                      requested: <><MessageCircle size={16} /> Requested</>,
+                    },
                   )}
                 </div>
 
@@ -4249,27 +4351,11 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                   className="coach-hero-m__cred"
                 />
                 <div className="coach-hero-m__actions">
-                  {smsHref ? (
-                    <a href={smsHref} onClick={handleMessageTap} className="coach-hero-m__btn coach-hero-m__btn--secondary">
-                      <MessageCircle size={17} /> Message
-                    </a>
-                  ) : !isLoggedIn ? (
-                    <button
-                      type="button"
-                      className="coach-hero-m__btn coach-hero-m__btn--secondary"
-                      onClick={() => openAuthPrompt(undefined, "message")}
-                    >
-                      <MessageCircle size={17} /> Message
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="coach-hero-m__btn coach-hero-m__btn--secondary"
-                      disabled
-                    >
-                      <MessageCircle size={17} /> Message
-                    </button>
-                  )}
+                  {renderContactAction("coach-hero-m__btn coach-hero-m__btn--secondary", {
+                    message: <><MessageCircle size={17} /> Message</>,
+                    request: <><MessageCircle size={17} /> Request lessons</>,
+                    requested: <><MessageCircle size={17} /> Requested</>,
+                  })}
                   {circle.inCircle !== null ? (
                     <button
                       type="button"
@@ -4328,27 +4414,11 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                         </div>
                       </div>
                       <div className="coach-profile-hero-v2__actions">
-                        {smsHref ? (
-                          <a href={smsHref} onClick={handleMessageTap} className="coach-profile-top-action coach-profile-top-action--outline">
-                            <MessageCircle size={16} /> Message
-                          </a>
-                        ) : !isLoggedIn ? (
-                          <button
-                            type="button"
-                            className="coach-profile-top-action coach-profile-top-action--outline"
-                            onClick={() => openAuthPrompt(undefined, "message")}
-                          >
-                            <MessageCircle size={16} /> Message
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            className="coach-profile-top-action coach-profile-top-action--outline"
-                            disabled
-                          >
-                            <MessageCircle size={16} /> Message
-                          </button>
-                        )}
+                        {renderContactAction("coach-profile-top-action coach-profile-top-action--outline", {
+                          message: <><MessageCircle size={16} /> Message</>,
+                          request: <><MessageCircle size={16} /> Request lessons</>,
+                          requested: <><MessageCircle size={16} /> Requested</>,
+                        })}
                         {circle.inCircle !== null ? (
                           <button
                             type="button"
@@ -4624,6 +4694,139 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
             {renderBookingCta("desktop")}
           </div>
         </div>
+
+        {lessonRequestOpen ? (
+          <div className="coach-booking-flow" role="dialog" aria-modal="true" aria-label={`Request lessons with ${coachName}`}>
+            <div className="coach-booking-flow__backdrop" onClick={() => setLessonRequestOpen(false)} />
+            <div className="coach-booking-flow__panel">
+              <div className="coach-booking-flow__topbar">
+                <span />
+                <button type="button" className="coach-booking-flow__close" onClick={() => setLessonRequestOpen(false)}>
+                  <X size={18} />
+                </button>
+              </div>
+
+              {lessonRequestSent ? (
+                <div className="coach-booking-step coach-lesson-request__sent">
+                  <h2>Request sent to {coachFirstName}</h2>
+                  <p>
+                    We've passed your answers on to {coachFirstName}. When they reply, we'll text you a link to book a
+                    time and their number. Usually that's within a day or two.
+                  </p>
+                  <div className="coach-booking-step__footer">
+                    <button type="button" className="coach-primary-button" onClick={() => setLessonRequestOpen(false)}>
+                      Done
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="coach-booking-step">
+                  <div className="coach-booking-step__coach-card">
+                    {coachAvatar ? <img src={coachAvatar} alt="" /> : <span>{buildInitials(coachName)}</span>}
+                    <div>
+                      <p>Request lessons with {coachName}</p>
+                      <strong>A few questions so {coachFirstName} knows what you're looking for</strong>
+                    </div>
+                  </div>
+
+                  <div className="coach-form-group">
+                    <label>Who are the lessons for?</label>
+                    <div className="coach-chip-row">
+                      {WHO_FOR_OPTIONS.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          className={`coach-choice-chip${lessonRequestForm.whoFor === option.value ? " is-active" : ""}`}
+                          onClick={() => setLessonRequestForm((current) => ({ ...current, whoFor: option.value }))}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="coach-form-group">
+                    <label>{lessonRequestForm.whoFor && lessonRequestForm.whoFor !== "myself" ? "Their experience" : "Your experience"}</label>
+                    <div className="coach-chip-row">
+                      {EXPERIENCE_OPTIONS.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          className={`coach-choice-chip${lessonRequestForm.experience === option.value ? " is-active" : ""}`}
+                          onClick={() => setLessonRequestForm((current) => ({ ...current, experience: option.value }))}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="coach-form-group">
+                    <label>What do you want to get out of lessons?</label>
+                    <div className="coach-chip-row">
+                      {GOAL_OPTIONS.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          className={`coach-choice-chip${lessonRequestForm.goals.includes(option.value) ? " is-active" : ""}`}
+                          onClick={() => toggleLessonRequestValue("goals", option.value)}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="coach-form-group">
+                    <label>What times suit you?</label>
+                    <div className="coach-chip-row">
+                      {TIME_OF_DAY_OPTIONS.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          className={`coach-choice-chip${lessonRequestForm.timesOfDay.includes(option.value) ? " is-active" : ""}`}
+                          onClick={() => toggleLessonRequestValue("timesOfDay", option.value)}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="coach-form-group">
+                    <label>Anything else {coachFirstName} should know? (optional)</label>
+                    <textarea
+                      value={lessonRequestForm.note}
+                      maxLength={NOTE_MAX_LENGTH}
+                      onChange={(event) => setLessonRequestForm((current) => ({ ...current, note: event.target.value }))}
+                      placeholder="Injuries, upcoming tournaments, how often you'd like to play..."
+                    />
+                  </div>
+
+                  {lessonRequestError ? (
+                    <p className="coach-lesson-request__error" role="alert">
+                      {lessonRequestError}
+                    </p>
+                  ) : null}
+
+                  <div className="coach-booking-step__footer">
+                    <button type="button" className="coach-secondary-button" onClick={() => setLessonRequestOpen(false)}>
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="coach-primary-button"
+                      disabled={!canSendLessonRequest || lessonRequestSending}
+                      onClick={() => void submitLessonRequest()}
+                    >
+                      {lessonRequestSending ? "Sending…" : "Send request"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : null}
 
         {bookingOpen && selectedSlot ? (
           <div className="coach-booking-flow" role="dialog" aria-modal="true">

@@ -38,6 +38,7 @@ import CoachProfilePage from "./pages/CoachProfilePage";
 import PlayerProfilePage from "./pages/PlayerProfilePage";
 import PublicProfilePage from "./pages/PublicProfilePage";
 import HitRequestPage from "./pages/HitRequestPage";
+import CoachLessonRequestPage from "./pages/CoachLessonRequestPage";
 import AccountProfilePage from "./pages/AccountProfilePage";
 import PlayerMatchProfilePage from "./pages/PlayerMatchProfilePage";
 import PlayerMatchProfileEditPage from "./pages/PlayerMatchProfileEditPage";
@@ -362,6 +363,10 @@ const AppRoutes = () => (
     <Route
       path="/hit/:token"
       element={<HitRequestPage />}
+    />
+    <Route
+      path="/coach-request/:token"
+      element={<CoachLessonRequestPage />}
     />
     <Route
       path="/pay/:token"
