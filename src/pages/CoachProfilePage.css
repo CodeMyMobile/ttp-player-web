@@ -4303,3 +4303,27 @@
   gap: 8px;
   flex-wrap: wrap;
 }
+
+/* Request lessons sheet: players not on the coach's roster */
+.coach-lesson-request__sent h2 {
+  margin: 0 0 8px;
+  font-size: 22px;
+  color: #101828;
+}
+
+.coach-lesson-request__sent p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: #475467;
+}
+
+.coach-lesson-request__error {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: #b42318;
+}
+
+.coach-lesson-request__sent .coach-booking-step__footer {
+  grid-template-columns: 1fr;
+}
