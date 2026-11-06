@@ -17,6 +17,7 @@ import {
   ChevronUp,
   Clock3,
   Heart,
+  LogIn,
   MapPin,
   MessageCircle,
   UserCheck,
@@ -117,6 +118,7 @@ import {
   type CoachProfilePaymentChoice,
 } from "../utils/coachProfilePaymentOptions";
 
+import { isAppleMobileBrowser } from "../utils/homeScreenApp";
 import "./CoachProfilePage.css";
 import "../components/coaches/coaches.css";
 
@@ -1124,6 +1126,19 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
     setAuthPromptIntent(intent);
     setAuthPromptReturnState({ focusBookCta: true, ...returnState });
     setAuthPromptOpen(true);
+  };
+
+  // In Safari or Chrome on an iPhone, a player signed in on the home-screen app is signed
+  // out here: links never open in that app. Say so, so the sign-in doesn't look like a bug.
+  const onAppleMobileBrowser = useMemo(() => isAppleMobileBrowser(), []);
+
+  const signInFromBanner = () => {
+    navigate("/login", {
+      state: {
+        mode: "signin",
+        from: { pathname: location.pathname, search: location.search, hash: location.hash },
+      },
+    });
   };
 
   const continueToAuth = (mode: "signin" | "signup") => {
@@ -4103,6 +4118,12 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                     ? `Sign up in 30 seconds to message ${coachFirstName}.`
                     : `Sign up in 30 seconds to request a lesson with ${coachFirstName}.`}
                 </p>
+                {onAppleMobileBrowser ? (
+                  <p className="coach-auth-sheet__hint">
+                    Signed in on The Tennis Plan app on your home screen? Links open in your browser, which needs its
+                    own sign-in. Sign in below, just this once.
+                  </p>
+                ) : null}
               </div>
               <div className="coach-auth-sheet__actions">
                 <button type="button" className="coach-auth-sheet__primary" onClick={() => continueToAuth("signup")}>
@@ -4318,6 +4339,30 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                   </div>
                 </div>
               </div>
+
+              {!authLoading && !isLoggedIn ? (
+                <section className="coach-signed-out" aria-labelledby="coach-signed-out-title">
+                  <div>
+                    <h2 id="coach-signed-out-title" className="coach-signed-out__title">
+                      You&apos;re signed out in this browser
+                    </h2>
+                    <p className="coach-signed-out__body">
+                      Sign in to message {coachFirstName} and book lessons.
+                    </p>
+                    {onAppleMobileBrowser ? (
+                      <p className="coach-signed-out__hint">
+                        Use The Tennis Plan from your home screen? Links open here, in your browser, which keeps its
+                        own sign-in. Sign in once and it&apos;ll remember you, or open the app and search for{" "}
+                        {coachFirstName}.
+                      </p>
+                    ) : null}
+                  </div>
+                  <button type="button" className="coach-signed-out__btn" onClick={signInFromBanner}>
+                    <LogIn size={16} strokeWidth={2.2} aria-hidden="true" />
+                    Sign in
+                  </button>
+                </section>
+              ) : null}
 
               <section className="coach-hero-m" aria-label="Coach overview">
                 <div className="coach-hero-m__row">
