@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, BadgeCheck, ChevronDown, Gauge, MapPin, MessageCircle, UserCheck, UserPlus, Users } from "lucide-react";
+import { ArrowLeft, BadgeCheck, ChevronDown, Gauge, LogIn, MapPin, MessageCircle, UserCheck, UserPlus, Users } from "lucide-react";
 import moment from "moment";
 
 import MainLayout from "../components/MainLayout";
@@ -31,6 +31,7 @@ type OpenMatch = Record<string, unknown>;
 
 import { MatchLevelPrompt } from "../components/matches/MatchLevelPrompt";
 import { useCircleMembership } from "../hooks/useCircleMembership";
+import { isAppleMobileBrowser } from "../utils/homeScreenApp";
 import "./PlayerProfilePage.css";
 
 // "Open match play" = the app's canonical open/upcoming definition
@@ -174,12 +175,17 @@ const PlayerProfilePage = () => {
   // Summon the shared in-page auth drawer instead of navigating to /login — the user
   // stays on the profile and, on success, AuthContext updates `user` so this
   // page re-renders authenticated (revealing the Mutuals view, etc.).
+  // In Safari or Chrome on an iPhone, a player signed in on the home-screen app is signed
+  // out here: links never open in that app. Say so, so the sign-in doesn't look like a bug.
+  const onAppleMobileBrowser = useMemo(() => isAppleMobileBrowser(), []);
+  const HOME_SCREEN_REASON =
+    "Signed in on The Tennis Plan app on your home screen? Links open in your browser, which needs its own sign-in. Just this once.";
   const promptSignIn = useCallback(() => {
     openAuth({
-      mode: "signup",
-      reason: "Sign up or sign in to reveal your mutual connections.",
+      mode: onAppleMobileBrowser ? "signin" : "signup",
+      reason: onAppleMobileBrowser ? HOME_SCREEN_REASON : "Sign up or sign in to reveal your mutual connections.",
     });
-  }, [openAuth]);
+  }, [onAppleMobileBrowser, openAuth]);
 
   // `silent` refetches (e.g. after a join) leave the section's loading/error
   // chrome untouched so the list updates in place without flashing a spinner.
@@ -627,6 +633,38 @@ const PlayerProfilePage = () => {
             <ArrowLeft size={18} strokeWidth={2} aria-hidden="true" />
             Back
           </button>
+        ) : null}
+
+        {!isSignedIn && !isOwnProfile ? (
+          <section className="ppv-signed-out" aria-labelledby="ppv-signed-out-title">
+            <div className="ppv-signed-out__text">
+              <h2 id="ppv-signed-out-title" className="ppv-signed-out__title">
+                You&apos;re signed out in this browser
+              </h2>
+              <p className="ppv-signed-out__body">
+                Sign in to connect with {firstName}, join their matches and see who you know in common.
+              </p>
+              {onAppleMobileBrowser ? (
+                <p className="ppv-signed-out__hint">
+                  Use The Tennis Plan from your home screen? Links open here, in your browser, which keeps its own
+                  sign-in. Sign in once and it&apos;ll remember you, or open the app and search for {firstName}.
+                </p>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              className="ppv-signed-out__btn"
+              onClick={() =>
+                openAuth({
+                  mode: "signin",
+                  reason: onAppleMobileBrowser ? HOME_SCREEN_REASON : `Sign in to connect with ${firstName}.`,
+                })
+              }
+            >
+              <LogIn size={16} strokeWidth={2.2} aria-hidden="true" />
+              Sign in
+            </button>
+          </section>
         ) : null}
 
         <aside className="ppv-identity">
