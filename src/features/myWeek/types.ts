@@ -14,7 +14,11 @@ export type WeekItemAction =
   | "add"
   | "skip"
   | "book"
-  | "schedule";
+  | "schedule"
+  | "join"
+  | "done"
+  | "watch"
+  | "start";
 
 export type WeekItemSource =
   | "lesson"
@@ -22,7 +26,14 @@ export type WeekItemSource =
   | "match"
   | "invite"
   | "sentInvite"
-  | "leagueDue";
+  | "leagueDue"
+  // Suggestions (state "suggested"), shown on the My Week screen only.
+  | "circleMatch"
+  | "openMatch"
+  | "coachClass"
+  | "nearbyClass"
+  | "workout"
+  | "video";
 
 export interface WeekPerson {
   id: string | null;
@@ -56,6 +67,13 @@ export interface WeekItem {
   href: string | null;
   /** The record it came from, for the action handlers. */
   raw: unknown;
+  /**
+   * For suggestions: the booking this would become ("match:40", "lesson:12"), so a match or
+   * class the player is already in is never also suggested.
+   */
+  refKey?: string;
+  /** For a workout: ticked done today. */
+  done?: boolean;
 }
 
 export interface WeekDayItems {

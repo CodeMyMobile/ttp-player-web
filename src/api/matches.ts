@@ -93,6 +93,8 @@ export interface ListMatchesParams {
   to?: string;
   /** false skips the per-tab counts block, which costs the API 7 extra queries. */
   counts?: boolean;
+  /** An NTRP level: the API keeps matches whose level range holds it, and ones with no range. */
+  level?: number;
   token?: string | null;
   signal?: AbortSignal;
 }
@@ -140,6 +142,7 @@ const buildMatchesQuery = ({
   from,
   to,
   counts,
+  level,
 }: ListMatchesParams): RequestQuery => {
   const query: RequestQuery = {};
 
@@ -154,6 +157,7 @@ const buildMatchesQuery = ({
   if (from) query.from = from;
   if (to) query.to = to;
   if (counts === false) query.counts = 0;
+  if (typeof level === "number" && Number.isFinite(level)) query.level = level;
 
   const includeHiddenFlag = includeHidden ?? include_hidden;
   const explicitlyFalse = include_hidden === false || include_hidden === "false" || include_hidden === 0;

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
 
 import { listMyLeagues, getLeagueFixtures } from "../../api/leagues";
-import { listMatches } from "../../api/matches";
 import { getPlayerUpcomingLessons } from "../../api/player";
 import { getStoredAuthToken } from "../../services/authToken";
 import { listInvites } from "../../services/invites";
@@ -10,6 +9,15 @@ import { toLocalYmd } from "../../utils/dateTime";
 import { weekDays } from "../../utils/weekDays";
 import { countNeedsResponse, groupWeek, laterItems } from "./adapters";
 import { loadMyWeek, type MyWeekLoad } from "./loadMyWeek";
+import { loadSuggestions, type SuggestionsLoad } from "./loadSuggestions";
+import { fetchUpcomingGroupLessons, mapUpcomingGroupLessonsResponse } from "../../api/groupLessons";
+import { getPlayerCircle, listMatches } from "../../api/matches";
+import { getPlayerPersonalDetails } from "../../api/playerProfile";
+import { fetchTipVideos, hasYouTubeKey } from "../../api/youtube";
+import { playerLevelOf } from "../../utils/groupLessonLevelFit";
+import { getStoredMatchProfile } from "../../utils/matchProfile";
+import { readCachedTips } from "../../utils/tipOfDay";
+import { DEFAULT_RADIUS_MILES, getStoredLocation, getStoredLocationRadius } from "../../utils/userLocation";
 import { createMyWeekStore } from "./myWeekStore";
 import type { WeekDayItems, WeekItem } from "./types";
 
@@ -140,6 +148,67 @@ export const useMyWeek = ({ enabled = true }: { enabled?: boolean } = {}): UseMy
 
 /** The My Week tab's badge: how many things only this player can answer. 0 hides it. */
 export const useMyWeekBadge = (enabled: boolean): number => useMyWeek({ enabled }).needsResponseCount;
+
+// --- suggestions (My Week screen only) ----------------------------------------------------
+
+const suggestionsFetcher = async (): Promise<SuggestionsLoad> => {
+  const token = getStoredAuthToken() ?? undefined;
+  const identities = buildViewerIdentities(readStoredJson("user"), readStoredJson("playerPersonalDetails"));
+  const slots = getStoredMatchProfile()?.availability ?? [];
+  const location = getStoredLocation();
+  const position = location ? { latitude: location.latitude, longitude: location.longitude } : null;
+  return loadSuggestions(
+    {
+      circle: () => getPlayerCircle({ token }),
+      playerLevel: async () => (token ? playerLevelOf(await getPlayerPersonalDetails({ token })) : null),
+      // Without a location there's no "nearby": these two suggest nothing rather than guess.
+      openMatches: ({ from, to, level }) =>
+        position
+          ? listMatches({
+              token,
+              filter: "open",
+              from,
+              to,
+              counts: false,
+              perPage: 50,
+              page: 1,
+              latitude: position.latitude,
+              longitude: position.longitude,
+              radius: getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES,
+              ...(level !== null ? { level } : {}),
+            })
+          : Promise.resolve({ matches: [] }),
+      nearbyClasses: async ({ dateStart, dateEnd }) =>
+        position
+          ? mapUpcomingGroupLessonsResponse(
+              await fetchUpcomingGroupLessons({ token, perPage: 50, page: 1, position, filters: { dateStart, dateEnd } }),
+            ).lessons
+          : [],
+      videos: async () => (hasYouTubeKey() ? readCachedTips() ?? (await fetchTipVideos()) : []),
+    },
+    identities,
+    slots,
+  );
+};
+
+/** My Week's suggestions: a store of their own, loaded only by the My Week screen. */
+export const myWeekSuggestionsStore = createMyWeekStore(suggestionsFetcher);
+
+export const useMyWeekSuggestions = ({ enabled = true }: { enabled?: boolean } = {}) => {
+  const snapshot = useSyncExternalStore(
+    myWeekSuggestionsStore.subscribe,
+    myWeekSuggestionsStore.getSnapshot,
+    myWeekSuggestionsStore.getSnapshot,
+  );
+  useEffect(() => {
+    if (enabled) void myWeekSuggestionsStore.ensureFresh();
+  }, [enabled]);
+  return {
+    items: enabled ? snapshot.data?.items ?? [] : [],
+    errors: snapshot.data?.errors ?? {},
+    loading: enabled && (snapshot.loading || !snapshot.data),
+  };
+};
 
 /** "9+" past nine. */
 export const badgeLabel = (count: number): string => (count > 9 ? "9+" : String(count));

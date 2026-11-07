@@ -7,20 +7,21 @@ import type { MyWeekLoad } from "./loadMyWeek";
  *
  * A screen asks for the week with ensureFresh(): it loads when nothing is held or what's held
  * is older than STALE_AFTER_MS. reload() loads regardless (after an accept or a booking).
- * Concurrent requests share one load.
+ * Concurrent requests share one load. My Week's suggestions use a second store of their own
+ * (useMyWeekSuggestions), so the badge and Home never load them.
  */
 
 export const STALE_AFTER_MS = 60_000;
 
-export interface MyWeekSnapshot {
-  data: MyWeekLoad | undefined;
+export interface MyWeekSnapshot<T = MyWeekLoad> {
+  data: T | undefined;
   loading: boolean;
   /** When `data` arrived, epoch ms; 0 before the first load. */
   loadedAt: number;
 }
 
-export interface MyWeekStore {
-  getSnapshot: () => MyWeekSnapshot;
+export interface MyWeekStore<T = MyWeekLoad> {
+  getSnapshot: () => MyWeekSnapshot<T>;
   subscribe: (listener: () => void) => () => void;
   /** Loads if nothing is held or it's stale. Resolves when the week is current. */
   ensureFresh: () => Promise<void>;
@@ -30,17 +31,17 @@ export interface MyWeekStore {
   clear: () => void;
 }
 
-export const createMyWeekStore = (
-  fetchWeek: () => Promise<MyWeekLoad>,
+export const createMyWeekStore = <T = MyWeekLoad>(
+  fetchWeek: () => Promise<T>,
   { now = () => Date.now(), staleAfterMs = STALE_AFTER_MS }: { now?: () => number; staleAfterMs?: number } = {},
-): MyWeekStore => {
-  let snapshot: MyWeekSnapshot = { data: undefined, loading: false, loadedAt: 0 };
+): MyWeekStore<T> => {
+  let snapshot: MyWeekSnapshot<T> = { data: undefined, loading: false, loadedAt: 0 };
   let inFlight: Promise<void> | null = null;
   // A load started before clear() mustn't write its result afterwards.
   let generation = 0;
   const listeners = new Set<() => void>();
 
-  const set = (next: Partial<MyWeekSnapshot>) => {
+  const set = (next: Partial<MyWeekSnapshot<T>>) => {
     snapshot = { ...snapshot, ...next };
     listeners.forEach((listener) => listener());
   };

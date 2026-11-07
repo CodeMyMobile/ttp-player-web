@@ -49,6 +49,13 @@ export const ANALYTICS_EVENTS = {
   // Home "Your tennis circle". Counts and row kind only, never who.
   homeCircleView: "home_circle_view",
   homeCircleClick: "home_circle_click",
+  // My Week actions. The item's source and type, its day (0 = today) and place in the day,
+  // never which match, class or person: enough to tune the ranking.
+  myWeekSkip: "my_week_skip",
+  myWeekJoin: "my_week_join",
+  myWeekBook: "my_week_book",
+  myWeekDone: "my_week_done",
+  myWeekWatch: "my_week_watch",
   // The crash screen (components/AppErrorBoundary). The error, the route pattern and the
   // component names only: see components/appCrash.js.
   appCrashed: "app_crashed",
