@@ -11,6 +11,8 @@ interface StatusTilesProps {
   ratingState: RatingState;
   /** "3rd nearby", or null when the player isn't placed in the nearby ladder. */
   positionLabel: string | null;
+  /** "≈ NTRP 4.25", or null when the API couldn't convert (no rating gender). */
+  ntrpLabel?: string | null;
   bookingsCount: number;
   /** "Next Sat 10 AM", or null when nothing is booked. */
   nextBookingLabel: string | null;
@@ -41,14 +43,17 @@ const formatRating = (rating: number | null) =>
  * resolveStatusTiles — the left slot is gated on being rated, the right slot on
  * having bookings.
  *
- * No rating delta, no NTRP equivalence, and the position never names a club —
- * see the deliberate omissions in docs/home-backend-audit-v2.md. Each is cut
- * because the data can't support it honestly, not because it was forgotten.
+ * No rating delta, and the position never names a club — see the deliberate
+ * omissions in docs/home-backend-audit-v2.md. Each is cut because the data can't
+ * support it honestly, not because it was forgotten. The NTRP equivalent was cut
+ * too until the API sent one (rankings/me calculated_ntrp); without it a 6.5
+ * rating read as a 6.5 NTRP.
  */
 export function StatusTiles({
   rating,
   ratingState,
   positionLabel,
+  ntrpLabel = null,
   bookingsCount,
   nextBookingLabel,
   declaredLevel = null,
@@ -72,6 +77,9 @@ export function StatusTiles({
             <Info size={12} aria-hidden="true" />
           </span>
           <span className="home-tile__value">{formatRating(rating)}</span>
+          {/* Its own line: sub lines don't wrap, and beside the position a half-width
+              tile would cut it off. */}
+          {ntrpLabel ? <span className="home-tile__sub">{ntrpLabel}</span> : null}
           {positionLabel ? <span className="home-tile__sub">{positionLabel}</span> : null}
         </Link>
       ) : left === "ratingUnknown" ? (

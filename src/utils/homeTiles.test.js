@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { findPlayersTilePlacement, resolveStatusTiles } from "./homeTiles";
+import { findPlayersTilePlacement, ntrpEquivalentLabel, resolveStatusTiles } from "./homeTiles";
 
 test("unrated with bookings shows the count beside the get-rated prompt", () => {
   // The case that was broken: a standing weekly lesson, no match history.
@@ -89,4 +89,16 @@ test("the Find players tile takes a free or low-value slot, never a third card i
   assert.equal(findPlayersTilePlacement({ ratingState: "rated", bookingsCount: 2 }), null);
   assert.equal(findPlayersTilePlacement({ ratingState: "unknown", bookingsCount: 0 }), null);
   assert.equal(findPlayersTilePlacement({ ratingState: "unknown", bookingsCount: 2 }), null);
+});
+
+test("the rating tile's NTRP equivalent, as the API converted it", () => {
+  // A men's 6.53 Tennis Plan Rating is NTRP 4.25, not 6.5.
+  assert.equal(ntrpEquivalentLabel(4.25), "≈ NTRP 4.25");
+  assert.equal(ntrpEquivalentLabel(4.5), "≈ NTRP 4.5");
+  assert.equal(ntrpEquivalentLabel("3"), "≈ NTRP 3.0");
+  // No rating gender (or an API that doesn't send it yet): no line, never a guess.
+  assert.equal(ntrpEquivalentLabel(null), null);
+  assert.equal(ntrpEquivalentLabel(undefined), null);
+  assert.equal(ntrpEquivalentLabel(""), null);
+  assert.equal(ntrpEquivalentLabel(0), null);
 });
