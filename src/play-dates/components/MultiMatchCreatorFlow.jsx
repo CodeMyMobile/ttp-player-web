@@ -1602,9 +1602,12 @@ const ShareScreen = ({ savedCards, levelText, postToFeed, onTogglePostToFeed }) 
           Post to the public feed
         </span>
         <span className="mt-0.5 block text-[12.5px] font-semibold leading-snug text-slate-600">
+          {/* Who sees it, as the API decides (ttp-api src/services/playerCircle.js): listed
+              open matches show on Home for anyone with the host in their circle; link-only
+              ones only for players the host has played or hit with. */}
           {postToFeed
-            ? "Anyone at the right level can find and join your matches."
-            : "Quiet — saved but not posted. Share the link yourself."}
+            ? "Anyone at the right level can find and join your matches, and they show on Home for people with you in their circle."
+            : "Not posted to the feed. Share the link yourself; players you've played or hit with will still see them on Home."}
         </span>
       </span>
       <Switch checked={postToFeed} onClick={onTogglePostToFeed} />
