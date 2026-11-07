@@ -32,6 +32,12 @@
 # /my-week and /play forward to Schedule and Home. With this line in, ?myweek=0 can't
 # turn it off for one browser: the ?myweek override only ever turns the flag on.
 #
+# VITE_RESTRING_V2=true turns on the restring redesign at /restring: Order again with
+# Reorder, "I know what I want" (in-stock strings by category) and the level-first
+# "Help me choose". Checkout and payment are the same either way. To roll back: delete
+# the line and redeploy; /restring is as before. As with My Week, ?restringv2=0 can't turn
+# it off for one browser while this line is in.
+#
 # To roll back: delete the VITE_HOME_V2 line and redeploy. Flag off is
 # structurally identical to the old home — DashboardPage was never modified for
 # the redesign — so there is nothing to undo beyond the flag itself.
@@ -46,6 +52,7 @@
   VITE_LEAGUE_COACHING_PROMPTS = "true"
   VITE_HOME_FIND_PLAYERS = "true"
   VITE_MY_WEEK = "true"
+  VITE_RESTRING_V2 = "true"
 
 
 # Netlify Image CDN. Avatars are uploaded to S3 unresized (measured up to 2048x1536,
