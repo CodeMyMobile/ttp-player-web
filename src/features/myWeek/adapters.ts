@@ -225,8 +225,12 @@ export const sentInvitesToWeekItems = (
     ];
   });
 
-/** Invites to this player's week, waiting for their yes or no. */
-export const receivedInvitesToWeekItems = (rows: unknown, days: WeekDay[], now: number): WeekItem[] =>
+/**
+ * Invites waiting for this player's yes or no, for any match that hasn't started: the badge
+ * counts all of them. Ones after the week go in My Week's "Waiting on you · later" row
+ * (laterItems).
+ */
+export const receivedInvitesToWeekItems = (rows: unknown, now: number): WeekItem[] =>
   asRows(rows).flatMap((invite): WeekItem[] => {
     if (String(invite.status ?? "pending") !== "pending") return [];
     const expires = Date.parse(String(invite.expires_at ?? ""));
@@ -234,7 +238,7 @@ export const receivedInvitesToWeekItems = (rows: unknown, days: WeekDay[], now: 
     const match = invite.match && typeof invite.match === "object" ? (invite.match as Row) : null;
     if (!match || match.archived === true) return [];
     const start = readStart(match.start_date_time, "instant");
-    if (!start || !isInWeek(start.dayKey, days) || start.startsAt <= now) return [];
+    if (!start || start.startsAt <= now) return [];
 
     const inviter = invite.inviter && typeof invite.inviter === "object" ? (invite.inviter as Row) : {};
     const inviterName = text(inviter.full_name);
@@ -367,6 +371,14 @@ export const groupWeek = (items: WeekItem[], days: WeekDay[]): WeekDayItems[] =>
   });
 };
 
-/** What the My Week badge shows. */
-export const countNeedsResponse = (days: WeekDayItems[]): number =>
-  days.reduce((sum, day) => sum + day.items.filter((item) => item.needsResponse).length, 0);
+/** Items after the week that still need an answer (received invites), soonest first. */
+export const laterItems = (items: WeekItem[], days: WeekDay[]): WeekItem[] => {
+  const lastDay = days[days.length - 1]?.dayKey ?? "";
+  return items
+    .filter((item) => item.needsResponse && item.dayKey > lastDay)
+    .sort((a, b) => sortKey(a) - sortKey(b));
+};
+
+/** What the My Week badge shows: everything waiting on this player, this week or later. */
+export const countNeedsResponse = (days: WeekDayItems[], later: WeekItem[] = []): number =>
+  days.reduce((sum, day) => sum + day.items.filter((item) => item.needsResponse).length, 0) + later.length;

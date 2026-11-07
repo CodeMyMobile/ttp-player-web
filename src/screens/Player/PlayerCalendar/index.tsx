@@ -295,7 +295,8 @@ const buildDayGroups = (items: ScheduleItem[], segment: ScheduleSegment): Schedu
     });
 };
 
-const PlayerCalendar = () => {
+/** `initialSegment`: My Week's "Past" link opens this on the Past tab (/my-week/past). */
+const PlayerCalendar = ({ initialSegment = "upcoming" }: { initialSegment?: ScheduleSegment } = {}) => {
   const navigate = useNavigate();
   const { displayName, initials, avatarUrl } = usePlayerIdentity();
   // AuthContext is untyped JS, so the context comes back as {}. Narrowed here rather
@@ -308,7 +309,7 @@ const PlayerCalendar = () => {
       profile?: { id?: number | string; user_id?: number | string };
     } | null;
   };
-  const [segment, setSegment] = useState<ScheduleSegment>("upcoming");
+  const [segment, setSegment] = useState<ScheduleSegment>(initialSegment);
   const [selectedFilter, setSelectedFilter] = useState<ScheduleFilter>("all");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

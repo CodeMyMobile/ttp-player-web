@@ -106,7 +106,7 @@ export const loadMyWeek = async (api: MyWeekApi, identities: Set<string>, now: D
     ...lessonsToWeekItems(lessonRows ?? [], identities, days),
     ...myMatchesToWeekItems(matchRows, identities, days),
     ...sentInvitesToWeekItems(matchRows, identities, days, nowMs),
-    ...receivedInvitesToWeekItems(inviteRows, days, nowMs),
+    ...receivedInvitesToWeekItems(inviteRows, nowMs),
     ...leagueDueToWeekItems(leagueFixtures, identities, days, matchRows),
   ];
   return { items, errors };
