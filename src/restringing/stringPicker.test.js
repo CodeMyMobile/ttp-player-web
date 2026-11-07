@@ -53,3 +53,30 @@ test("the sticky bar names the pick and its price", () => {
   assert.equal(pickSummary(null, groups, tiers), null);
   assert.equal(pickSummary({ kind: "string", tierId: 6, stringId: "99" }, groups, tiers), null);
 });
+
+test("production's hybrid and natural gut categories get their names, blurbs and the gut chip", () => {
+  // As production has them: string categories with stocked strings, not compositions.
+  const prodTiers = [
+    { id: 7, name: "Restring + Poly / Multi Hybrid", price_cents: 4999, string_category: "poly_multi", string_composition: null },
+    { id: 8, name: "Restring + Natural Gut Hybrid", price_cents: 6999, string_category: "gut_poly", string_composition: null },
+    { id: 9, name: "Restring + Natural Gut", price_cents: 8999, string_category: "nat_gut", string_composition: null },
+  ];
+  const prodCatalog = [
+    { id: 30, brand: "Solinco", name: "Hyper-G / X-Natural", category: "poly_multi" },
+    { id: 31, brand: "Babolat", name: "VS Touch / RPM Blast", category: "gut_poly" },
+    { id: 32, brand: "Babolat", name: "VS Touch", category: "nat_gut" },
+  ];
+  const groups = stringGroups(prodTiers, prodCatalog);
+  assert.deepEqual(groups.map((group) => group.label), ["Poly / Multi Hybrid", "Natural Gut Hybrid", "Natural Gut"]);
+  assert.ok(groups.every((group) => group.blurb));
+  assert.equal(filterGroups(groups, "gut").length, 3);
+  assert.deepEqual(availableFilters(groups).map((chip) => chip.key), ["all", "gut"]);
+});
+
+test("a category the app has no name for is named after its service, never a bare 'String'", () => {
+  const groups = stringGroups(
+    [{ id: 12, name: "Restringing + Kevlar", price_cents: 5999, string_category: "kevlar" }],
+    [{ id: 40, brand: "Ashaway", name: "Crossfire", category: "kevlar" }],
+  );
+  assert.equal(groups[0].label, "Kevlar");
+});

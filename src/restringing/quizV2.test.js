@@ -93,3 +93,16 @@ test("arm discomfort: a warning when it's now, and lower tension either way", ()
   assert.equal(tensionFor("std_poly", { arm: "no" }), 50);
   assert.match(reasonsFor("std_multi", { arm: "yes" })[0], /arm/);
 });
+
+test("the hybrid is matched as production stores it: a category with stocked strings", () => {
+  const prodTiers = [
+    ...tiers.filter((tier) => !tier.string_composition),
+    { id: 70, price_cents: 4999, string_category: "poly_multi", string_composition: null },
+  ];
+  const prodCatalog = [...catalog, { id: 30, brand: "Solinco", name: "Hyper-G / X-Natural", category: "poly_multi" }];
+  const result = recommendFromQuiz({ level: "advanced", arm: "sometimes", priority: "control", frequency: "few" }, { tiers: prodTiers, catalog: prodCatalog });
+  assert.equal(result.pick.tierId, 70);
+  assert.equal(result.pick.kind, "string");
+  assert.equal(result.pick.string.id, 30);
+  assert.equal(result.tensionLbs, 48);
+});
