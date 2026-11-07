@@ -234,3 +234,77 @@
   opacity: 0.6;
   cursor: default;
 }
+
+/* Adding someone by name. */
+.circle-search {
+  margin-top: 12px;
+}
+
+.circle-search__field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid #d0d5dd;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #667085;
+}
+
+.circle-search__field:focus-within {
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+}
+
+.circle-search__field input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #101828;
+  font-size: 16px;
+}
+
+.circle-search__hint {
+  margin: 8px 2px 0;
+  font-size: 13px;
+  color: #667085;
+}
+
+.circle-search__hint--error {
+  color: #b42318;
+}
+
+.circle-search__retry {
+  border: none;
+  background: none;
+  padding: 0;
+  color: #7c3aed;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Its own box, so results can't be mistaken for the circle list below. */
+.circle-search__results {
+  margin: 8px 0 16px;
+  padding: 4px 12px;
+  border: 1px solid #e9d7fe;
+  border-radius: 12px;
+  background: #faf5ff;
+}
+
+.circle-row__in {
+  flex: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: #12b76a;
+}
+
+/* The box is a little narrower than the list: let a result's name wrap rather than cut off. */
+.circle-search__results .circle-row__name {
+  overflow: visible;
+  white-space: normal;
+  text-overflow: clip;
+}
