@@ -77,6 +77,7 @@ test("event names are the agreed strings", () => {
     myWeekDone: "my_week_done",
     myWeekWatch: "my_week_watch",
     plusSheetAction: "plus_sheet_action",
+    circleAdd: "circle_add",
     appCrashed: "app_crashed",
   });
 });

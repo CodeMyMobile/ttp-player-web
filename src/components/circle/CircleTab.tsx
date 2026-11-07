@@ -1,14 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { addToCircle, getMyCircle, removeFromCircle, setCircleWeeklyEmail } from "../../api/circle";
+import { Search } from "lucide-react";
+import { addToCircle, getMyCircle, removeFromCircle, searchCircle, setCircleWeeklyEmail } from "../../api/circle";
 import { forgetCircleMembership } from "../../hooks/useCircleMembership";
 import { usableAvatar } from "../../utils/avatar";
+import { ANALYTICS_EVENTS, track } from "../../utils/analytics";
 import {
+  CIRCLE_SEARCH_MIN_LENGTH,
   circleCountLabel,
+  circleSearchQuery,
   memberItems,
+  searchItems,
   suggestionItems,
   type CircleListItem,
   type CircleListResponse,
+  type CircleSearchResponse,
 } from "../../utils/circleMembers";
 import "./CircleTab.css";
 
@@ -35,6 +41,12 @@ const CircleTab = () => {
   const [rowError, setRowError] = useState("");
   const [emailSaving, setEmailSaving] = useState(false);
   const [emailError, setEmailError] = useState("");
+  // Adding someone by name.
+  const [typed, setTyped] = useState("");
+  const [search, setSearch] = useState<
+    { status: "idle" } | { status: "loading" } | { status: "done"; response: CircleSearchResponse } | { status: "error" }
+  >({ status: "idle" });
+  const [searchAttempt, setSearchAttempt] = useState(0);
 
   const load = useCallback((signal?: AbortSignal) => {
     setLoadFailed(false);
@@ -54,13 +66,40 @@ const CircleTab = () => {
   const members = useMemo(() => memberItems(data), [data]);
   const memberIds = useMemo(() => new Set(members.map((member) => member.id)), [members]);
   const suggestions = useMemo(() => suggestionItems(data, memberIds), [data, memberIds]);
+  const searchQuery = circleSearchQuery(typed);
+  const results = useMemo(
+    () => (search.status === "done" ? searchItems(search.response, memberIds) : []),
+    [search, memberIds],
+  );
 
-  const add = async (item: CircleListItem) => {
+  // Searches once typing pauses; a newer query cancels the one in flight.
+  useEffect(() => {
+    if (!searchQuery) {
+      setSearch({ status: "idle" });
+      return undefined;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      setSearch({ status: "loading" });
+      searchCircle(searchQuery, { signal: controller.signal })
+        .then((response) => setSearch({ status: "done", response: response ?? {} }))
+        .catch(() => {
+          if (!controller.signal.aborted) setSearch({ status: "error" });
+        });
+    }, 300);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [searchQuery, searchAttempt]);
+
+  const add = async (item: CircleListItem, source: "search" | "suggestion") => {
     if (busyId !== null) return;
     setBusyId(item.id);
     setRowError("");
     try {
       const { member } = await addToCircle(item.id);
+      track(ANALYTICS_EVENTS.circleAdd, { source });
       forgetCircleMembership();
       setData((current) => ({
         ...current,
@@ -140,6 +179,64 @@ const CircleTab = () => {
           Home. Only you can see who&apos;s in your circle.
         </p>
 
+        <div className="circle-search">
+          <label className="circle-search__field">
+            <Search size={16} aria-hidden="true" />
+            <input
+              type="search"
+              value={typed}
+              onChange={(event) => setTyped(event.target.value)}
+              placeholder="Add someone by name"
+              aria-label="Add someone to your circle by name"
+              autoComplete="off"
+              enterKeyHint="search"
+            />
+          </label>
+          {typed.trim() && !searchQuery ? (
+            <p className="circle-search__hint">Type at least {CIRCLE_SEARCH_MIN_LENGTH} letters.</p>
+          ) : null}
+          {searchQuery && search.status === "loading" ? <p className="circle-search__hint">Searching…</p> : null}
+          {searchQuery && search.status === "error" ? (
+            <p className="circle-search__hint circle-search__hint--error" role="alert">
+              Couldn&apos;t search right now.{" "}
+              <button type="button" className="circle-search__retry" onClick={() => setSearchAttempt((count) => count + 1)}>
+                Retry
+              </button>
+            </p>
+          ) : null}
+          {searchQuery && search.status === "done" && !results.length ? (
+            <p className="circle-search__hint">No players match “{searchQuery}”.</p>
+          ) : null}
+          {results.length ? (
+            <ul className="circle-list circle-search__results" aria-label="Players matching your search">
+              {results.map((item) => (
+                <li key={item.id} className="circle-row">
+                  <Link to={item.href} className="circle-row__person">
+                    <CircleAvatar item={item} />
+                    <span className="circle-row__text">
+                      <span className="circle-row__name">{item.name}</span>
+                      {item.detail ? <span className="circle-row__detail">{item.detail}</span> : null}
+                    </span>
+                  </Link>
+                  {item.inCircle ? (
+                    <span className="circle-row__in">In your circle</span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="circle-row__action"
+                      onClick={() => add(item, "search")}
+                      disabled={busyId !== null}
+                      aria-label={`Add ${item.name} to your circle`}
+                    >
+                      {busyId === item.id ? "Adding…" : "Add"}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+
         {rowError ? (
           <p className="circle-error" role="alert">
             {rowError}
@@ -207,7 +304,7 @@ const CircleTab = () => {
                 <button
                   type="button"
                   className="circle-row__action"
-                  onClick={() => add(item)}
+                  onClick={() => add(item, "suggestion")}
                   disabled={busyId !== null}
                   aria-label={`Add ${item.name} to your circle`}
                 >

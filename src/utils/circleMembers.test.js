@@ -8,6 +8,8 @@ import {
   profileHref,
   suggestionItems,
   suggestionReason,
+  circleSearchQuery,
+  searchItems,
 } from "./circleMembers.ts";
 
 const person = (id, name, extra = {}) => ({
@@ -96,4 +98,33 @@ test("the count reads naturally", () => {
   assert.equal(circleCountLabel(0), "No one yet");
   assert.equal(circleCountLabel(1), "1 person");
   assert.equal(circleCountLabel(6), "6 people");
+});
+
+test("search sends what was typed, tidied, once it's three letters", () => {
+  assert.equal(circleSearchQuery("  sam   riv "), "sam riv");
+  assert.equal(circleSearchQuery("al"), null);
+  assert.equal(circleSearchQuery("   "), null);
+  assert.equal(circleSearchQuery(undefined), null);
+  assert.equal(circleSearchQuery("ale"), "ale");
+});
+
+test("search results are rows, in the circle if the API says so or they were added since", () => {
+  const items = searchItems(
+    {
+      results: [
+        { id: 3, full_name: "Alex Rivera", profile_picture: null, role: "player", level: 4.5, level_source: "self", in_circle: true },
+        { id: 9, full_name: "Alexandra Lee", profile_picture: "a.jpg", role: "player", level: null, level_source: null, in_circle: false },
+        { id: "x", full_name: "Broken", role: "player", in_circle: false },
+      ],
+    },
+    new Set([9]),
+  );
+  assert.deepEqual(
+    items.map((item) => [item.id, item.name, item.inCircle, item.href]),
+    [
+      [3, "Alex Rivera", true, "/players/3"],
+      [9, "Alexandra Lee", true, "/players/9"],
+    ],
+  );
+  assert.deepEqual(searchItems(null), []);
 });

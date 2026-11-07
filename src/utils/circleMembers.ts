@@ -119,6 +119,41 @@ export const suggestionItems = (
       return suggestion.reason === "your_coach" ? { ...item, detail: null } : item;
     });
 
+// --- searching by name (GET /player/circle/search) ---------------------------------------
+
+export interface CircleSearchRow extends CirclePersonRow {
+  in_circle: boolean;
+}
+
+export interface CircleSearchResponse {
+  results?: CircleSearchRow[];
+}
+
+export interface CircleSearchItem extends CircleListItem {
+  inCircle: boolean;
+}
+
+/** The API needs this many characters; fewer would list half the app. */
+export const CIRCLE_SEARCH_MIN_LENGTH = 3;
+
+/** What to send for what was typed: trimmed, single-spaced, or null when it's too short. */
+export const circleSearchQuery = (typed: unknown): string | null => {
+  const query = typeof typed === "string" ? typed.trim().replace(/\s+/g, " ") : "";
+  return query.length >= CIRCLE_SEARCH_MIN_LENGTH ? query : null;
+};
+
+/** Search results as rows. In the circle if the API said so or they were added since. */
+export const searchItems = (
+  response: CircleSearchResponse | null | undefined,
+  memberIds: ReadonlySet<number> = new Set(),
+): CircleSearchItem[] =>
+  (response?.results ?? [])
+    .filter(validId)
+    .map((row) => ({
+      ...toItem({ ...row, id: Number(row.id) }, null),
+      inCircle: row.in_circle === true || memberIds.has(Number(row.id)),
+    }));
+
 /** "No one yet", "1 person", "5 people". */
 export const circleCountLabel = (count: number): string =>
   count === 0 ? "No one yet" : count === 1 ? "1 person" : `${count} people`;

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { addToCircle, getMyCircle, removeFromCircle } from "../api/circle";
+import { ANALYTICS_EVENTS, track } from "../utils/analytics";
 import { getStoredAuthToken } from "../services/authToken";
 
 // Whether one person is in the signed-in player's circle, and a toggle for the "Add to circle"
@@ -63,7 +64,10 @@ export function useCircleMembership(userId: number | null | undefined, enabled =
     setError("");
     try {
       if (inCircle) await removeFromCircle(id);
-      else await addToCircle(id);
+      else {
+        await addToCircle(id);
+        track(ANALYTICS_EVENTS.circleAdd, { source: "profile" });
+      }
       const next = !inCircle;
       setInCircle(next);
       const ids = await loadMemberIds().catch(() => null);

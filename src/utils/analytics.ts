@@ -58,6 +58,8 @@ export const ANALYTICS_EVENTS = {
   myWeekWatch: "my_week_watch",
   // The mobile + sheet: which action, never anything about the player.
   plusSheetAction: "plus_sheet_action",
+  // Someone added to a circle: from search, a suggestion or their profile. Never who.
+  circleAdd: "circle_add",
   // The crash screen (components/AppErrorBoundary). The error, the route pattern and the
   // component names only: see components/appCrash.js.
   appCrashed: "app_crashed",
