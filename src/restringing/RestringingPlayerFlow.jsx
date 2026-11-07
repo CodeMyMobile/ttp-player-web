@@ -62,6 +62,11 @@ import MyOrdersScreen from "./MyOrdersScreen.jsx";
 import { formatOrderTotal, ordersSummaryLine, usualSetup } from "./myOrders.js";
 import RestringEntryV2 from "./RestringEntryV2.jsx";
 import RestringStringPicker from "./RestringStringPicker.jsx";
+import { RestringQuizQuestion, RestringQuizResult } from "./RestringQuizV2.jsx";
+import { QUIZ_QUESTIONS, levelFromNtrp, recommendFromQuiz, tensionFor } from "./quizV2.js";
+import { getPlayerPersonalDetails } from "../api/playerProfile";
+import { getStoredAuthToken } from "../services/authToken.js";
+import { playerLevelOf } from "../utils/groupLessonLevelFit";
 import { nearbyStringers, reorderPlan } from "./entryV2.js";
 import { DEFAULT_RADIUS_MILES, getStoredLocation, getStoredLocationRadius } from "../utils/userLocation";
 import { isRestringV2Enabled } from "../utils/featureFlags";
@@ -309,6 +314,12 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   const [pickerShop, setPickerShop] = useState(null);
   const [pickerCatalog, setPickerCatalog] = useState([]);
   const [stringPick, setStringPick] = useState(null);
+  // "Help me choose": the question on screen, the answers, the level from the player's NTRP,
+  // and the result.
+  const [quizIndex, setQuizIndex] = useState(0);
+  const [quizAnswers, setQuizAnswers] = useState({});
+  const [quizLevel, setQuizLevel] = useState(null);
+  const [quizResult, setQuizResult] = useState(null);
 
   const tier = useMemo(() => tiers.find((item) => Number(item.id) === Number(tierId)) || null, [tierId, tiers]);
   const selectedString = useMemo(
@@ -340,13 +351,17 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
       setWizardIndex((index) => index - 1);
       return;
     }
+    if (screen === "quiz" && quizIndex > 0) {
+      setQuizIndex((index) => index - 1);
+      return;
+    }
     setHistory((items) => {
       const next = [...items];
       const previous = next.pop() || "home";
       setScreen(previous);
       return next;
     });
-  }, [checkoutHandoff, screen, wizardIndex]);
+  }, [checkoutHandoff, quizIndex, screen, wizardIndex]);
 
   const refreshOrders = useCallback(async () => {
     if (!isAuthenticated) {
@@ -682,6 +697,58 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     go("config");
   };
 
+  // Help me choose: the nearest shop's strings (what the result can pick from) and the
+  // player's level, then question 1.
+  const openQuiz = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const token = getStoredAuthToken();
+      const [shop, ntrp] = await Promise.all([
+        pickerShop ? Promise.resolve(pickerShop) : nearestShop(),
+        isAuthenticated && token
+          ? getPlayerPersonalDetails({ token }).then((details) => playerLevelOf(details)).catch(() => null)
+          : Promise.resolve(null),
+      ]);
+      if (shop && (shop !== pickerShop || !pickerCatalog.length)) {
+        const data = await listVendorStrings({ vendorId: shop.id }).catch(() => ({ catalog: [] }));
+        setPickerShop(shop);
+        setPickerCatalog(data?.catalog || []);
+      }
+      setQuizLevel(levelFromNtrp(ntrp));
+      setQuizAnswers({});
+      setQuizIndex(0);
+      setQuizResult(null);
+      go("quiz");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const answerQuiz = (key, value) => {
+    const next = { ...quizAnswers, [key]: value };
+    setQuizAnswers(next);
+    if (quizIndex + 1 < QUIZ_QUESTIONS.length) {
+      setQuizIndex((index) => index + 1);
+      return;
+    }
+    setQuizResult(recommendFromQuiz(next, { tiers, catalog: pickerCatalog }));
+    go("quizResult");
+  };
+
+  // A result's string (or the shop's-choice service) goes the same way as a pick from the
+  // list, at the quiz's tension for it.
+  const chooseFromQuiz = (option) => {
+    continueFromPicker({
+      kind: option.kind,
+      tierId: option.tierId,
+      stringId: option.string ? String(option.string.id) : undefined,
+    });
+    const lbs = tensionFor(option.category, quizAnswers);
+    setTension(lbs);
+    setCrosses(lbs);
+  };
+
   const openVendorProfile = async (vendor) => {
     setBusy(true);
     try {
@@ -838,6 +905,8 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     recommendation: "Recommendation",
     tier: "Service",
     strings: "Strings",
+    quiz: "String quiz",
+    quizResult: "Your string",
     vendor: "Choose a stringer",
     profile: selectedVendor?.name || "Stringer",
     config: "String setup",
@@ -898,7 +967,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
             ordersLine={ordersSummaryLine(orders)}
             busy={busy}
             onKnow={() => void openStringPicker()}
-            onHelp={() => { setWizardIndex(0); setAnswers({}); go("wizard"); }}
+            onHelp={() => void openQuiz()}
             onOrders={() => { void refreshOrders(); go("orders"); }}
             onReorder={(entry) => void reorder(entry)}
           />
@@ -977,6 +1046,14 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
             initialPick={stringPick}
             onContinue={continueFromPicker}
           />
+        ) : null}
+
+        {screen === "quiz" && restringV2 ? (
+          <RestringQuizQuestion index={quizIndex} answers={quizAnswers} levelFromRating={quizLevel} onAnswer={answerQuiz} />
+        ) : null}
+
+        {screen === "quizResult" && restringV2 ? (
+          <RestringQuizResult result={quizResult} vendor={pickerShop} onChoose={chooseFromQuiz} onSeeAll={() => go("strings")} />
         ) : null}
 
         {screen === "wizard" ? (
