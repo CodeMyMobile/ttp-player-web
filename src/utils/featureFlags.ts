@@ -16,6 +16,7 @@ const truthy = (value: unknown) =>
 const FLAG_OVERRIDES = {
   myweek: "ttp_flag_my_week",
   homev2: "ttp_flag_home_v2",
+  restringv2: "ttp_flag_restring_v2",
 } as const;
 
 type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
@@ -65,6 +66,12 @@ export const isHomeV2Enabled = () =>
 // /play, /my-week, and /player/calendar redirecting to /my-week. Default OFF.
 export const isMyWeekEnabled = () =>
   truthy(import.meta.env?.VITE_MY_WEEK) || isOverridden(FLAG_OVERRIDES.myweek);
+
+// VITE_RESTRING_V2 gates the redesigned restring entry: Order again, the two-way choice,
+// Stringers near you, the string list and the level-first quiz. Default OFF; ?restringv2=1
+// turns it on for one browser.
+export const isRestringV2Enabled = () =>
+  truthy(import.meta.env?.VITE_RESTRING_V2) || isOverridden(FLAG_OVERRIDES.restringv2);
 
 // VITE_VENDOR_PAGE gates the redesigned public vendor page at /:vendorSlug. Default OFF: when
 // unset/false the existing RestringingPlayerFlow renders for vendor links unchanged.

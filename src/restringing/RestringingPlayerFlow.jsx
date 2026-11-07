@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Elements, ExpressCheckoutElement, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
@@ -60,6 +60,9 @@ import { vendorHoursSummary } from "./vendorPage.js";
 import { findVendorBySlug, vendorProfilePath } from "./vendorProfileRoutes.js";
 import MyOrdersScreen from "./MyOrdersScreen.jsx";
 import { formatOrderTotal, ordersSummaryLine, usualSetup } from "./myOrders.js";
+import RestringEntryV2 from "./RestringEntryV2.jsx";
+import { reorderPlan } from "./entryV2.js";
+import { isRestringV2Enabled } from "../utils/featureFlags";
 
 const stripePublishableKey =
   import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ??
@@ -295,6 +298,11 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState("");
   const [paymentChoice, setPaymentChoice] = useState("new");
   const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(false);
+  const restringV2 = isRestringV2Enabled();
+  // Reorder: the string (and gauge) to keep when the shop's catalog for the tier loads, instead
+  // of the first in the list. Read once by the catalog effect.
+  const preferredStringRef = useRef(null);
+  const [reorderNotice, setReorderNotice] = useState("");
 
   const tier = useMemo(() => tiers.find((item) => Number(item.id) === Number(tierId)) || null, [tierId, tiers]);
   const selectedString = useMemo(
@@ -458,9 +466,17 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
       .then((data) => {
         if (cancelled) return;
         const rows = data.catalog || [];
+        const preferred = preferredStringRef.current;
+        preferredStringRef.current = null;
         setCatalog(rows);
-        setStringId(rows[0]?.id ? String(rows[0].id) : "other");
-        setGauge(defaultGaugeForString(rows[0] || null));
+        if (preferred?.id === "other") {
+          setStringId("other");
+          return;
+        }
+        const kept = preferred ? rows.find((row) => String(row.id) === String(preferred.id)) : null;
+        const pick = kept || rows[0] || null;
+        setStringId(pick?.id ? String(pick.id) : "other");
+        setGauge(kept && catalogGaugesForString(kept).includes(preferred.gauge) ? preferred.gauge : defaultGaugeForString(pick));
       })
       .catch(() => {
         if (!cancelled) setCatalog([]);
@@ -552,6 +568,57 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
       const profile = await getVendorProfile(vendor.id).catch(() => vendor);
       setSelectedVendor(profile || vendor);
       go("config");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Order again: the last restring's setup as a new order at the same shop, then checkout. If
+  // its string isn't stocked any more (or it needs details), the setup screen instead.
+  const reorder = async (entry) => {
+    const { order, item } = entry || {};
+    const vendor = (allVendors.length ? allVendors : vendors).find((row) => Number(row.id) === Number(order?.vendor_id));
+    const nextTier = tiers.find((row) => Number(row.id) === Number(item?.service_tier_id));
+    if (!vendor || !nextTier) {
+      setError("That setup can't be reordered right now. Pick your string instead.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const [profile, catalogData] = await Promise.all([
+        getVendorProfile(vendor.id).catch(() => vendor),
+        nextTier.string_category
+          ? listVendorStrings({ vendorId: vendor.id, serviceTierId: nextTier.id }).catch(() => ({ catalog: [] }))
+          : Promise.resolve({ catalog: [] }),
+      ]);
+      const plan = reorderPlan({ item, tier: nextTier, catalog: catalogData?.catalog || [] });
+      preferredStringRef.current = plan.stringId ? { id: plan.stringId, gauge: plan.gauge } : null;
+      setSelectedVendor(profile || vendor);
+      setTierId(nextTier.id);
+      setStringId(plan.stringId);
+      setGauge(plan.gauge || "16");
+      setOtherString(plan.customString);
+      setOwnString(plan.ownString);
+      setTension(plan.tensionMains);
+      setCrosses(plan.tensionCrosses);
+      setSplitTension(plan.splitTension);
+      setAdviceRequested(plan.adviceRequested);
+      setRacketMakeModel(plan.racketMakeModel);
+      setQuantity(1);
+      setSetupMode("");
+      setPerRacketItems([]);
+      setOrderNotes("");
+      setCheckoutResult(null);
+      const lastString = `${clean(item?.string_brand)} ${clean(item?.string_name)}`.trim();
+      setReorderNotice(
+        plan.stocked
+          ? ""
+          : lastString
+            ? `${lastString} isn't in stock at ${vendor.name} right now. Pick another string.`
+            : "Add the string you're bringing, then continue.",
+      );
+      go(plan.stocked && plan.racketMakeModel ? "checkout" : plan.stocked ? "rackets" : "config");
     } finally {
       setBusy(false);
     }
@@ -706,6 +773,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     setHistory([]);
     setScreen("home");
     setError("");
+    setReorderNotice("");
   };
   const STEP_TITLES = {
     wizard: "String quiz",
@@ -763,7 +831,21 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
         {error ? <div className="rsg-alert">{error}</div> : null}
         {loading || authLoading ? <div className="rsg-card">Loading restringing options...</div> : null}
 
-        {!loading && screen === "home" ? (
+        {!loading && screen === "home" && restringV2 ? (
+          <RestringEntryV2
+            tiers={tiers}
+            orders={orders}
+            isAuthenticated={isAuthenticated}
+            ordersLine={ordersSummaryLine(orders)}
+            busy={busy}
+            onKnow={() => go("tier")}
+            onHelp={() => { setWizardIndex(0); setAnswers({}); go("wizard"); }}
+            onOrders={() => { void refreshOrders(); go("orders"); }}
+            onReorder={(entry) => void reorder(entry)}
+          />
+        ) : null}
+
+        {!loading && screen === "home" && !restringV2 ? (
           <div className="rsg-home rsg-mobile-only">
             <header className="rsg-home-title">
               <h1>Restring</h1>
@@ -802,7 +884,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
           </div>
         ) : null}
 
-        {!loading && screen === "home" ? (
+        {!loading && screen === "home" && !restringV2 ? (
           <div className="rsg-desktop-only">
             <section className="rsg-hero">
               <h1>Restring my racket</h1>
@@ -948,6 +1030,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
           <section className="rsg-card">
             <h1>Your string setup</h1>
             <p>{tier.name} at {selectedVendor?.name}</p>
+            {reorderNotice ? <div className="rsg-alert" role="status">{reorderNotice}</div> : null}
             {isPresetCompositionTier(tier) ? (
               <p>Included strings: {serviceCompositionLabel(tier.string_composition)}. Your stringer will choose the matching setup.</p>
             ) : isOwnTier(tier) ? (
