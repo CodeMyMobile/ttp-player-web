@@ -1,5 +1,5 @@
-import { useCallback, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AlertCircle, CalendarDays, ChevronRight, Clock } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
@@ -16,6 +16,7 @@ import {
   type WeekCard,
 } from "../features/myWeek/screenModel";
 import type { WeekItem, WeekPerson } from "../features/myWeek/types";
+import { typeColor } from "../features/myWeek/typeColors";
 import { acceptInvite, rejectInvite } from "../services/invites";
 
 import "./MyWeekPage.css";
@@ -52,6 +53,17 @@ const MyWeekPage = () => {
   const { days, later, loading, errors, refetch } = useMyWeek();
   const [answers, setAnswers] = useState<Record<string, AnswerState>>({});
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
+  // /my-week?day=2026-11-09 (Home's day strip) opens at that day, once its section exists.
+  const [searchParams] = useSearchParams();
+  const requestedDay = searchParams.get("day");
+  const scrolledTo = useRef<string | null>(null);
+  useEffect(() => {
+    if (!requestedDay || scrolledTo.current === requestedDay || loading) return;
+    const section = sectionRefs.current[requestedDay];
+    if (!section) return;
+    scrolledTo.current = requestedDay;
+    section.scrollIntoView({ block: "start" });
+  }, [requestedDay, loading, days]);
 
   const todayKey = days[0]?.dayKey ?? "";
   const tomorrowKey = days[1]?.dayKey ?? "";
@@ -119,7 +131,11 @@ const MyWeekPage = () => {
   const renderCard = ({ item, waiting }: WeekCard) => {
     const opensOnTap = item.source !== "invite" && Boolean(item.href);
     return (
-      <li key={item.id} className={`my-week__card my-week__card--${item.type}${item.needsResponse ? " is-waiting" : ""}`}>
+      <li
+        key={item.id}
+        className={`my-week__card${item.needsResponse ? " is-waiting" : ""}`}
+        style={{ borderLeftColor: typeColor(item.type) }}
+      >
         <div className="my-week__time">
           <Clock size={14} aria-hidden="true" />
           {timeLabel(item)}
@@ -227,7 +243,7 @@ const MyWeekPage = () => {
                 </span>
                 <span className="my-week__dots" aria-hidden="true">
                   {loadDots(day).map((type, dot) => (
-                    <span key={dot} className={`my-week__dot my-week__dot--${type}`} />
+                    <span key={dot} className="my-week__dot" style={{ background: typeColor(type) }} />
                   ))}
                 </span>
               </button>

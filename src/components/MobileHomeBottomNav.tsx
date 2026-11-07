@@ -7,6 +7,7 @@ import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
 import { isMyWeekEnabled } from "../utils/featureFlags";
 import { isTabActive, leaguesDestination, primaryNavTabs, type NavTabKey } from "../utils/navTabs";
+import { badgeLabel, useMyWeekBadge } from "../features/myWeek/useMyWeek";
 
 import "./MobileHomeBottomNav.css";
 
@@ -195,7 +196,10 @@ const MobileHomeBottomNav = () => {
   const isActive = (prefixes: string[]) => isTabActive(location.pathname, prefixes);
 
   // Play and My Week replace Leagues and Schedule while My Week is on (utils/navTabs).
-  const tabs: TabDef[] = primaryNavTabs(isMyWeekEnabled()).map((tab) => ({
+  const myWeekOn = isMyWeekEnabled();
+  // Things only this player can answer: invites, stale invites they sent, league matches due.
+  const waitingCount = useMyWeekBadge(myWeekOn && Boolean(token));
+  const tabs: TabDef[] = primaryNavTabs(myWeekOn).map((tab) => ({
     ...tab,
     icon: TAB_ICONS[tab.key],
     onClick: tab.key === "leagues" ? goLeagues : undefined,
@@ -216,6 +220,11 @@ const MobileHomeBottomNav = () => {
       >
         <span className="mbn__icon">
           <Icon size={26} />
+          {tab.key === "my-week" && waitingCount > 0 ? (
+            <span className="mbn__badge" aria-label={`${waitingCount} waiting on you`}>
+              {badgeLabel(waitingCount)}
+            </span>
+          ) : null}
         </span>
         <span className="mbn__label">{tab.label}</span>
       </button>

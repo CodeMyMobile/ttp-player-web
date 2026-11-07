@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
 
 import { listMyLeagues, getLeagueFixtures } from "../../api/leagues";
 import { listMatches } from "../../api/matches";
 import { getPlayerUpcomingLessons } from "../../api/player";
-import { useApiRequest } from "../../hooks/useApiRequest";
 import { getStoredAuthToken } from "../../services/authToken";
 import { listInvites } from "../../services/invites";
 import { buildViewerIdentities } from "../../utils/leagueSeason";
@@ -11,6 +10,7 @@ import { toLocalYmd } from "../../utils/dateTime";
 import { weekDays } from "../../utils/weekDays";
 import { countNeedsResponse, groupWeek, laterItems } from "./adapters";
 import { loadMyWeek, type MyWeekLoad } from "./loadMyWeek";
+import { createMyWeekStore } from "./myWeekStore";
 import type { WeekDayItems, WeekItem } from "./types";
 
 /** Fired after anything that changes the week (accept, decline, book, cancel): My Week refetches. */
@@ -57,7 +57,24 @@ const weekFetcher = async (): Promise<MyWeekLoad> => {
   );
 };
 
-const NO_PARAMS = {};
+/** The app's one copy of the week (myWeekStore). */
+export const myWeekStore = createMyWeekStore(weekFetcher);
+// Whose week the store holds: the signed-in token when it was asked for. undefined = nobody yet.
+let weekOwnerToken: string | null | undefined;
+
+// Once per page load: a change anywhere reloads the week, and coming back to a tab that sat
+// in the background picks up anything stale.
+let listening = false;
+const listenForChanges = () => {
+  if (listening || typeof window === "undefined") return;
+  listening = true;
+  window.addEventListener(MY_WEEK_CHANGED_EVENT, () => {
+    void myWeekStore.reload();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && myWeekStore.getSnapshot().data) void myWeekStore.ensureFresh();
+  });
+};
 
 export interface UseMyWeek {
   /** Today and the next six days, each with its items. */
@@ -75,24 +92,35 @@ export interface UseMyWeek {
 
 /**
  * The player's rolling week: booked lessons and matches, invites waiting both ways, and
- * league matches due. Refetches on MY_WEEK_CHANGED_EVENT.
+ * league matches due. Shared across the app (myWeekStore): it loads when a screen asks and the
+ * week is over a minute old, and straight away on MY_WEEK_CHANGED_EVENT.
+ *
+ * `enabled: false` (signed out, or My Week off) fetches nothing and shows an empty week. It
+ * doesn't clear the shared copy: while sign-in is still resolving, one screen can briefly say
+ * signed out while another is already loading. A different signed-in token clears it instead,
+ * so one player never sees another's week.
  */
-export const useMyWeek = (): UseMyWeek => {
-  const { data, loading, refetch } = useApiRequest(weekFetcher, NO_PARAMS);
-
-  const reload = useCallback(() => {
-    refetch().catch(() => {
-      // loadMyWeek never rejects; nothing to surface here.
-    });
-  }, [refetch]);
+export const useMyWeek = ({ enabled = true }: { enabled?: boolean } = {}): UseMyWeek => {
+  const snapshot = useSyncExternalStore(myWeekStore.subscribe, myWeekStore.getSnapshot, myWeekStore.getSnapshot);
 
   useEffect(() => {
-    window.addEventListener(MY_WEEK_CHANGED_EVENT, reload);
-    return () => window.removeEventListener(MY_WEEK_CHANGED_EVENT, reload);
-  }, [reload]);
+    if (!enabled) return;
+    const token = getStoredAuthToken() ?? null;
+    if (token !== weekOwnerToken) {
+      if (weekOwnerToken !== undefined) myWeekStore.clear();
+      weekOwnerToken = token;
+    }
+    listenForChanges();
+    void myWeekStore.ensureFresh();
+  }, [enabled]);
+
+  const refetch = useCallback(() => {
+    void myWeekStore.reload();
+  }, []);
 
   // The week rolls over at midnight; today's key keeps the grouping current between fetches.
   const todayKey = toLocalYmd(new Date());
+  const data = enabled ? snapshot.data : undefined;
   const { days, later } = useMemo(() => {
     const week = weekDays(new Date(`${todayKey}T12:00:00`));
     const items = data?.items ?? [];
@@ -104,10 +132,16 @@ export const useMyWeek = (): UseMyWeek => {
     items: days.flatMap((day) => day.items),
     later,
     needsResponseCount: countNeedsResponse(days, later),
-    loading,
+    loading: enabled && (snapshot.loading || !snapshot.data),
     errors: data?.errors ?? {},
-    refetch: reload,
+    refetch,
   };
 };
+
+/** The My Week tab's badge: how many things only this player can answer. 0 hides it. */
+export const useMyWeekBadge = (enabled: boolean): number => useMyWeek({ enabled }).needsResponseCount;
+
+/** "9+" past nine. */
+export const badgeLabel = (count: number): string => (count > 9 ? "9+" : String(count));
 
 export default useMyWeek;
