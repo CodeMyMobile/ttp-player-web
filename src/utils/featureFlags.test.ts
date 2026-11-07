@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { applyFlagOverridesFromUrl, isHomeV2Enabled, isMyWeekEnabled } from "./featureFlags";
+import { applyFlagOverridesFromUrl, isHomeV2Enabled, isMyWeekEnabled, isRestringV2Enabled } from "./featureFlags";
 
 const memoryStorage = () => {
   const items = new Map<string, string>();
@@ -68,4 +68,15 @@ test("a browser that refuses storage falls back to the build setting", () => {
   } finally {
     delete (globalThis as { window?: unknown }).window;
   }
+});
+
+test("?restringv2=1 turns the restring redesign on for this browser; it's off by default", () => {
+  const storage = memoryStorage();
+  withWindow(storage, () => {
+    assert.equal(isRestringV2Enabled(), false);
+    applyFlagOverridesFromUrl({ search: "", hash: "#/restring?restringv2=1" }, storage);
+    assert.equal(isRestringV2Enabled(), true);
+    applyFlagOverridesFromUrl({ search: "?restringv2=0", hash: "" }, storage);
+    assert.equal(isRestringV2Enabled(), false);
+  });
 });
