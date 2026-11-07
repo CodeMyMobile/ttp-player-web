@@ -56,6 +56,8 @@ export const ANALYTICS_EVENTS = {
   myWeekBook: "my_week_book",
   myWeekDone: "my_week_done",
   myWeekWatch: "my_week_watch",
+  // The mobile + sheet: which action, never anything about the player.
+  plusSheetAction: "plus_sheet_action",
   // The crash screen (components/AppErrorBoundary). The error, the route pattern and the
   // component names only: see components/appCrash.js.
   appCrashed: "app_crashed",

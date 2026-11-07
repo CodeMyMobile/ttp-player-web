@@ -1,5 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, CalendarPlus, Home, Plus, ClipboardList, Search, Trophy, Users, type LucideIcon } from "lucide-react";
+import {
+  CalendarDays,
+  CalendarPlus,
+  ClipboardList,
+  Dumbbell,
+  GraduationCap,
+  Home,
+  Plus,
+  Search,
+  Trophy,
+  UserSearch,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { listMyLeagues } from "../api/leagues";
@@ -8,11 +21,25 @@ import { getStoredAuthToken } from "../services/authToken";
 import { isMyWeekEnabled } from "../utils/featureFlags";
 import { isTabActive, leaguesDestination, primaryNavTabs, type NavTabKey } from "../utils/navTabs";
 import { badgeLabel, useMyWeekBadge } from "../features/myWeek/useMyWeek";
+import {
+  bookLessonDestination,
+  plusSheetActions,
+  PLUS_ACTION_PATHS,
+  workoutDestination,
+  type PlusAction,
+  type PlusActionKey,
+} from "../features/myWeek/plusSheet";
+import { readPlanProgress } from "../features/myWeek/trainingPlanProgress";
+import { WEEK_TYPE_COLORS } from "../features/myWeek/typeColors";
+import { getPlayerCoaches } from "../api/playerCalendar";
+import { ANALYTICS_EVENTS, track } from "../utils/analytics";
+import { todayYmd } from "../utils/dateTime";
 
 import "./MobileHomeBottomNav.css";
 
 // Global mobile bottom navigation — 5 slots with a center FAB:
 //   [ Home ] [ Coaches ] [ + ] [ Leagues ] [ Schedule ]
+//   [ Home ] [ Coaches ] [ + ] [ Play ] [ My Week ]   (My Week on: utils/navTabs, features/myWeek/plusSheet)
 // The four tabs are role="tab"; the "+" is a plain button that opens the
 // quick-action sheet. Mobile-only (CSS hides it >=768px). Rendered by
 // MainLayout when mobileChrome="home" (and directly by the matches shell).
@@ -28,16 +55,24 @@ type TabDef = {
   onClick?: () => void;
 };
 
+const ACTION_ICONS: Record<PlusActionKey, LucideIcon> = {
+  newMatch: CalendarPlus,
+  findPlayers: UserSearch,
+  bookLesson: GraduationCap,
+  addWorkout: Dumbbell,
+  createMatch: CalendarPlus,
+  logScore: ClipboardList,
+  findMatch: Search,
+};
+
 const QuickActionSheet = ({
+  actions,
   onClose,
-  onCreateMatch,
-  onLogScore,
-  onFindMatch,
+  onAction,
 }: {
+  actions: PlusAction[];
   onClose: () => void;
-  onCreateMatch: () => void;
-  onLogScore: () => void;
-  onFindMatch: () => void;
+  onAction: (key: PlusActionKey) => void;
 }) => {
   const sheetRef = useRef<HTMLDivElement>(null);
   const touchStartY = useRef<number | null>(null);
@@ -107,24 +142,21 @@ const QuickActionSheet = ({
       >
         <div className="mbn-sheet__handle" aria-hidden="true" />
         <p className="mbn-sheet__title">Quick actions</p>
-        <button type="button" className="mbn-sheet__action" onClick={onCreateMatch}>
-          <span className="mbn-sheet__action-icon">
-            <CalendarPlus size={20} />
-          </span>
-          Create a Match
-        </button>
-        <button type="button" className="mbn-sheet__action" onClick={onLogScore}>
-          <span className="mbn-sheet__action-icon">
-            <ClipboardList size={20} />
-          </span>
-          Log a Score
-        </button>
-        <button type="button" className="mbn-sheet__action" onClick={onFindMatch}>
-          <span className="mbn-sheet__action-icon">
-            <Search size={20} />
-          </span>
-          Find a Match
-        </button>
+        {actions.map((action) => {
+          const Icon = ACTION_ICONS[action.key];
+          const color = action.type ? WEEK_TYPE_COLORS[action.type] : null;
+          return (
+            <button key={action.key} type="button" className="mbn-sheet__action" onClick={() => onAction(action.key)}>
+              <span
+                className="mbn-sheet__action-icon"
+                style={color ? { background: color.soft, color: color.solid } : undefined}
+              >
+                <Icon size={20} />
+              </span>
+              {action.label}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -172,26 +204,26 @@ const MobileHomeBottomNav = () => {
     navigate(leaguesDestination(await resolveLeagues()));
   }, [navigate, resolveLeagues]);
 
-  // Create a Match → the same match creator as the header's "+ New match" (AppNav → /create).
-  const goCreateMatch = useCallback(() => {
-    setSheetOpen(false);
-    navigate("/create");
-  }, [navigate]);
-
-  // "+" sheet actions use the GENERAL (non-league) flows as the default — they
-  // work whether or not you're in a league, and you can reach leagues from them.
-  // Log a Score → the standalone log-result flow (handles league selection itself).
-  const goLogScore = useCallback(() => {
-    setSheetOpen(false);
-    navigate("/log-result");
-  }, [navigate]);
-
-  // Find a Match → the casual matches app (find/create a match; leagues reachable
-  // from there too).
-  const goFindMatch = useCallback(() => {
-    setSheetOpen(false);
-    navigate("/matches");
-  }, [navigate]);
+  // The + sheet (features/myWeek/plusSheet). Book a lesson and Add a workout are decided when
+  // tapped: the player's coaches, and where they are in the training plan.
+  const onPlusAction = useCallback(
+    async (key: PlusActionKey) => {
+      setSheetOpen(false);
+      track(ANALYTICS_EVENTS.plusSheetAction, { action: key, myWeekVersion: isMyWeekEnabled() ? "v1" : "off" });
+      if (key === "bookLesson") {
+        const coaches = await getPlayerCoaches({ perPage: 25, page: 1 }).catch(() => []);
+        navigate(bookLessonDestination(coaches));
+        return;
+      }
+      if (key === "addWorkout") {
+        navigate(workoutDestination(readPlanProgress(), todayYmd()));
+        return;
+      }
+      const path = PLUS_ACTION_PATHS[key];
+      if (path) navigate(path);
+    },
+    [navigate],
+  );
 
   const isActive = (prefixes: string[]) => isTabActive(location.pathname, prefixes);
 
@@ -254,10 +286,9 @@ const MobileHomeBottomNav = () => {
 
       {sheetOpen ? (
         <QuickActionSheet
+          actions={plusSheetActions(myWeekOn)}
           onClose={() => setSheetOpen(false)}
-          onCreateMatch={goCreateMatch}
-          onLogScore={goLogScore}
-          onFindMatch={goFindMatch}
+          onAction={(key) => void onPlusAction(key)}
         />
       ) : null}
     </>
