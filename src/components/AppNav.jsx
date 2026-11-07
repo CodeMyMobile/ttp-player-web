@@ -62,6 +62,7 @@ import {
 import { getAuthNavState } from "../utils/authNavState";
 import { isMyWeekEnabled } from "../utils/featureFlags";
 import { isTabActive, primaryNavTabs } from "../utils/navTabs";
+import { badgeLabel, useMyWeekBadge } from "../features/myWeek/useMyWeek";
 import "./AppNav.css";
 
 // The desktop links, from the same list as the mobile tabs (utils/navTabs). Leagues isn't one:
@@ -73,6 +74,7 @@ const buildNavItems = (myWeek) =>
   primaryNavTabs(myWeek)
     .filter((tab) => tab.to)
     .map((tab) => ({
+      key: tab.key,
       label: DESKTOP_LABELS[tab.key] ?? tab.label,
       to: tab.to,
       icon: NAV_ICONS[tab.key],
@@ -118,7 +120,10 @@ const AppNav = ({
   mobileCenter = null,
 }) => {
   const { isAuthenticated, logout, user } = useAuth();
-  const navItems = buildNavItems(isMyWeekEnabled());
+  const myWeekOn = isMyWeekEnabled();
+  const navItems = buildNavItems(myWeekOn);
+  // Things only this player can answer, on the My Week link (shared with the mobile tab).
+  const waitingCount = useMyWeekBadge(myWeekOn && Boolean(isAuthenticated));
   const identity = usePlayerIdentity();
   const authNavState = getAuthNavState({
     isAuthenticated,
@@ -495,6 +500,11 @@ const AppNav = ({
               >
                 {createElement(item.icon, { size: 16 })}
                 <span>{item.label}</span>
+                {item.key === "my-week" && waitingCount > 0 ? (
+                  <span className="app-nav__badge" aria-label={`${waitingCount} waiting on you`}>
+                    {badgeLabel(waitingCount)}
+                  </span>
+                ) : null}
               </Link>
             ))}
           </nav>

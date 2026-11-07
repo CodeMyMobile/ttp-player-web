@@ -7,6 +7,7 @@ import { ActivityFeed } from "../components/home/ActivityFeed";
 import { AlertStack } from "../components/home/AlertStack";
 import { FindPlayersTile } from "../components/home/FindPlayersTile";
 import { InviteCard } from "../components/home/InviteCard";
+import { MyWeekCard } from "../components/home/MyWeekCard";
 import { OffCourt } from "../components/home/OffCourt";
 import { PlayersToHitWith } from "../components/home/PlayersToHitWith";
 import { SeasonModule } from "../components/home/SeasonModule";
@@ -29,7 +30,9 @@ import {
   useWeekBookings,
 } from "../hooks/useHomeStatus";
 import { acceptInvite, rejectInvite } from "../services/invites";
-import { isHomeFindPlayersEnabled } from "../utils/featureFlags";
+import { isHomeFindPlayersEnabled, isMyWeekEnabled } from "../utils/featureFlags";
+import { bookedCount } from "../features/myWeek/homeWeekCard";
+import { notifyMyWeekChanged, useMyWeek } from "../features/myWeek/useMyWeek";
 import type { HomeInviteItem } from "../utils/homeInvite";
 import { findPlayersTilePlacement } from "../utils/homeTiles";
 import "./HomePage.css";
@@ -49,9 +52,14 @@ export default function HomePage() {
   const { rating, ratingState, positionLabel } = useLadderStanding(viewerId);
   // Only consulted while unranked, so it is not fetched for a rated player.
   const { declaredLevel } = useDeclaredLevel(ratingState === "rated");
+  // My Week on: the week comes from My Week's shared load, shown in MyWeekCard, and the older
+  // week tile and today row (useWeekBookings) aren't fetched.
+  const myWeekOn = isMyWeekEnabled();
+  const week = useMyWeek({ enabled: myWeekOn });
   // Always fetched, never gated on the rating: an unrated player with a
   // standing weekly lesson has real bookings and needs to see them.
-  const { count, nextLabel, today } = useWeekBookings();
+  const { count: weekBookingsCount, nextLabel, today } = useWeekBookings(myWeekOn);
+  const count = myWeekOn ? bookedCount(week.days) : weekBookingsCount;
   const { alerts } = useHomeAlerts();
   const { invite, remaining, refetch: refetchInvites } = useHomeInvites();
 
@@ -69,6 +77,8 @@ export default function HomePage() {
     try {
       await action(item.token);
       await refetchInvites();
+      // The same invite is on My Week and counted in its badge.
+      notifyMyWeekChanged();
     } finally {
       setInviteBusy(false);
     }
@@ -111,6 +121,7 @@ export default function HomePage() {
           bookingsCount={count}
           nextBookingLabel={nextLabel}
           declaredLevel={declaredLevel}
+          hideBookingsTile={myWeekOn}
           findPlayersTile={
             tilePlacement === "row" ? <FindPlayersTile state={homePlayers} placement="row" /> : null
           }
@@ -119,7 +130,16 @@ export default function HomePage() {
         {/* The mockups' order: tiles, today row, invite card, alerts, grid.
             Each section renders nothing when it has nothing, so the grid moves
             up rather than a gap opening. */}
-        <TodayRow booking={today} />
+        {myWeekOn ? (
+          <MyWeekCard
+            days={week.days}
+            waiting={[...week.days.flatMap((day) => day.items.filter((item) => item.needsResponse)), ...week.later]}
+            inviteCardToken={invite?.token ?? null}
+            loading={week.loading}
+          />
+        ) : (
+          <TodayRow booking={today} />
+        )}
 
         <InviteCard
           invite={invite}

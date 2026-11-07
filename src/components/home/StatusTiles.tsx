@@ -26,6 +26,11 @@ interface StatusTilesProps {
    * holds "Play your first match"; it never squeezes in a third tile.
    */
   findPlayersTile?: ReactNode;
+  /**
+   * My Week on: the week has its own card under this row (MyWeekCard), so there's no "This
+   * week" tile. The rating tile then fills the row on its own.
+   */
+  hideBookingsTile?: boolean;
 }
 
 const formatRating = (rating: number | null) =>
@@ -48,8 +53,10 @@ export function StatusTiles({
   nextBookingLabel,
   declaredLevel = null,
   findPlayersTile = null,
+  hideBookingsTile = false,
 }: StatusTilesProps) {
-  const layout = resolveStatusTiles({ ratingState, bookingsCount });
+  const resolved = resolveStatusTiles({ ratingState, bookingsCount });
+  const layout = hideBookingsTile && resolved.right === "bookings" ? { ...resolved, right: null } : resolved;
   const showFindPlayers = Boolean(findPlayersTile) && layout.right !== "bookings";
   const { left, right } = layout;
   // Beside the Find players tile, the get-rated prompt is half width like any other.
