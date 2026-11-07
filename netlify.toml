@@ -25,6 +25,13 @@
 # the compact "Find players" tile. To roll back: delete the line and redeploy; home
 # renders as before and makes no extra request.
 #
+# VITE_MY_WEEK=true turns on My Week: the Play and My Week tabs in place of Leagues and
+# Schedule (mobile and desktop), /play, /my-week with suggestions, the My Week badge, the
+# Home week card, and the new + sheet. /player/calendar forwards to /my-week. To roll
+# back: delete the line and redeploy; the nav, Home and the + sheet are as before, and
+# /my-week and /play forward to Schedule and Home. With this line in, ?myweek=0 can't
+# turn it off for one browser: the ?myweek override only ever turns the flag on.
+#
 # To roll back: delete the VITE_HOME_V2 line and redeploy. Flag off is
 # structurally identical to the old home — DashboardPage was never modified for
 # the redesign — so there is nothing to undo beyond the flag itself.
@@ -38,6 +45,7 @@
   VITE_VENDOR_PAGE = "true"
   VITE_LEAGUE_COACHING_PROMPTS = "true"
   VITE_HOME_FIND_PLAYERS = "true"
+  VITE_MY_WEEK = "true"
 
 
 # Netlify Image CDN. Avatars are uploaded to S3 unresized (measured up to 2048x1536,
