@@ -61,7 +61,9 @@ import { findVendorBySlug, vendorProfilePath } from "./vendorProfileRoutes.js";
 import MyOrdersScreen from "./MyOrdersScreen.jsx";
 import { formatOrderTotal, ordersSummaryLine, usualSetup } from "./myOrders.js";
 import RestringEntryV2 from "./RestringEntryV2.jsx";
-import { reorderPlan } from "./entryV2.js";
+import RestringStringPicker from "./RestringStringPicker.jsx";
+import { nearbyStringers, reorderPlan } from "./entryV2.js";
+import { DEFAULT_RADIUS_MILES, getStoredLocation, getStoredLocationRadius } from "../utils/userLocation";
 import { isRestringV2Enabled } from "../utils/featureFlags";
 
 const stripePublishableKey =
@@ -303,6 +305,10 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   // of the first in the list. Read once by the catalog effect.
   const preferredStringRef = useRef(null);
   const [reorderNotice, setReorderNotice] = useState("");
+  // "I know what I want": the nearest shop, its whole in-stock list, and the pick so far.
+  const [pickerShop, setPickerShop] = useState(null);
+  const [pickerCatalog, setPickerCatalog] = useState([]);
+  const [stringPick, setStringPick] = useState(null);
 
   const tier = useMemo(() => tiers.find((item) => Number(item.id) === Number(tierId)) || null, [tierId, tiers]);
   const selectedString = useMemo(
@@ -624,6 +630,58 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     }
   };
 
+  // The shop "I know what I want" lists strings from: the nearest within the player's Home
+  // radius, else the first shop.
+  const nearestShop = async () => {
+    const position = getStoredLocation();
+    if (!position) return (allVendors.length ? allVendors : vendors)[0] || null;
+    const rows = await listVendors({ lat: position.latitude, lng: position.longitude }).catch(() => []);
+    return nearbyStringers(rows, getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES)[0] || (allVendors.length ? allVendors : vendors)[0] || null;
+  };
+
+  const openStringPicker = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const shop = pickerShop || await nearestShop();
+      if (!shop) {
+        go("vendor");
+        return;
+      }
+      const data = await listVendorStrings({ vendorId: shop.id }).catch(() => ({ catalog: [] }));
+      setPickerShop(shop);
+      setPickerCatalog(data?.catalog || []);
+      go("strings");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Continue from the string list: the pick's service at that shop, then gauge and tension.
+  const continueFromPicker = (pick) => {
+    const nextTier = tiers.find((row) => Number(row.id) === Number(pick.tierId));
+    if (!nextTier || !pickerShop) return;
+    setStringPick(pick);
+    setSelectedVendor(pickerShop);
+    setReorderNotice("");
+    setAdviceRequested(false);
+    if (pick.kind === "string") {
+      const row = pickerCatalog.find((item) => String(item.id) === String(pick.stringId));
+      preferredStringRef.current = { id: pick.stringId, gauge: defaultGaugeForString(row || null) };
+      setStringId(pick.stringId);
+      setGauge(defaultGaugeForString(row || null));
+    } else {
+      preferredStringRef.current = null;
+      setStringId("");
+    }
+    if (pick.kind === "own") setOwnString("");
+    setTension(nextTier.string_category?.includes("poly") ? 50 : 54);
+    setCrosses(nextTier.string_category?.includes("poly") ? 48 : 52);
+    setSplitTension(false);
+    setTierId(nextTier.id);
+    go("config");
+  };
+
   const openVendorProfile = async (vendor) => {
     setBusy(true);
     try {
@@ -779,6 +837,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     wizard: "String quiz",
     recommendation: "Recommendation",
     tier: "Service",
+    strings: "Strings",
     vendor: "Choose a stringer",
     profile: selectedVendor?.name || "Stringer",
     config: "String setup",
@@ -838,7 +897,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
             isAuthenticated={isAuthenticated}
             ordersLine={ordersSummaryLine(orders)}
             busy={busy}
-            onKnow={() => go("tier")}
+            onKnow={() => void openStringPicker()}
             onHelp={() => { setWizardIndex(0); setAnswers({}); go("wizard"); }}
             onOrders={() => { void refreshOrders(); go("orders"); }}
             onReorder={(entry) => void reorder(entry)}
@@ -908,6 +967,16 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
               </button>
             ) : null}
           </div>
+        ) : null}
+
+        {screen === "strings" && restringV2 ? (
+          <RestringStringPicker
+            tiers={tiers}
+            catalog={pickerCatalog}
+            vendor={pickerShop}
+            initialPick={stringPick}
+            onContinue={continueFromPicker}
+          />
         ) : null}
 
         {screen === "wizard" ? (
