@@ -71,6 +71,11 @@ test("event names are the agreed strings", () => {
     homeRatingPromptClick: "home_rating_prompt_click",
     homeCircleView: "home_circle_view",
     homeCircleClick: "home_circle_click",
+    myWeekSkip: "my_week_skip",
+    myWeekJoin: "my_week_join",
+    myWeekBook: "my_week_book",
+    myWeekDone: "my_week_done",
+    myWeekWatch: "my_week_watch",
     appCrashed: "app_crashed",
   });
 });

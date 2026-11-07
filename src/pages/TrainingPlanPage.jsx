@@ -6,7 +6,10 @@
 // navigation of its own.
 
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { TRAINING_PLAN_DAYS } from "../data/trainingPlan";
+import { planDayFor, readPlanProgress, startPlan } from "../features/myWeek/trainingPlanProgress";
+import { todayYmd } from "../utils/dateTime";
 
 /* ============================================================
    TRAINING PLAN — off-court 7-day plan
@@ -1538,338 +1541,7 @@ const LOAD_MAX = 4;
 
 const KIT_LABEL = { none: "Bodyweight", band: "Band", weights: "Weights" };
 
-const DAYS = [
-  {
-    n: 1,
-    short: "Lower",
-    title: "Lower strength",
-    sub: "Lower body strength + hip mobility",
-    time: "≈40 min",
-    load: 4,
-    focus:
-      "The single-leg strength that survives a third set. Every point is one leg loading while the other recovers — so train it that way.",
-    exercises: [
-      { name: "Split squat", kit: "none",
-        options: [
-          { name: "Static lunge", fig: "staticLunge", dose: "3 × 10 / leg",
-            body: "Step one foot forward into a long stride and leave both feet planted for the whole set — no stepping in and out between reps. Drop straight down until the back knee almost touches the floor and the front thigh is roughly parallel to it, then drive back up through the front heel. Both feet on the ground makes this the more stable of the two, so start here if the elevated version feels wobbly, and add dumbbells once ten clean reps are easy.",
-            cue: "Travel straight down, not forwards. The front shin stays close to vertical and the back knee tracks towards the floor rather than the front foot." },
-          { name: "Rear foot elevated", fig: "splitSquat", dose: "3 × 8 / leg",
-            body: "Stand a full stride in front of a bench and lay the top of your rear foot on it. Almost all the weight sits on the front leg — the back leg is a kickstand, nothing more. Lower until the front thigh is roughly parallel with the floor, then drive up through the front heel.",
-            cue: "Front shin stays close to vertical. If the knee is diving forward, your stride is too short." },
-        ] },
-      { name: "Hip hinge", kit: "weights",
-        options: [
-          { name: "Romanian deadlift", fig: "hinge", dose: "3 × 8",
-            body: "Push your hips backwards and let the weight slide down the front of your thighs, staying in contact the whole way. Knees stay softly bent but the angle never changes. Stop when the hamstrings load up, then drive the hips forwards.",
-            cue: "Test it against a wall: push the hips back until they touch without bending the knees further. That travel is the movement." },
-          { name: "Single-leg RDL", fig: "slRDL", dose: "3 × 8 / leg",
-            body: "Same hinge on one leg, and no weight needed to start. Stand on one leg, push the hips back and let the free leg travel straight out behind you as a counterweight until your torso and back leg form one line roughly parallel to the floor. Hold a dumbbell or a loaded bag in the opposite hand once bodyweight feels easy.",
-            cue: "Keep the hips level — the free-leg hip wants to rotate open towards the ceiling. Point the back toes at the floor to stop it. The balance demand more than makes up for the lighter load." },
-        ] },
-      { fig: "copenhagen", name: "Copenhagen plank", dose: "2 × 20s / side", kit: "none",
-        body: "The best insurance against a groin strain, and almost nobody does it. Lie on your side with the top leg on a bench, sofa, armchair seat or low wall — anything stable at roughly knee height — then lift your hips until ear, shoulder, hip and that supported ankle sit in one straight line. It's a hold, not a movement — the hips stay up and still for the full twenty seconds. Lift the bottom leg too and keep it roughly parallel just under the top one, touching neither the floor nor the bench.",
-        cue: "Move the bench from under the knee → mid-shin → ankle as you get stronger. Lowering and lifting the hip is a harder variation — earn the still hold first." },
-      { fig: "bandWalk", name: "Lateral band walks", dose: "3 × 12 each way", kit: "band",
-        body: "Band around the ankles or above the knees, drop into a quarter squat, step sideways keeping constant tension. The feet never fully come together.",
-        cue: "Toes point straight ahead. The moment they flare out, the glute medius has handed the job to something else." },
-      { fig: "calfRaise", name: "Calf raises — straight & bent knee", dose: "2 × 15 each", kit: "none",
-        body: "Stand on the edge of a step with the balls of your feet on it and your heels hanging off into space, fingertips on a wall or rail for balance. Let the heels sink well below the step, then press up as high as you can. Straight-knee raises load the gastrocnemius; bending the knee about twenty degrees shifts the work to the soleus — the muscle that absorbs repeated split-steps. Do both, straight first. No step to hand? Flat ground works, you just lose the stretch at the bottom.",
-        cue: "Three seconds down. The lowering is where the tendon adapts." },
-      { name: "Hip flexor stretch", kit: "none",
-        options: [
-          { name: "Half-kneeling", fig: "hipFlexor", dose: "2 × 45s / side",
-            body: "Kneel on one knee with the other foot planted forward, both knees at roughly a right angle — the same position as a half-kneeling press. Squeeze the glute of the down leg and tuck your tailbone under, so your lower back flattens rather than arches. You should feel it across the front of the hip on the kneeling side. Only once that fades, slide the front foot a little further forward.",
-            cue: "The tuck is the entire stretch. If you feel nothing, you are almost certainly arching your lower back instead of tucking — put a hand on your belt buckle and tilt it up towards your chin. Cushion under the knee if the floor is hard." },
-          { name: "Couch stretch", fig: "couch", dose: "2 × 45s / side",
-            body: "The harder version, and worth building up to rather than starting with. Kneel with your back to a wall and slide the rear shin up it so the whole shin is vertical against the wall and that knee sits in the corner where wall meets floor. Front foot planted well forward. Squeeze the rear glute and tuck your tailbone underneath you — that tuck is the stretch.",
-            cue: "Too intense? Move the front foot further forward before you move away from the wall." },
-        ] },
-      { fig: "ninety", name: "90/90 hip switch", dose: "8 slow reps", kit: "none",
-        body: "Sit on the floor. One leg in front with the knee bent to a right angle and the shin across your body; the other out to the side, knee also at a right angle, shin running away behind you. Then sweep both legs across to the mirror image — exactly like a windscreen wiper, which is what a lot of coaches call it. A hand on the floor for balance is fine; sitting back on it isn't.",
-        cue: "Sit tall and go slowly. The travel between the two sides is where the mobility gets built — don't just flop through the middle." },
-    ],
-  },
-  {
-    n: 2,
-    short: "Pull",
-    kitLabel: "Full gym",
-    title: "Upper pull",
-    sub: "Upper pull + shoulder health",
-    time: "≈35 min",
-    load: 3,
-    focus:
-      "Serving is a pushing action repeated thousands of times a week. This day builds the back that keeps that shoulder intact.",
-    exercises: [
-      { name: "Vertical pull", kit: "weights",
-        options: [
-          { name: "Kneeling pulldown", fig: "kneelPulldown", dose: "3 × 10 / side",
-            body: "Anchor a cable or band high — a lat pulldown station, or the top rail of court fencing. Kneel side-on to it in a half-kneeling position with the pulling arm on the same side as the down knee. Pull the handle down and in towards your ribs, leading with the shoulder blade rather than the elbow, then return slowly and let the arm reach fully overhead at the top.",
-            cue: "Squeeze the rear glute so your lower back doesn't arch as the arm goes overhead. One side at a time also stops your stronger side quietly doing the work." },
-          { name: "Inverted row", fig: "invertedRow", dose: "3 × 8–12",
-            body: "A loaded bodyweight pull that needs nothing but something to lie under. Find any waist-height horizontal bar — a low fence rail, a picnic table edge, the underside of a sturdy railing. Lie beneath it, body dead straight from head to heels, and pull your chest up to the bar.",
-            cue: "Feet further out or up on a bench makes it harder; knees bent with feet under you makes it easier. Adjust the angle rather than the rep count." },
-        ] },
-      { name: "Single-arm row", kit: "weights",
-        options: [
-          { name: "Dumbbell row", fig: "row", dose: "3 × 10 / side",
-            body: "One hand and knee on a bench, opposite foot planted. Row towards your hip rather than your armpit, and let it travel down and slightly forwards at the bottom so the shoulder blade actually moves.",
-            cue: "Ribcage square to the floor. If your torso twists to help the weight up, drop a size." },
-          { name: "Band row", fig: "bandRow", dose: "3 × 12 / side",
-            body: "Anchor a band at waist height on court fencing, a fence post or a door, and step back until there is tension with your arm straight. Row the handle to your hip, letting the shoulder blade travel with it, then return slowly with the arm reaching forward at the end.",
-            cue: "Stay square to the anchor. If your torso rotates to help the handle back, step in and lose some tension." },
-        ] },
-      { name: "Rear shoulder work", kit: "band",
-        options: [
-          { name: "Band pull-apart", fig: "pullApart", dose: "3 × 15",
-            body: "Arms straight out in front at shoulder height holding a band at roughly shoulder width. Pull your hands apart until the band touches your chest, squeezing the shoulder blades together, then return slowly against the tension rather than letting it snap back.",
-            cue: "The travel version — works anywhere with one band. No band? Hold a towel taut and pull outwards against it for five seconds a rep; isometric, but it reaches the same muscles." },
-          { name: "Cable face pull", fig: "facePull", dose: "3 × 15",
-            body: "With a rope on a cable at roughly face height, pull towards your face and finish with your hands wider than your elbows and your knuckles pointing behind you. Elbows stay high, level with your shoulders, rather than dropping towards your ribs.",
-            cue: "The better of the two if you have the cable, because you can load it properly and the external rotation at the finish is worth having. Deliberately light and high-rep either way — this is maintenance, not a lift to progress." },
-        ] },
-      { fig: "ytw", name: "Prone Y–T–W", dose: "2 × 8 each shape", kit: "none",
-        body: "Three separate exercises done back to back, not one flowing movement — finish all the reps of one shape before changing to the next, resetting your arms on the floor in between. Lie face down with your forehead resting on the floor and your thumbs pointing at the ceiling the whole time. Y: arms overhead in a narrow V. T: arms straight out to the sides. W: elbows tucked in near your ribs. Lift a few inches, hold a second, lower.",
-        cue: "Thumbs up is the whole point — it rotates the shoulder outwards and lets the lower traps take the work. Lift by squeezing the shoulder blades, not by shrugging or arching. Height doesn't matter." },
-      { name: "External rotation", kit: "band",
-        options: [
-          { name: "Banded", fig: "extRotation", dose: "3 × 12 / side",
-            body: "Elbow tucked at your side and bent to ninety degrees, band anchored across your body. Rotate the forearm outwards without letting the elbow drift off your ribs.",
-            cue: "Slow in both directions. The return is half the exercise." },
-          { name: "Side-lying", fig: "sideLyingER", dose: "3 × 12 / side",
-            body: "Lie on your side with the working arm on top, elbow pinned to your ribs and bent to ninety degrees, holding a light dumbbell or a full water bottle. Rotate the forearm up towards the ceiling, then lower slowly. Gravity provides the resistance, so there is nothing to anchor.",
-            cue: "Very light. A one-kilo weight is plenty here, and going heavier just recruits everything except the muscle you are trying to reach." },
-        ] },
-      { fig: "latStretch", name: "Kneeling lat stretch", dose: "2 × 30s", kit: "none",
-        body: "Kneel in front of a bench, chair seat or sofa arm with your hips stacked over your knees. Rest both elbows on it at about shoulder width, thumbs up, then let your chest sink towards the floor and your head drop between your arms. You should feel it down the outside of your ribs and into the armpit. No bench to hand? Stand an arm's length from a wall, hands high on it, and hinge at the hips instead. And if you do have a pull-up bar, a 30-second dead hang afterwards is worth adding — it decompresses the joint in a way this doesn't.",
-        cue: "Keep the hips back over the knees — creeping forwards turns it into a lower-back stretch instead. Tight lats are a big part of what stops the arm getting properly overhead on a serve." },
-      { fig: "tSpine", name: "Thoracic extension over roller", dose: "3–4 spots × 5", kit: "none",
-        body: "Roller across the mid-back, hands supporting the head, hips on the floor. No roller? A tightly rolled bath towel does the same job, or sit in a dining chair and extend backwards over the top of the backrest. Extend backwards over it, then shift a couple of centimetres up the spine and repeat.",
-        cue: "Stay below the shoulder blades and above the lower back. Keep the ribs from flaring." },
-      { name: "Chest stretch", kit: "none",
-        options: [
-          { name: "Supine opener", fig: "chestOpener", dose: "2 min",
-            body: "Lie back along a foam roller or a tightly rolled towel so it runs the full length of your spine, head supported at the top, knees bent and feet flat on the floor. Let your arms fall out to the sides at roughly shoulder height, palms up, and breathe. Gravity sets the dose — you aren't pulling into anything.",
-            cue: "Slower, and almost impossible to overdo. If your shoulders don't reach the floor, that's the information, not a failure — rest them on cushions and let them sink over the two minutes." },
-          { name: "Doorway", fig: "pecStretch", dose: "2 × 30s / side",
-            body: "Stand at a doorway or a fence post. Put your forearm flat against the frame with the elbow at about shoulder height, then step the same-side foot through the gap and turn your chest away from the arm. It should pull across the front of the chest, never inside the shoulder joint.",
-            cue: "Quicker, but much easier to overdo. Back off the moment you feel anything pinching at the front of the shoulder, and lower the elbow a little if it keeps happening." },
-        ] },
-    ],
-    alt: {
-      label: "Band + floor",
-      time: "≈30 min",
-      note: "One long resistance band, a towel, and something to anchor to — court fencing, a net post, a door. This is a whole session, not a watered-down one: the pulling volume is the same, just spread across three lighter movements instead of two heavier ones.",
-      exercises: [
-        { fig: "invertedRow", name: "Inverted row", dose: "3 × 8–12", kit: "none",
-          body: "A properly loaded horizontal pull that needs nothing but something to lie under. Find any waist-height horizontal bar — a low fence rail, a picnic table edge, the underside of a sturdy railing. Lie beneath it, body dead straight from head to heels, and pull your chest up to the bar.",
-          cue: "Feet further out or up on a bench makes it harder; knees bent with feet under you makes it easier. Adjust the angle, not the rep count." },
-        { fig: "bandPulldown", name: "Band lat pulldown", dose: "3 × 12", kit: "band",
-          body: "Loop the band over something high — the top rail of court fencing, a branch, a door anchor — and kneel underneath it, tall through the hips. Pull the band down to your collarbone, pause, and let it back up slowly under control.",
-          cue: "Shoulder blades down before the elbows bend. Tall kneeling stops you cheating with your legs." },
-        { fig: "bandRow", name: "Band single-arm row", dose: "3 × 12 / side", kit: "band",
-          body: "Anchor the band at waist height and step back until there's tension with your arm straight. Row the handle to your hip, letting the shoulder blade travel, then return slowly with the arm reaching forward at the end.",
-          cue: "Stay square to the anchor. If your torso is rotating to help, step in and lose some tension." },
-        { fig: "pullApart", name: "Band pull-apart", dose: "3 × 15", kit: "band",
-          body: "Arms straight out in front, stretch the band across your chest until it touches, then return slowly. High reps, light tension.",
-          cue: "No band? Hold a towel taut and pull outwards against it for five seconds a rep. Isometric, but it reaches the same muscles." },
-        { fig: "ytw", name: "Prone Y–T–W", dose: "2 × 8 each shape", kit: "none",
-          body: "Three separate exercises done back to back, not one flowing movement — finish all the reps of one shape before changing to the next, resetting your arms on the floor in between. Lie face down with your forehead resting on the floor and your thumbs pointing at the ceiling the whole time. Y: arms overhead in a narrow V. T: arms straight out to the sides. W: elbows tucked in near your ribs. Lift a few inches, hold a second, lower.",
-          cue: "Thumbs up is the whole point — it rotates the shoulder outwards and lets the lower traps take the work. This one never needed equipment in the first place." },
-        { fig: "extRotation", name: "Banded external rotation", dose: "3 × 12 / side", kit: "band",
-          body: "Elbow tucked to your side and bent to ninety degrees, band anchored across your body at elbow height. Rotate the forearm outwards without letting the elbow drift off your ribs.",
-          cue: "Slow in both directions. The return is half the exercise." },
-        { fig: "latStretch", name: "Kneeling lat stretch", dose: "2 × 30s", kit: "none",
-          body: "Kneel in front of a bench, chair seat or sofa arm with your hips stacked over your knees. Rest both elbows on it at about shoulder width, thumbs up, then let your chest sink towards the floor and your head drop between your arms.",
-          cue: "Hips stay back over the knees — creeping forwards turns it into a lower-back stretch. No bench? Hands high on a wall and hinge at the hips instead." },
-        { fig: "tSpine", name: "Thoracic extension over a rolled towel", dose: "3–4 spots × 5", kit: "none",
-          body: "Roll a bath towel up tight and lie back over it, hands supporting your head, hips on the floor. Extend backwards, then shift the towel a couple of centimetres up the spine and repeat.",
-          cue: "Stay below the shoulder blades and above the lower back. A rolled towel is genuinely fine here — a foam roller is convenience, not necessity." },
-        { name: "Chest stretch", kit: "none",
-          options: [
-            { name: "Supine opener", fig: "chestOpener", dose: "2 min",
-              body: "Lie back along a foam roller or a tightly rolled towel so it runs the full length of your spine, head supported at the top, knees bent and feet flat on the floor. Let your arms fall out to the sides at roughly shoulder height, palms up, and breathe. Gravity sets the dose — you aren't pulling into anything.",
-              cue: "Slower, and almost impossible to overdo. If your shoulders don't reach the floor, that's the information, not a failure — rest them on cushions and let them sink over the two minutes." },
-            { name: "Doorway", fig: "pecStretch", dose: "2 × 30s / side",
-              body: "Stand at a doorway or a fence post. Put your forearm flat against the frame with the elbow at about shoulder height, then step the same-side foot through the gap and turn your chest away from the arm. It should pull across the front of the chest, never inside the shoulder joint.",
-              cue: "Quicker, but much easier to overdo. Back off the moment you feel anything pinching at the front of the shoulder, and lower the elbow a little if it keeps happening." },
-          ] },
-      ],
-    },
-  },
-  {
-    n: 3,
-    short: "Mobility",
-    title: "Mobility",
-    sub: "Mobility & active recovery",
-    time: "≈30 min",
-    load: 1,
-    focus:
-      "The day that makes the other six possible. Nothing loaded, nothing timed against a target. Take it after a heavy coaching block.",
-    exercises: [
-      { fig: "deepSquat", name: "Deep squat hold", dose: "3 × 60s", kit: "none",
-        body: "Sink to the bottom of a bodyweight squat with the heels down and live there. Tipping backwards? Hold a door frame or a light kettlebell as a counterweight — a legitimate long-term version, not a cheat.",
-        cue: "Elbows inside the knees, gently pushing out. Breathe out and sink a little further each time." },
-      { fig: "wgs", name: "World's greatest stretch", dose: "5 / side", kit: "none",
-        body: "Long lunge, drop the opposite elbow towards the inside of the front foot, then rotate the top arm open to the ceiling and follow it with your eyes.",
-        cue: "Rear leg long and the back knee off the floor — that's what keeps the hip flexor in it." },
-      { fig: "needle", name: "Thread the needle", dose: "8 / side", kit: "none",
-        body: "On all fours, reach one arm under your body and across, then unwind and open to the ceiling. Pure thoracic rotation — the range your serve borrows from.",
-        cue: "Hips stay stacked over the knees. If they swing, the rotation is coming from your lower back." },
-      { fig: "pigeon", name: "Pigeon", dose: "60s / side", kit: "none",
-        body: "Front shin angled across in front, back leg long behind. Keep the hips square rather than collapsing onto one side.",
-        cue: "Breathe out into it rather than pushing. A cushion under the front hip is fine." },
-      { fig: "floss", name: "Hamstring floss", dose: "10 / side", kit: "none",
-        body: "On your back with one leg raised, straighten the knee as you pull the toes towards you, then bend the knee as you point them away. It glides the nerve rather than stretching the muscle.",
-        cue: "Never push into tingling. This should feel like gentle sliding, not a stretch." },
-      { fig: "ankle", name: "Wall ankle dorsiflexion", dose: "10 / side", kit: "none",
-        body: "Foot a few centimetres from a wall, drive the knee over the toes until it touches — without the heel lifting. Edge the foot back and repeat.",
-        cue: "Measure the gap and chase an extra centimetre. Ankle range decides how well you load a low volley." },
-    ],
-    note: "Finish with an easy 20–30 min walk or swim if you fancy it. Conversational pace only — if you're breathing hard it's stopped being recovery.",
-  },
-  {
-    n: 4,
-    short: "Power",
-    title: "Lower power",
-    sub: "Lower power + rotational core",
-    time: "≈35 min",
-    load: 4,
-    focus:
-      "The day that transfers most directly onto court. If the movements get slow or sloppy the session is over, regardless of what's left on the list.",
-    exercises: [
-      { fig: "pogo", name: "Pogo hops", dose: "3 × 20", kit: "none",
-        body: "Stiff ankles, barely any knee bend, bounce off the floor as though it's too hot to stand on. Trains the tendon stiffness that makes a split-step cheap.",
-        cue: "Quiet landings. Noise is energy you've absorbed instead of returned." },
-      { fig: "bound", name: "Lateral bound — stick the landing", dose: "3 × 5 / side", kit: "none",
-        body: "Push off one leg sideways, land on the other, hold completely still for two seconds before resetting. The pause is the entire exercise — it's the control that lets you change direction on a wide ball.",
-        cue: "Watch the landing knee, not the distance. If it collapses inwards, shorten the bound." },
-      { fig: "skater", name: "Skater jumps", dose: "3 × 8 / side", kit: "none",
-        body: "Same movement, continuous — land and immediately push back the other way. Adds the elastic quality on top of the control. Only once the bounds are solid.",
-        cue: "Minimum ground contact. The floor is something to bounce off, not land on." },
-      { name: "Rotational power", kit: "band",
-        options: [
-          { name: "Med ball throw", fig: "medBall", dose: "4 × 6 / side",
-            body: "Stand side-on to a solid wall a couple of metres away, feet planted and about shoulder-width apart. Wind the ribcage back away from the wall, then throw the ball into it by turning the hips first and letting the chest, then the arms, follow. Collect it and reset properly between reps — this is a power exercise, so rest if you need to.",
-            cue: "Hips lead, chest follows, arms last. Exactly the sequence of your forehand, which is the whole point. Needs a wall you're actually allowed to throw at — outside brick or a gym wall, not plasterboard." },
-          { name: "Band chop", fig: "bandChop", dose: "4 × 8 / side",
-            body: "Anchor a band at roughly chest height — court fencing, a fence post, a door anchor. Stand side-on with your arms extended towards it, wind back against the tension, then rotate away fast by turning the hips first. Control the way back rather than letting the band snap you round.",
-            cue: "Same sequence, same intent, and it works anywhere. What it loses is the release: you can't actually let go, so the very top-end speed is lower. Go for genuinely fast rotation rather than heavy tension to close the gap." },
-        ] },
-      { fig: "pallof", name: "Pallof press", dose: "3 × 12 / side", kit: "band",
-        body: "Band at chest height off to your side. Press the handle straight out, hold a beat, bring it back. Pressing out lengthens the lever and multiplies the twist trying to turn you.",
-        cue: "Hips, ribs and eyes face straight ahead. If anything moves except your arms, step closer to the anchor." },
-      { fig: "deadBug", name: "Dead bug", dose: "3 × 10 / side", kit: "none",
-        body: "On your back, arms up and knees over hips. Lower the opposite arm and leg while pressing your lower back into the floor, then return under control.",
-        cue: "The moment your lower back lifts off the floor you've gone too far. Shorten the reach." },
-    ],
-  },
-  {
-    n: 5,
-    short: "Push",
-    title: "Upper push",
-    sub: "Upper push + anti-rotation",
-    time: "≈35 min",
-    load: 3,
-    focus:
-      "Pressing strength kept deliberately modest, plus the trunk work that stops your lower back doing your shoulder's job.",
-    exercises: [
-      { name: "Horizontal press", kit: "none",
-        options: [
-          { name: "Push-up", fig: "pushUp", dose: "3 × 10",
-            body: "The better default of the two, because your shoulder blades stay free to move across your ribs instead of being pinned flat against a bench. Hands about shoulder-width, body in one rigid line from head to heels, and lower until your chest is roughly a fist's height off the floor. If ten clean reps aren't there yet, put your hands on a bench or a step — that's a legitimate progression, not a lesser exercise.",
-            cue: "Elbows at roughly 45° to your body, not flared out to 90°. Squeeze the glutes so your hips don't sag as you tire." },
-          { name: "Dumbbell bench", fig: "dbBench", dose: "3 × 10",
-            body: "Lie flat on a bench with your feet planted on the floor, holding a dumbbell in each hand at the outside of your shoulders. Press them up until your arms are straight, then lower under control until your upper arms are level with your torso. Dumbbells rather than a barbell because each arm works independently, so your stronger side can't quietly take over, and your wrists can rotate to whatever angle your shoulder prefers.",
-            cue: "Keep your ribs down and your feet flat — arching to move more weight turns it into a decline press and puts the load through your lower back. Go lighter than feels impressive; this is a support day, not a chest day." },
-        ] },
-      { name: "Half-kneeling press", kit: "weights",
-        options: [
-          { name: "Dumbbell", fig: "hkPress", dose: "3 × 8 / side",
-            body: "Kneel on one knee, press with the arm on the same side as the down knee. The narrow base removes any chance of using your legs or arching your back, so what's left is honest shoulder strength.",
-            cue: "At the top the weight sits above the shoulder, above the hip. Drifting in front of your face? Lighten it." },
-          { name: "Band", fig: "bandOhPress", dose: "3 × 12 / side",
-            body: "Same half-kneeling position, with a band trapped under your front foot instead of a dumbbell in your hand. Press the handle overhead until the arm is straight, then lower under control against the tension.",
-            cue: "Band tension increases as you press, which is the opposite of a dumbbell — expect the top of the rep to feel hardest. Rear glute stays squeezed throughout." },
-        ] },
-      { name: "Angled press", kit: "weights",
-        options: [
-          { name: "Incline press", fig: "inclinePress", dose: "3 × 10",
-            body: "Set a bench to roughly 45 degrees — halfway between flat and upright. Press a pair of dumbbells from the outside of your shoulders up to arm's length. The angle matters: a flat bench works the chest hardest, straight overhead works the shoulder hardest, and this sits between the two, which is kinder to a shoulder already doing a week's worth of serving.",
-            cue: "Stop the descent when your upper arms are level with your torso, not below it. Going deeper adds nothing and loads the front of the shoulder in the position it likes least." },
-          { name: "Landmine press", fig: "landmine", dose: "3 × 10 / side",
-            body: "A landmine is just one end of a barbell wedged into a corner or a purpose-made floor socket, so the bar swings on a fixed pivot instead of moving freely. You load the far end, hold it at your shoulder with both hands or one, and press it up and away from you along the arc the bar wants to travel. Because the pivot carries part of the weight and the path is fixed, your shoulder doesn't have to stabilise in every direction at once — which is why it's the version to reach for if anything is grumbling.",
-            cue: "No barbell? Wedge one end in a corner with a towel to protect the wall, or use a single dumbbell pressed up and forwards on the same diagonal. The arc is the point, not the equipment." },
-        ] },
-      { fig: "wallSlide", name: "Serratus wall slides", dose: "2 × 10", kit: "none",
-        body: "Stand facing a wall with the whole length of both forearms flat against it — elbow, forearm and the little-finger edge of each hand all in contact, elbows at about shoulder height and shoulder width apart. Keeping that contact the entire time, slide the forearms up the wall while pressing into it, and at the top push your shoulder blades forward as if trying to shove the wall away. That last reach is the bit that matters.",
-        cue: "If your elbows lift off the wall as you slide, you have gone as far as your shoulders currently allow — stop there rather than letting them drift. Ribs stay down too; it is easy to fake the range by arching your back." },
-      { name: "Suitcase carry", kit: "weights",
-        options: [
-          { name: "Walking", fig: "carry", dose: "3 × 30m / side",
-            body: "One heavy dumbbell, kettlebell or loaded bag in one hand. Walk in a straight line without leaning away from it, then swap sides. Deceptively simple, brutally effective for the obliques, and it costs almost nothing in recovery.",
-            cue: "Shoulders stay level. Film yourself once — everyone tilts more than they think. Needs about 30m of clear space, so a garden, corridor, car park or the court itself." },
-          { name: "Static hold", fig: "carryHold", dose: "3 × 40s / side",
-            body: "Same exercise without the walking. Stand tall holding something heavy in one hand and simply resist being pulled sideways for 30 to 45 seconds, then swap. Squeeze the free hand into a fist to help you brace.",
-            cue: "Works in a hallway or a hotel room, and it's the version to use if you're carrying anything that makes walking with load awkward. Go heavier than you would for the walk, since there's no distance to accumulate." },
-        ] },
-      { fig: "sidePlank", name: "Side plank", dose: "3 × 30s / side", kit: "none",
-        body: "Elbow under the shoulder, body in a straight line, hips lifted. Stack the feet for the full version, stagger them while you build up.",
-        cue: "Push the floor away with the bottom shoulder rather than sagging into the joint." },
-    ],
-  },
-  {
-    n: 6,
-    short: "Circuit",
-    title: "Full-body circuit",
-    sub: "Three to four rounds",
-    time: "≈25 min",
-    load: 3,
-    focus:
-      "60–90 seconds' rest between rounds, as little as possible within them. Tops up weekly volume — it isn't here to wreck you.",
-    exercises: [
-      { fig: "goblet", name: "Goblet squat", dose: "× 12", kit: "weights",
-        body: "Kettlebell, dumbbell or a loaded rucksack hugged to your chest, elbows tracking down inside the knees at the bottom. The front-loaded position keeps you upright and largely self-corrects your squat.",
-        cue: "Sit between your feet rather than folding forward over them." },
-      { fig: "pushUp", name: "Push-up", dose: "× 12", kit: "none",
-        body: "Same standard as Day 5. When fatigue arrives mid-circuit, switch to hands on a bench rather than letting the hips sag.",
-        cue: "Stop the set when the line breaks. Half a set of good reps beats a full set of bad ones." },
-      { name: "Single-arm row", kit: "weights",
-        options: [
-          { name: "Dumbbell row", fig: "row", dose: "× 10 / side",
-            body: "Bench-supported or bent over. Keep it slightly lighter than Day 2 — you're already fatigued and this isn't the session to chase a number.",
-            cue: "Ribcage square, no twisting to help the weight up." },
-          { name: "Band row", fig: "bandRow", dose: "× 12 / side",
-            body: "Band anchored at waist height, step back to tension, row the handle to your hip and return slowly. Easier to set up mid-circuit than dragging a dumbbell around.",
-            cue: "Same rule: stay square to the anchor, no twisting to help the handle back." },
-        ] },
-      { name: "Hip snap", kit: "weights",
-        options: [
-          { name: "Kettlebell swing", fig: "swing", dose: "× 15",
-            body: "A hinge, not a squat, and definitely not a front raise. The bell floats up because your hips snapped through, and stops around chest height.",
-            cue: "The bell should feel weightless at the top. Straining there means you're lifting it, not throwing it." },
-          { name: "Band pull-through", fig: "pullThrough", dose: "× 20",
-            body: "Anchor a band low behind you, step forward and pass the handle between your legs. Hinge at the hips with the band pulling you backwards, then snap the hips forward to stand tall. Same pattern as a swing, no bell needed.",
-            cue: "Squeeze the glutes hard at the top rather than leaning back. The band pulls you into the hinge, so you get resistance in the direction that actually matters." },
-        ] },
-      { fig: "plank", name: "Plank", dose: "45s", kit: "none",
-        body: "Squeeze the glutes and brace as though about to take a punch, rather than just hanging out in the position.",
-        cue: "Hips slightly tucked under — not sagging, not piked up in the air." },
-    ],
-    note: "If the week ran long on court, swap this for a second Day 3 and don't think twice. Five sessions plus a fresh body beats six and a flat one.",
-  },
-  {
-    n: 7,
-    short: "Rest",
-    title: "Rest",
-    sub: "Properly",
-    time: "—",
-    load: 0,
-    focus:
-      "Nothing structured. The adaptation from the previous six days happens now rather than during them.",
-    exercises: [],
-  },
-];
+const DAYS = TRAINING_PLAN_DAYS;
 
 const PRINCIPLES = [
   { k: "Your court hours are training too",
@@ -1999,7 +1671,17 @@ function ExerciseCard({ ex, open, onToggle }) {
 
 export default function TrainingPlanPage() {
   const navigate = useNavigate();
-  const [dayIdx, setDayIdx] = useState(0);
+  // ?day=3 (from My Week) opens that day; otherwise today's day once the plan is started.
+  const [searchParams] = useSearchParams();
+  const [progress, setProgress] = useState(() => readPlanProgress());
+  const [dayIdx, setDayIdx] = useState(() => {
+    const requested = Number(searchParams.get("day"));
+    if (Number.isInteger(requested) && requested >= 1 && requested <= DAYS.length) return requested - 1;
+    const started = readPlanProgress();
+    const today = started ? planDayFor(todayYmd(), started.startedOn) : null;
+    return today ? today - 1 : 0;
+  });
+  const todayPlanDay = progress ? planDayFor(todayYmd(), progress.startedOn) : null;
   const [kit, setKit] = useState("all");
   const [openEx, setOpenEx] = useState(null);
   const [version, setVersion] = useState("main");
@@ -2058,9 +1740,22 @@ export default function TrainingPlanPage() {
             <h1 className="text-lg font-bold text-slate-900 leading-tight">Training</h1>
             <p className="text-xs text-slate-400">Off-court · 7-day plan</p>
           </div>
-          <span className="text-xs font-semibold text-violet-700 bg-violet-50 rounded-full px-3 py-1.5 shrink-0">
-            Between sessions
-          </span>
+          {todayPlanDay ? (
+            <span className="text-xs font-semibold text-violet-700 bg-violet-50 rounded-full px-3 py-1.5 shrink-0">
+              Day {todayPlanDay} today
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setProgress(startPlan());
+                setDayIdx(0);
+              }}
+              className="text-xs font-semibold text-white bg-violet-600 hover:bg-violet-700 rounded-full px-3 py-1.5 shrink-0"
+            >
+              Start plan
+            </button>
+          )}
         </div>
       </div>
 

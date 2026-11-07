@@ -1,9 +1,20 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { AlertCircle, CalendarDays, ChevronRight, Clock } from "lucide-react";
+import { AlertCircle, CalendarDays, Check, ChevronRight, Clock, Dumbbell, PlayCircle } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
-import { notifyMyWeekChanged, useMyWeek } from "../features/myWeek/useMyWeek";
+import { notifyMyWeekChanged, useMyWeek, useMyWeekSuggestions } from "../features/myWeek/useMyWeek";
+import {
+  addSuggestions,
+  myWeekEventProps,
+  workoutSuggestions,
+  type MyWeekTrackedAction,
+} from "../features/myWeek/suggestions";
+import { readSkipped, skipSuggestion, unskipSuggestion } from "../features/myWeek/skippedSuggestions";
+import { readPlanProgress, setDayDone, startPlan } from "../features/myWeek/trainingPlanProgress";
+import { ANALYTICS_EVENTS, track } from "../utils/analytics";
+import { getStoredMatchProfile } from "../utils/matchProfile";
+import { weekDays } from "../utils/weekDays";
 import {
   dayCards,
   dayHeading,
@@ -16,7 +27,7 @@ import {
   type WeekCard,
 } from "../features/myWeek/screenModel";
 import type { WeekItem, WeekPerson } from "../features/myWeek/types";
-import { typeColor } from "../features/myWeek/typeColors";
+import { typeColor, WEEK_TYPE_COLORS } from "../features/myWeek/typeColors";
 import { acceptInvite, rejectInvite } from "../services/invites";
 
 import "./MyWeekPage.css";
@@ -48,9 +59,62 @@ type AnswerState = { busy: "accept" | "decline" | null; error: string | null };
  * match's card. Invites waiting on them for later matches sit in a row at the top, so the tab's
  * badge always points at something on this screen.
  */
+const TRACKED: Record<MyWeekTrackedAction, string> = {
+  skip: ANALYTICS_EVENTS.myWeekSkip,
+  join: ANALYTICS_EVENTS.myWeekJoin,
+  book: ANALYTICS_EVENTS.myWeekBook,
+  done: ANALYTICS_EVENTS.myWeekDone,
+  watch: ANALYTICS_EVENTS.myWeekWatch,
+};
+
 const MyWeekPage = () => {
   const navigate = useNavigate();
-  const { days, later, loading, errors, refetch } = useMyWeek();
+  const { days: bookedDays, later, loading, errors, refetch } = useMyWeek();
+  const suggestions = useMyWeekSuggestions();
+  const bookedTodayKey = bookedDays[0]?.dayKey ?? "";
+  const [skipped, setSkipped] = useState<Set<string>>(() => readSkipped(bookedTodayKey));
+  const [planProgress, setPlanProgress] = useState(() => readPlanProgress());
+  const [undo, setUndo] = useState<WeekItem | null>(null);
+  // Suggestions join the week here, on this screen only: after what's booked or waiting, two a
+  // day at most, plus the day's workout and video (features/myWeek/suggestions).
+  const days = useMemo(() => {
+    if (!bookedTodayKey) return bookedDays;
+    const week = weekDays(new Date(`${bookedTodayKey}T12:00:00`));
+    const slots = getStoredMatchProfile()?.availability ?? [];
+    return addSuggestions(bookedDays, [...suggestions.items, ...workoutSuggestions(week, planProgress)], skipped, slots);
+  }, [bookedDays, bookedTodayKey, suggestions.items, planProgress, skipped]);
+
+  useEffect(() => {
+    if (!undo) return undefined;
+    const timer = window.setTimeout(() => setUndo(null), 5000);
+    return () => window.clearTimeout(timer);
+  }, [undo]);
+
+  const trackAction = (action: MyWeekTrackedAction, item: WeekItem) => track(TRACKED[action], myWeekEventProps(item, days));
+
+  const skip = (item: WeekItem) => {
+    trackAction("skip", item);
+    skipSuggestion(item.id, item.dayKey);
+    setSkipped((current) => new Set(current).add(item.id));
+    setUndo(item);
+  };
+
+  const undoSkip = () => {
+    if (!undo) return;
+    unskipSuggestion(undo.id);
+    setSkipped((current) => {
+      const next = new Set(current);
+      next.delete(undo.id);
+      return next;
+    });
+    setUndo(null);
+  };
+
+  const toggleDone = (item: WeekItem) => {
+    const nowDone = !item.done;
+    if (nowDone) trackAction("done", item);
+    setPlanProgress(setDayDone(item.dayKey, nowDone));
+  };
   const [answers, setAnswers] = useState<Record<string, AnswerState>>({});
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
   // /my-week?day=2026-11-09 (Home's day strip) opens at that day, once its section exists.
@@ -68,7 +132,8 @@ const MyWeekPage = () => {
   const todayKey = days[0]?.dayKey ?? "";
   const tomorrowKey = days[1]?.dayKey ?? "";
   const failed = Object.keys(errors).map((source) => ERROR_LABELS[source] ?? source);
-  const isEmpty = !loading && later.length === 0 && days.every((day) => day.items.length === 0);
+  const isEmpty =
+    !loading && !suggestions.loading && later.length === 0 && days.every((day) => day.items.length === 0);
 
   const answerInvite = useCallback(async (item: WeekItem, action: "accept" | "decline") => {
     const token = inviteToken(item);
@@ -128,7 +193,101 @@ const MyWeekPage = () => {
     );
   };
 
+  // Workouts and videos: a compact row rather than a card.
+  const renderOffCourt = (item: WeekItem) => {
+    const color = WEEK_TYPE_COLORS[item.type];
+    const Icon = item.type === "watch" ? PlayCircle : Dumbbell;
+    return (
+      <li key={item.id} className={`my-week__row${item.done ? " is-done" : ""}`} style={{ background: color.soft }}>
+        <Icon size={18} aria-hidden="true" style={{ color: color.solid }} />
+        <button
+          type="button"
+          className="my-week__row-copy"
+          onClick={() => {
+            if (!item.href) return;
+            if (item.type === "watch") {
+              trackAction("watch", item);
+              window.open(item.href, "_blank", "noopener");
+            } else navigate(item.href);
+          }}
+        >
+          <span className="my-week__row-title">{item.title}</span>
+          {item.subtitle ? <span className="my-week__row-sub">{item.subtitle}</span> : null}
+        </button>
+        {item.actions.includes("start") ? (
+          <button type="button" className="my-week__btn my-week__btn--small" onClick={() => setPlanProgress(startPlan())}>
+            Start plan
+          </button>
+        ) : null}
+        {item.actions.includes("done") ? (
+          <button
+            type="button"
+            className={`my-week__tick${item.done ? " is-on" : ""}`}
+            aria-pressed={Boolean(item.done)}
+            aria-label={item.done ? "Done. Tap to undo" : "Mark done"}
+            onClick={() => toggleDone(item)}
+          >
+            <Check size={16} aria-hidden="true" />
+          </button>
+        ) : null}
+        {item.actions.includes("skip") ? (
+          <button type="button" className="my-week__skip" onClick={() => skip(item)}>
+            Skip
+          </button>
+        ) : null}
+      </li>
+    );
+  };
+
+  const renderSuggestion = (item: WeekItem) => {
+    if (item.type === "workout" || item.type === "watch") return renderOffCourt(item);
+    const color = WEEK_TYPE_COLORS[item.type];
+    const main: MyWeekTrackedAction | null = item.actions.includes("join") ? "join" : item.actions.includes("book") ? "book" : null;
+    return (
+      <li
+        key={item.id}
+        className="my-week__card is-suggested"
+        style={{ borderColor: color.solid, borderLeftColor: color.solid, background: color.soft }}
+      >
+        <div className="my-week__time">
+          <Clock size={14} aria-hidden="true" />
+          {timeLabel(item)}
+        </div>
+        <div className="my-week__body">
+          <span className="my-week__title">{item.title}</span>
+          {item.subtitle ? <span className="my-week__subtitle">{item.subtitle}</span> : null}
+          {item.reason ? <span className="my-week__hint">{item.reason}</span> : null}
+          {item.people.length ? (
+            <div className="my-week__people">
+              {item.people.slice(0, 4).map((person) => (
+                <Avatar key={`s-${person.id ?? person.name}`} person={person} />
+              ))}
+            </div>
+          ) : null}
+          <div className="my-week__actions">
+            {main && item.href ? (
+              <button
+                type="button"
+                className="my-week__btn my-week__btn--primary my-week__btn--small"
+                onClick={() => {
+                  trackAction(main, item);
+                  navigate(item.href as string);
+                }}
+              >
+                {main === "join" ? "Join" : "Book"}
+              </button>
+            ) : null}
+            <button type="button" className="my-week__btn my-week__btn--small" onClick={() => skip(item)}>
+              Skip
+            </button>
+          </div>
+        </div>
+      </li>
+    );
+  };
+
   const renderCard = ({ item, waiting }: WeekCard) => {
+    if (item.state === "suggested") return renderSuggestion(item);
     const opensOnTap = item.source !== "invite" && Boolean(item.href);
     return (
       <li
@@ -307,6 +466,14 @@ const MyWeekPage = () => {
           Past
           <ChevronRight size={16} aria-hidden="true" />
         </Link>
+        {undo ? (
+          <div className="my-week__toast" role="status">
+            <span>Skipped</span>
+            <button type="button" onClick={undoSkip}>
+              Undo
+            </button>
+          </div>
+        ) : null}
       </main>
     </MainLayout>
   );
