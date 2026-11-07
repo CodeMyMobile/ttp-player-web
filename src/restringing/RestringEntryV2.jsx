@@ -84,12 +84,12 @@ export default function RestringEntryV2({ tiers, orders, isAuthenticated, orders
 
       <div className="rsx-choices">
         <button type="button" className="rsx-choice" onClick={onKnow}>
-          <span className="rsx-choice__icon rsx-choice__icon--purple"><Target size={22} aria-hidden="true" /></span>
+          <span className="rsx-icon"><Target size={22} aria-hidden="true" /></span>
           <b>I know what I want</b>
           <small>Pick your string from what’s in stock</small>
         </button>
         <button type="button" className="rsx-choice" onClick={onHelp}>
-          <span className="rsx-choice__icon rsx-choice__icon--amber"><Lightbulb size={22} aria-hidden="true" /></span>
+          <span className="rsx-icon"><Lightbulb size={22} aria-hidden="true" /></span>
           <b>Help me choose</b>
           <small>4 quick questions</small>
         </button>
@@ -135,7 +135,7 @@ export default function RestringEntryV2({ tiers, orders, isAuthenticated, orders
       </section>
 
       <button type="button" className="rsx-orders" onClick={onOrders}>
-        <ClipboardList size={18} aria-hidden="true" />
+        <span className="rsx-icon"><ClipboardList size={20} aria-hidden="true" /></span>
         <span className="rsx-orders__text">
           <b>My orders</b>
           <small>{isAuthenticated ? ordersLine : "Sign in to see your restrings"}</small>

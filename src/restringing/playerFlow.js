@@ -30,6 +30,10 @@ export const categoryLabel = (category) => ({
   prem_multi: "Premium Multifilament",
   std_poly: "Standard Polyester",
   prem_poly: "Premium Polyester",
+  // The hybrid and natural gut services' string categories (ttp-api admin_restringing.js).
+  poly_multi: "Poly / Multi Hybrid",
+  gut_poly: "Natural Gut Hybrid",
+  nat_gut: "Natural Gut",
 }[category] || "String");
 
 const PRESET_COMPOSITIONS = new Set([

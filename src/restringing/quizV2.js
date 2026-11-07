@@ -114,6 +114,14 @@ export function tensionFor(category, { arm } = {}) {
   return arm === "yes" || arm === "sometimes" ? base - 2 : base;
 }
 
+// The quiz names the hybrid and natural gut services by composition; in production they're
+// string categories with stocked strings (ttp-api admin_restringing.js). Either matches.
+const CATEGORY_ALIASES = {
+  poly_multi_hybrid: "poly_multi",
+  natural_gut_hybrid: "gut_poly",
+  natural_gut: "nat_gut",
+};
+
 const labelFor = (category) =>
   ["poly_multi_hybrid", "natural_gut_hybrid", "natural_gut"].includes(category)
     ? serviceCompositionLabel(category)
@@ -124,15 +132,16 @@ const labelFor = (category) =>
  * services have none; the shop picks). Null when the shop can't do that category.
  */
 function optionFor(category, tiers, catalog) {
+  const codes = [category, CATEGORY_ALIASES[category]].filter(Boolean);
   const tier = (Array.isArray(tiers) ? tiers : []).find((row) =>
-    row.string_category === category || row.string_composition === category,
+    codes.includes(row.string_category) || row.string_composition === category,
   );
   if (!tier) return null;
   if (tier.string_composition) {
     return { category, label: labelFor(category), tierId: tier.id, priceCents: Number(tier.price_cents) || 0, kind: "preset", string: null };
   }
   const string = (Array.isArray(catalog) ? catalog : [])
-    .filter((row) => row && row.category === category && row.in_stock !== false)
+    .filter((row) => row && row.category === tier.string_category && row.in_stock !== false)
     .sort((left, right) => `${left.brand} ${left.name}`.localeCompare(`${right.brand} ${right.name}`))[0];
   if (!string) return null;
   return { category, label: labelFor(category), tierId: tier.id, priceCents: Number(tier.price_cents) || 0, kind: "string", string };

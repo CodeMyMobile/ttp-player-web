@@ -1373,7 +1373,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
       {showTabBar ? <MobileHomeBottomNav /> : null}
       <style>{`
         .restring-page{background:#f4f5f7;min-height:100vh}
-        .rsg-shell{max-width:760px;margin:0 auto;padding:18px 16px 96px;color:#111827;font-family:Inter,system-ui,sans-serif}.rsg-shell--wide{max-width:1080px;width:100%;box-sizing:border-box}
+        .rsg-shell{max-width:760px;margin:0 auto;padding:18px 16px 96px;color:var(--coach-color-heading);font-family:inherit}.rsg-shell--wide{max-width:1080px;width:100%;box-sizing:border-box}
         .rsg-mobile-only{display:none}
         @keyframes rsg-spin{to{transform:rotate(360deg)}}.rsg-spin{animation:rsg-spin .9s linear infinite}
         @media (max-width:820px){

@@ -11,6 +11,12 @@
   /* Brand primary — single source of truth for app purple. See CLAUDE.md. */
   --color-primary: #8b5cf6;
   --color-primary-dark: #7c3aed;
+  /* theme.ts accentPurpleLight / accentPurpleBorder: selected options, icon tiles. */
+  --color-primary-tint: #f4ebff;
+  --color-primary-border: #d6bbfb;
+  /* theme.ts featuredBg / featuredText: cautions (e.g. "avoid polyester while sore"). */
+  --color-warning-bg: #fef0c7;
+  --color-warning-text: #b54708;
 
   /* Muted glyph color for credibility-line + distance icons (search card + profile hero).
      EXPERIMENT: subtle desaturated purple. Revert to #98a2b3 (gray) if it reads busy. */

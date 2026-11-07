@@ -1,43 +1,45 @@
-/* "Help me choose" (RestringQuizV2): the questions and the result. */
+/* "Help me choose" (RestringQuizV2): the questions and the result. Colours are the app's
+   tokens (index.css :root, mirroring src/lib/theme.ts); weights follow theme.typography; the
+   font is inherited. */
 .rsq {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 12px;
-  font-family: Inter, system-ui, sans-serif;
 }
 
 .rsq h1 {
   margin: 0;
-  color: #101828;
+  color: var(--coach-color-heading);
   font-size: 26px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   overflow-wrap: anywhere;
 }
 
+/* Progress: the New match primary. */
 .rsq-progress {
   height: 6px;
   overflow: hidden;
   border-radius: 9999px;
-  background: #eaecf0;
+  background: var(--coach-color-highlight-border);
 }
 
 .rsq-progress span {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  background: var(--color-primary);
 }
 
 .rsq-step {
-  color: #667085;
+  color: var(--coach-color-subtle);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .rsq-note {
   margin: 0;
-  color: #667085;
+  color: var(--coach-color-subtle);
   font-size: 14px;
 }
 
@@ -53,12 +55,16 @@
   justify-content: space-between;
   gap: 12px;
   padding: 12px 16px;
-  border: 1px solid #e4e7ec;
+  border: 1px solid var(--coach-color-border);
   border-radius: 14px;
-  background: #fff;
-  color: #101828;
+  background: var(--coach-color-surface);
+  color: var(--coach-color-heading);
   text-align: left;
   cursor: pointer;
+}
+
+.rsq-option:hover {
+  border-color: var(--color-primary-border);
 }
 
 .rsq-option span {
@@ -68,29 +74,30 @@
 
 .rsq-option b {
   font-size: 16px;
+  font-weight: 700;
 }
 
 .rsq-option small {
-  color: #667085;
+  color: var(--coach-color-subtle);
   font-size: 13px;
 }
 
 .rsq-option > svg {
   flex-shrink: 0;
-  color: #98a2b3;
+  color: var(--coach-color-muted);
 }
 
 .rsq-option.is-selected {
-  border-color: #8b5cf6;
-  background: #f5f3ff;
+  border-color: var(--color-primary);
+  background: var(--color-primary-tint);
 }
 
 .rsq-option.is-selected > svg {
-  color: #7c3aed;
+  color: var(--color-primary);
 }
 
 .rsq-option:focus-visible {
-  outline: 2px solid #8b5cf6;
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
@@ -99,10 +106,9 @@
   display: grid;
   gap: 8px;
   padding: 18px;
-  border: 1px solid #ddd6fe;
-  border-radius: 18px;
-  background: #fff;
-  box-shadow: 0 8px 24px rgba(91, 33, 182, 0.08);
+  border: 1px solid var(--color-primary-border);
+  border-radius: 16px;
+  background: var(--coach-color-surface);
 }
 
 .rsq-pill {
@@ -112,16 +118,16 @@
   gap: 5px;
   padding: 4px 10px;
   border-radius: 9999px;
-  background: #ede9fe;
-  color: #6d28d9;
+  background: var(--color-primary-tint);
+  color: var(--color-primary-dark);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
 }
 
 .rsq-pick__meta {
-  color: #475467;
+  color: var(--coach-color-body);
   font-size: 14.5px;
 }
 
@@ -136,14 +142,14 @@
 .rsq-reasons li {
   display: flex;
   gap: 8px;
-  color: #344054;
+  color: var(--coach-color-body);
   font-size: 14.5px;
 }
 
 .rsq-reasons svg {
   flex-shrink: 0;
   margin-top: 2px;
-  color: #16a34a;
+  color: var(--coach-color-success);
 }
 
 .rsq-warning {
@@ -152,8 +158,8 @@
   margin: 0;
   padding: 10px 12px;
   border-radius: 12px;
-  background: #fffaeb;
-  color: #b54708;
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
   font-size: 14px;
 }
 
@@ -162,27 +168,28 @@
   margin-top: 1px;
 }
 
+/* Choose: the New match button's primary. */
 .rsq-primary {
   min-height: 48px;
   margin-top: 6px;
   border: 0;
   border-radius: 9999px;
-  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
-  color: #fff;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  color: var(--coach-color-surface);
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 700;
   cursor: pointer;
 }
 
 .rsq-alt {
   padding: 14px 16px;
-  border: 1px solid #e4e7ec;
+  border: 1px solid var(--coach-color-border);
   border-radius: 16px;
-  background: #fff;
+  background: var(--coach-color-surface);
 }
 
 .rsq-alt__label {
-  color: #667085;
+  color: var(--coach-color-subtle);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -204,13 +211,14 @@
 }
 
 .rsq-alt__row b {
-  color: #101828;
+  color: var(--coach-color-heading);
   font-size: 15px;
+  font-weight: 700;
   overflow-wrap: anywhere;
 }
 
 .rsq-alt__row small {
-  color: #667085;
+  color: var(--coach-color-subtle);
   font-size: 13px;
 }
 
@@ -218,10 +226,10 @@
   flex-shrink: 0;
   min-height: 44px;
   padding: 0 18px;
-  border: 1px solid #c4b5fd;
+  border: 1px solid var(--color-primary-border);
   border-radius: 9999px;
-  background: #fff;
-  color: #6d28d9;
+  background: var(--coach-color-surface);
+  color: var(--color-primary-dark);
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
@@ -233,7 +241,7 @@
   padding: 0 12px;
   border: 0;
   background: none;
-  color: #7c3aed;
+  color: var(--color-primary-dark);
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;

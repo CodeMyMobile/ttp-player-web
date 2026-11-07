@@ -13,6 +13,13 @@ const CATEGORY_BLURBS = {
   natural_gut_hybrid: "Natural gut feel with polyester durability.",
   natural_gut: "The softest, most powerful string there is.",
 };
+// In production the hybrid and natural gut services are string categories, with strings the
+// shop stocks; older data has them as compositions, where the shop picks. Same copy for both.
+CATEGORY_BLURBS.poly_multi = CATEGORY_BLURBS.poly_multi_hybrid;
+CATEGORY_BLURBS.gut_poly = CATEGORY_BLURBS.natural_gut_hybrid;
+CATEGORY_BLURBS.nat_gut = CATEGORY_BLURBS.natural_gut;
+
+const GUT_AND_HYBRIDS = ["poly_multi_hybrid", "natural_gut_hybrid", "natural_gut", "poly_multi", "gut_poly", "nat_gut"];
 
 /** Filter chips, and which groups each covers. */
 export const STRING_FILTERS = [
@@ -20,11 +27,20 @@ export const STRING_FILTERS = [
   { key: "poly", label: "Polyester", categories: ["std_poly", "prem_poly"] },
   { key: "multi", label: "Multifilament", categories: ["std_multi", "prem_multi"] },
   { key: "syn", label: "Synthetic gut", categories: ["syn_gut"] },
-  { key: "gut", label: "Natural gut & hybrids", categories: ["poly_multi_hybrid", "natural_gut_hybrid", "natural_gut"] },
+  { key: "gut", label: "Natural gut & hybrids", categories: GUT_AND_HYBRIDS },
 ];
 
 // Order on the page: firmest strings first, softest last.
-const CATEGORY_ORDER = ["prem_poly", "std_poly", "prem_multi", "std_multi", "syn_gut", "poly_multi_hybrid", "natural_gut_hybrid", "natural_gut"];
+const CATEGORY_ORDER = [
+  "prem_poly", "std_poly", "prem_multi", "std_multi", "syn_gut",
+  "poly_multi", "poly_multi_hybrid", "gut_poly", "natural_gut_hybrid", "nat_gut", "natural_gut",
+];
+const orderOf = (key) => (CATEGORY_ORDER.includes(key) ? CATEGORY_ORDER.indexOf(key) : CATEGORY_ORDER.length);
+
+// A category the app has no name for still gets one: its service's name without the
+// "Restring(ing) +" prefix, rather than a bare "String".
+const groupLabel = (tier, known) =>
+  known !== "String" ? known : String(tier?.name || "").replace(/^restring(ing)?\s*\+\s*/i, "").trim() || known;
 
 const isOwnTier = (tier) => tier && tier.string_category == null && !tier.string_composition;
 
@@ -46,7 +62,7 @@ export function stringGroups(tiers, catalog) {
         key: tier.string_category,
         tierId: tier.id,
         kind: "string",
-        label: categoryLabel(tier.string_category),
+        label: groupLabel(tier, categoryLabel(tier.string_category)),
         blurb: CATEGORY_BLURBS[tier.string_category] || "",
         priceCents: Number(tier.price_cents) || 0,
         strings,
@@ -56,14 +72,17 @@ export function stringGroups(tiers, catalog) {
         key: tier.string_composition,
         tierId: tier.id,
         kind: "preset",
-        label: serviceCompositionLabel(tier.string_composition),
+        label: groupLabel(
+          tier,
+          serviceCompositionLabel(tier.string_composition) === "Included strings" ? "String" : serviceCompositionLabel(tier.string_composition),
+        ),
         blurb: CATEGORY_BLURBS[tier.string_composition] || "",
         priceCents: Number(tier.price_cents) || 0,
         strings: [],
       });
     }
   });
-  return groups.sort((left, right) => CATEGORY_ORDER.indexOf(left.key) - CATEGORY_ORDER.indexOf(right.key));
+  return groups.sort((left, right) => orderOf(left.key) - orderOf(right.key));
 }
 
 /** The labor-only service, for "Bring my own string"; null when the shop has none. */

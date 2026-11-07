@@ -1,25 +1,26 @@
-/* "I know what I want" (RestringStringPicker). */
+/* "I know what I want" (RestringStringPicker). Colours are the app's tokens (index.css :root,
+   mirroring src/lib/theme.ts); weights follow theme.typography; the font is inherited. */
 .rsp {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 14px;
-  font-family: Inter, system-ui, sans-serif;
 }
 
 .rsp-title h1 {
   margin: 0;
-  color: #101828;
+  color: var(--coach-color-heading);
   font-size: 28px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 .rsp-title p {
   margin: 4px 0 0;
-  color: #667085;
+  color: var(--coach-color-subtle);
   font-size: 14.5px;
 }
 
+/* Chips wrap onto a second line rather than run off the edge. */
 .rsp-chips {
   display: flex;
   flex-wrap: wrap;
@@ -29,31 +30,41 @@
 .rsp-chip {
   min-height: 40px;
   padding: 0 14px;
-  border: 1px solid #e4e7ec;
+  border: 1px solid var(--coach-color-border);
   border-radius: 9999px;
-  background: #fff;
-  color: #344054;
+  background: var(--coach-color-surface);
+  color: var(--coach-color-body);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
+  white-space: nowrap;
   cursor: pointer;
 }
 
+.rsp-chip:hover {
+  border-color: var(--color-primary-border);
+}
+
 .rsp-chip.is-active {
-  border-color: #8b5cf6;
-  background: #8b5cf6;
-  color: #fff;
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--coach-color-surface);
+}
+
+.rsp-chip:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
 .rsp-empty {
   margin: 0;
-  color: #667085;
+  color: var(--coach-color-subtle);
 }
 
 .rsp-group {
   overflow: hidden;
-  border: 1px solid #e4e7ec;
+  border: 1px solid var(--coach-color-border);
   border-radius: 16px;
-  background: #fff;
+  background: var(--coach-color-surface);
 }
 
 .rsp-group__head {
@@ -62,27 +73,28 @@
   justify-content: space-between;
   gap: 12px;
   padding: 14px 16px 10px;
-  background: #f9fafb;
-  border-bottom: 1px solid #eaecf0;
+  border-bottom: 1px solid var(--coach-color-highlight-border);
+  background: var(--coach-color-surface-muted);
 }
 
 .rsp-group__head h2 {
   margin: 0;
-  color: #101828;
+  color: var(--coach-color-heading);
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .rsp-group__head p {
   margin: 2px 0 0;
-  color: #667085;
+  color: var(--coach-color-subtle);
   font-size: 13px;
 }
 
 .rsp-group__head strong {
   flex-shrink: 0;
-  color: #101828;
+  color: var(--coach-color-heading);
   font-size: 16px;
+  font-weight: 700;
 }
 
 .rsp-row {
@@ -94,22 +106,22 @@
   gap: 12px;
   padding: 10px 16px;
   border: 0;
-  background: #fff;
-  color: #101828;
+  background: var(--coach-color-surface);
+  color: var(--coach-color-heading);
   text-align: left;
   cursor: pointer;
 }
 
 .rsp-row + .rsp-row {
-  border-top: 1px solid #f2f4f7;
+  border-top: 1px solid var(--coach-color-divider);
 }
 
 .rsp-row.is-picked {
-  background: #f5f3ff;
+  background: var(--color-primary-tint);
 }
 
 .rsp-row:focus-visible {
-  outline: 2px solid #8b5cf6;
+  outline: 2px solid var(--color-primary);
   outline-offset: -2px;
 }
 
@@ -126,7 +138,7 @@
 }
 
 .rsp-row__text small {
-  color: #667085;
+  color: var(--coach-color-subtle);
   font-size: 12.5px;
 }
 
@@ -137,30 +149,32 @@
   height: 24px;
   align-items: center;
   justify-content: center;
-  border: 2px solid #d0d5dd;
+  border: 2px solid var(--coach-color-border-strong);
   border-radius: 9999px;
 }
 
 .rsp-row.is-picked .rsp-row__mark {
-  border-color: #8b5cf6;
-  background: #8b5cf6;
-  color: #fff;
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--coach-color-surface);
 }
 
-/* Sticky pick + price + Continue */
+/* Sticky pick + price + Continue: exactly the list column's width. */
 .rsp-bar {
   position: sticky;
   bottom: 0;
   z-index: 5;
   display: flex;
+  box-sizing: border-box;
+  width: 100%;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin: 4px -4px 0;
+  margin: 0;
   padding: 12px 14px calc(12px + var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
-  border: 1px solid #e4e7ec;
+  border: 1px solid var(--coach-color-border);
   border-radius: 16px 16px 0 0;
-  background: #fff;
+  background: var(--coach-color-surface);
   box-shadow: 0 -8px 24px rgba(16, 24, 40, 0.08);
 }
 
@@ -172,52 +186,34 @@
 
 .rsp-bar__pick span {
   overflow: hidden;
-  color: #344054;
+  color: var(--coach-color-body);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .rsp-bar__pick strong {
-  color: #101828;
+  color: var(--coach-color-heading);
   font-size: 18px;
+  font-weight: 700;
 }
 
+/* Continue: the New match button's primary. */
 .rsp-bar__btn {
   flex-shrink: 0;
   min-height: 48px;
   padding: 0 26px;
   border: 0;
   border-radius: 9999px;
-  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
-  color: #fff;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  color: var(--coach-color-surface);
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 700;
   cursor: pointer;
 }
 
 .rsp-bar__btn:disabled {
-  background: #d0d5dd;
+  background: var(--coach-color-border-strong);
   cursor: default;
-}
-
-/* Phones: the chips swipe sideways in one row instead of wrapping to three. Only the chip
-   row scrolls; the page doesn't. */
-@media (max-width: 560px) {
-  .rsp-chips {
-    flex-wrap: nowrap;
-    margin: 0 -16px;
-    padding: 0 16px 2px;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .rsp-chips::-webkit-scrollbar {
-    display: none;
-  }
-
-  .rsp-chip {
-    flex-shrink: 0;
-  }
 }
