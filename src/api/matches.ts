@@ -87,6 +87,12 @@ export interface ListMatchesParams {
   longitude?: number;
   distance?: number;
   radius?: number;
+  /** Matches starting at or after this instant (ISO). */
+  from?: string;
+  /** Matches starting before this instant (ISO). */
+  to?: string;
+  /** false skips the per-tab counts block, which costs the API 7 extra queries. */
+  counts?: boolean;
   token?: string | null;
   signal?: AbortSignal;
 }
@@ -131,6 +137,9 @@ const buildMatchesQuery = ({
   longitude,
   distance,
   radius,
+  from,
+  to,
+  counts,
 }: ListMatchesParams): RequestQuery => {
   const query: RequestQuery = {};
 
@@ -142,6 +151,9 @@ const buildMatchesQuery = ({
   if (visibility) query.visibility = visibility;
   if (hidden !== undefined) query.hidden = hidden;
   if (hiddenOnly !== undefined) query.hiddenOnly = hiddenOnly;
+  if (from) query.from = from;
+  if (to) query.to = to;
+  if (counts === false) query.counts = 0;
 
   const includeHiddenFlag = includeHidden ?? include_hidden;
   const explicitlyFalse = include_hidden === false || include_hidden === "false" || include_hidden === 0;
