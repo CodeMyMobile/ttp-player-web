@@ -65,6 +65,7 @@ import RatingQuizPage from "./pages/RatingQuizPage";
 import SaveQuizLevelPage from "./pages/SaveQuizLevelPage";
 import PlayerCalendar from "./screens/Player/PlayerCalendar";
 import PlayPage from "./pages/PlayPage";
+import MyWeekPage from "./pages/MyWeekPage";
 import LogResultPage from "./pages/log-result";
 import ConfirmResultPage from "./pages/log-result/ConfirmResultPage";
 import MobileHomeBottomNav from "./components/MobileHomeBottomNav";
@@ -735,7 +736,7 @@ const AppRoutes = () => (
       element={<PlayerLessonDetailsPage />}
     />
     {/* With My Week on, Schedule's address forwards to My Week, so the links to it keep
-        working. Until the My Week screen ships, /my-week shows the schedule. */}
+        working. My Week's "Past" link opens the schedule on its Past tab. */}
     <Route
       path={SCHEDULE_PATH}
       element={isMyWeekEnabled() ? <Navigate to={MY_WEEK_PATH} replace /> : (
@@ -748,7 +749,15 @@ const AppRoutes = () => (
       path={MY_WEEK_PATH}
       element={isMyWeekEnabled() ? (
         <ProtectedRoute>
-          <PlayerCalendar />
+          <MyWeekPage />
+        </ProtectedRoute>
+      ) : <Navigate to={SCHEDULE_PATH} replace />}
+    />
+    <Route
+      path={`${MY_WEEK_PATH}/past`}
+      element={isMyWeekEnabled() ? (
+        <ProtectedRoute>
+          <PlayerCalendar initialSegment="past" />
         </ProtectedRoute>
       ) : <Navigate to={SCHEDULE_PATH} replace />}
     />

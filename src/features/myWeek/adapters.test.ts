@@ -7,6 +7,7 @@ import { weekDays } from "../../utils/weekDays";
 import {
   countNeedsResponse,
   groupWeek,
+  laterItems,
   leagueDueToWeekItems,
   lessonsToWeekItems,
   myMatchesToWeekItems,
@@ -166,7 +167,7 @@ const received = (overrides: Record<string, unknown> = {}) => ({
 });
 
 test("an invite this week waits for the player's yes or no, showing only the inviter's name and photo", () => {
-  const [item] = receivedInvitesToWeekItems([received()], DAYS, NOW_MS);
+  const [item] = receivedInvitesToWeekItems([received()], NOW_MS);
   assert.equal(item.id, "invite:60");
   assert.equal(item.needsResponse, true);
   assert.equal(item.reason, "Alex invited you");
@@ -175,15 +176,26 @@ test("an invite this week waits for the player's yes or no, showing only the inv
   assert.equal(item.href, "/invites/tok123");
 });
 
-test("expired invites, and invites for matches beyond the week, are left off", () => {
+test("expired invites, and invites for matches that have started, are left off", () => {
   assert.deepEqual(
     receivedInvitesToWeekItems(
-      [received({ id: 61, expires_at: at(-1) }), received({ id: 62, match: { id: 45, start_date_time: at(8 * 24) } })],
-      DAYS,
+      [received({ id: 61, expires_at: at(-1) }), received({ id: 62, match: { id: 45, start_date_time: at(-1) } })],
       NOW_MS,
     ),
     [],
   );
+});
+
+test("an invite for a match after the week goes to 'later' and still counts toward the badge", () => {
+  const items = receivedInvitesToWeekItems(
+    [received(), received({ id: 63, token: "tok999", match: { id: 48, start_date_time: at(10 * 24) } })],
+    NOW_MS,
+  );
+  const week = groupWeek(items, DAYS);
+  const later = laterItems(items, DAYS);
+  assert.deepEqual(week.flatMap((day) => day.items).map((item) => item.id), ["invite:60"]);
+  assert.deepEqual(later.map((item) => item.id), ["invite:63"]);
+  assert.equal(countNeedsResponse(week, later), 2);
 });
 
 // --- league fixtures due ------------------------------------------------------------------
@@ -245,7 +257,7 @@ test("the week groups by day, timed items first, and counts what's waiting", () 
   const items = [
     ...leagueDueToWeekItems([{ league, fixtures: [fixture()] }], ME, DAYS, []),
     ...myMatchesToWeekItems([match({ id: 47, start_date_time: "2026-11-10T20:00:00.000Z" })], ME, DAYS),
-    ...receivedInvitesToWeekItems([received()], DAYS, NOW_MS),
+    ...receivedInvitesToWeekItems([received()], NOW_MS),
   ];
   const week = groupWeek(items, DAYS);
   assert.equal(week.length, 7);
@@ -258,7 +270,7 @@ test("the week groups by day, timed items first, and counts what's waiting", () 
 
 test("duplicates drop, and an invite for a match already booked isn't shown twice", () => {
   const booked = myMatchesToWeekItems([match({ id: 44 })], ME, DAYS);
-  const invites = receivedInvitesToWeekItems([received()], DAYS, NOW_MS);
+  const invites = receivedInvitesToWeekItems([received()], NOW_MS);
   const week = groupWeek([...booked, ...booked, ...invites], DAYS);
   assert.deepEqual(week.flatMap((day) => day.items).map((item) => item.id), ["match:44"]);
 });

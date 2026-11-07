@@ -9,7 +9,7 @@ import { listInvites } from "../../services/invites";
 import { buildViewerIdentities } from "../../utils/leagueSeason";
 import { toLocalYmd } from "../../utils/dateTime";
 import { weekDays } from "../../utils/weekDays";
-import { countNeedsResponse, groupWeek } from "./adapters";
+import { countNeedsResponse, groupWeek, laterItems } from "./adapters";
 import { loadMyWeek, type MyWeekLoad } from "./loadMyWeek";
 import type { WeekDayItems, WeekItem } from "./types";
 
@@ -63,7 +63,9 @@ export interface UseMyWeek {
   /** Today and the next six days, each with its items. */
   days: WeekDayItems[];
   items: WeekItem[];
-  /** For the My Week badge: items only this player can answer. */
+  /** Invites waiting on this player for matches after the week, soonest first. */
+  later: WeekItem[];
+  /** For the My Week badge: everything only this player can answer, this week or later. */
   needsResponseCount: number;
   loading: boolean;
   /** Sources that failed; the rest of the week still shows. */
@@ -91,12 +93,17 @@ export const useMyWeek = (): UseMyWeek => {
 
   // The week rolls over at midnight; today's key keeps the grouping current between fetches.
   const todayKey = toLocalYmd(new Date());
-  const days = useMemo(() => groupWeek(data?.items ?? [], weekDays(new Date(`${todayKey}T12:00:00`))), [data, todayKey]);
+  const { days, later } = useMemo(() => {
+    const week = weekDays(new Date(`${todayKey}T12:00:00`));
+    const items = data?.items ?? [];
+    return { days: groupWeek(items, week), later: laterItems(items, week) };
+  }, [data, todayKey]);
 
   return {
     days,
     items: days.flatMap((day) => day.items),
-    needsResponseCount: countNeedsResponse(days),
+    later,
+    needsResponseCount: countNeedsResponse(days, later),
     loading,
     errors: data?.errors ?? {},
     refetch: reload,
