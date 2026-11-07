@@ -49,7 +49,7 @@ export default function HomePage() {
   const { user } = useAuth();
   const viewerId = readViewerId(user);
 
-  const { rating, ratingState, positionLabel } = useLadderStanding(viewerId);
+  const { rating, ratingState, positionLabel, ntrpLabel } = useLadderStanding(viewerId);
   // Only consulted while unranked, so it is not fetched for a rated player.
   const { declaredLevel } = useDeclaredLevel(ratingState === "rated");
   // My Week on: the week comes from My Week's shared load, shown in MyWeekCard, and the older
@@ -118,6 +118,7 @@ export default function HomePage() {
           rating={rating}
           ratingState={ratingState}
           positionLabel={positionLabel}
+          ntrpLabel={ntrpLabel}
           bookingsCount={count}
           nextBookingLabel={nextLabel}
           declaredLevel={declaredLevel}

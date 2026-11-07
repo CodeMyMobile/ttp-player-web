@@ -29,6 +29,8 @@ export interface RankingSummary {
   division_size: number;
   current_rating: number | string | null;
   matches_played: number | string;
+  /** The rating as NTRP (the ladder's conversion); null without a rating gender. */
+  calculated_ntrp?: number | string | null;
 }
 
 export interface FetchRankingsParams {

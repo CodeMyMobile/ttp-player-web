@@ -56,7 +56,7 @@ import { buildHomeAlerts, type HomeAlert } from "../utils/homeAlertStack";
 import { selectHomeInvite, type HomeInviteItem } from "../utils/homeInvite";
 import { buildCircleRows, type CircleRow } from "../utils/homeCircle";
 import { useApiRequest } from "./useApiRequest";
-import type { RatingState } from "../utils/homeTiles";
+import { ntrpEquivalentLabel, type RatingState } from "../utils/homeTiles";
 
 /** Matches the identity fallback chain used elsewhere, e.g. LeagueDetailPage.tsx:438. */
 export const readViewerId = (user: unknown): number | null => {
@@ -122,6 +122,7 @@ export function useLadderStanding(viewerId: number | null) {
     ratingState,
     rating: rating !== null && Number.isFinite(rating) ? rating : null,
     positionLabel: ladderPositionLabel(data?.rank ?? null),
+    ntrpLabel: ntrpEquivalentLabel(data?.calculated_ntrp),
   };
 }
 

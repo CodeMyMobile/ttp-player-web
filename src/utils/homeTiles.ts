@@ -99,3 +99,15 @@ export function findPlayersTilePlacement({
   if (!hasBookings) return "row";
   return ratingState === "unrated" ? "grid" : null;
 }
+
+/**
+ * "≈ NTRP 4.25" under the Tennis Plan Rating, so a 6.5 rating isn't read as a 6.5 NTRP.
+ * The API converts (rankings/me calculated_ntrp, the ladder's own conversion); null when it
+ * couldn't, e.g. no rating gender, and the tile then shows the rating alone.
+ */
+export function ntrpEquivalentLabel(value: unknown): string | null {
+  const ntrp = typeof value === "string" ? Number.parseFloat(value) : typeof value === "number" ? value : NaN;
+  if (!Number.isFinite(ntrp) || ntrp <= 0) return null;
+  const text = Number.isInteger(ntrp * 2) ? ntrp.toFixed(1) : ntrp.toFixed(2);
+  return `≈ NTRP ${text}`;
+}
