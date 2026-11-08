@@ -159,6 +159,9 @@ function buildOneItem({
   };
 }
 
+// The most rackets one order can hold; the API enforces the same limit.
+export const MAX_RACKETS = 12;
+
 export function buildCheckoutItems({
   serviceTierId,
   selectedStringId = null,
@@ -174,7 +177,7 @@ export function buildCheckoutItems({
   setupMode = "same",
   perRacketItems = [],
 }) {
-  const count = Math.max(1, Math.min(4, Number(quantity) || 1));
+  const count = Math.max(1, Math.min(MAX_RACKETS, Number(quantity) || 1));
   if (setupMode === "different" && !adviceRequested) {
     return perRacketItems.slice(0, count).map((item) => buildOneItem({
       serviceTierId,
@@ -202,6 +205,27 @@ export function buildCheckoutItems({
     racketMakeModel,
     notes: orderNotes,
   }));
+}
+
+/** The add-ons chosen at checkout ({ offerId: quantity }) as order items. Zeros are left out. */
+export function addOnCheckoutItems(quantities = {}) {
+  return Object.entries(quantities || {})
+    .map(([offerId, qty]) => ({ offerId: Number(offerId), qty: Number(qty) }))
+    .filter(({ offerId, qty }) => Number.isInteger(offerId) && offerId > 0 && Number.isInteger(qty) && qty > 0)
+    .map(({ offerId, qty }) => ({ item_type: "add_on", add_on_offer_id: offerId, item_qty: qty }));
+}
+
+const CHECKOUT_ERRORS = {
+  discount_code_invalid: "That code isn't valid at this shop.",
+  discount_code_attempts_exceeded: "Too many tries. Try again in an hour, or ask the shop.",
+  add_on_offer_not_found: "That item is no longer offered. It's been taken off your order.",
+  too_many_rackets: `One order can hold up to ${MAX_RACKETS} rackets.`,
+};
+
+/** What to tell the player when pricing or checkout fails with one of the API's codes. */
+export function checkoutErrorMessage(error, fallback = "Checkout failed.") {
+  const detail = error?.data?.detail;
+  return (typeof detail === "string" && CHECKOUT_ERRORS[detail]) || error?.message || fallback;
 }
 
 export const formatMoneyCents = (cents) =>

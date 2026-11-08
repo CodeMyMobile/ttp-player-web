@@ -38,13 +38,27 @@ export const captureVendorLead = (payload) =>
 export const listSavedPaymentMethods = () =>
   unwrap(api("/player/stripe/payment_method_list"));
 
-export const createCheckoutOrder = ({ vendorId, items, paymentMethodId = null }) =>
+// comp in the response: a discount code made the order free, so it is already paid and
+// there is no client_secret.
+export const createCheckoutOrder = ({ vendorId, items, paymentMethodId = null, discountCode = null }) =>
   unwrap(api("/player/restringing/checkout", {
     method: "POST",
     json: {
       vendor_id: vendorId,
       items,
       ...(paymentMethodId ? { payment_method_id: paymentMethodId } : {}),
+      ...(discountCode ? { discount_code: discountCode } : {}),
+    },
+  }));
+
+/** The shop's add-ons and the order priced by the API (with any discount code), before ordering. */
+export const quoteCheckout = ({ vendorId, items, discountCode = null }) =>
+  unwrap(api("/player/restringing/quote", {
+    method: "POST",
+    json: {
+      vendor_id: vendorId,
+      items,
+      ...(discountCode ? { discount_code: discountCode } : {}),
     },
   }));
 

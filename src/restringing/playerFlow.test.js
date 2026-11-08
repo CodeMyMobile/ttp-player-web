@@ -3,7 +3,10 @@ import { test } from "node:test";
 
 import * as playerFlow from "./playerFlow.js";
 import {
+  addOnCheckoutItems,
   buildCheckoutItems,
+  checkoutErrorMessage,
+  MAX_RACKETS,
   catalogGaugesForString,
   defaultGaugeForString,
   lbsToKg,
@@ -167,4 +170,23 @@ test("restringTaxCents taxes the string part of a tier at the shop's rate", () =
   assert.equal(playerFlow.restringTaxCents({ tier, vendor: { name: "No tax shop" } }), 0);
   assert.equal(playerFlow.restringTaxCents({ tier: { price_cents: 4499 }, vendor }), 0);
   assert.equal(playerFlow.restringTaxCents({ tier: null, vendor: null }), 0);
+});
+
+test("an order holds up to 12 rackets, not 4", () => {
+  const items = buildCheckoutItems({ serviceTierId: 3, selectedStringId: 9, racketMakeModel: "Wilson Blade", quantity: 9 });
+  assert.equal(items.length, 9);
+  assert.equal(buildCheckoutItems({ serviceTierId: 3, racketMakeModel: "Wilson Blade", quantity: 40 }).length, MAX_RACKETS);
+  assert.equal(MAX_RACKETS, 12);
+});
+
+test("chosen add-ons become order items, and zeros are left out", () => {
+  assert.deepEqual(addOnCheckoutItems({ 2: 3, 5: 0, x: 1 }), [{ item_type: "add_on", add_on_offer_id: 2, item_qty: 3 }]);
+  assert.deepEqual(addOnCheckoutItems(null), []);
+});
+
+test("checkout errors read as plain sentences", () => {
+  assert.equal(checkoutErrorMessage({ data: { detail: "discount_code_invalid" } }), "That code isn't valid at this shop.");
+  assert.equal(checkoutErrorMessage({ data: { detail: "too_many_rackets" } }), "One order can hold up to 12 rackets.");
+  assert.equal(checkoutErrorMessage({ message: "Network down" }), "Network down");
+  assert.equal(checkoutErrorMessage({}, "Couldn't price your order."), "Couldn't price your order.");
 });

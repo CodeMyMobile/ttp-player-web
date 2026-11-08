@@ -13,6 +13,8 @@ import {
   MapPin,
   MessageCircle,
   Minus,
+  Package,
+  Pencil,
   Phone,
   Plus,
   RefreshCw,
@@ -25,7 +27,10 @@ import MobileHomeBottomNav from "../components/MobileHomeBottomNav";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useAuthDrawer } from "../context/AuthDrawerContext.jsx";
 import {
+  addOnCheckoutItems,
   buildCheckoutItems,
+  checkoutErrorMessage,
+  MAX_RACKETS,
   catalogGaugesForString,
   categoryLabel,
   defaultGaugeForString,
@@ -49,6 +54,7 @@ import {
   cancelOrder,
   captureVendorLead,
   createCheckoutOrder,
+  quoteCheckout,
   getVendorProfile,
   listMyOrders,
   listSavedPaymentMethods,
@@ -320,6 +326,14 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   const [quizAnswers, setQuizAnswers] = useState({});
   const [quizLevel, setQuizLevel] = useState(null);
   const [quizResult, setQuizResult] = useState(null);
+  // Checkout extras: the shop's add-ons ({ offerId: quantity }), an applied discount code, and
+  // the API's price for the order as it stands (null until quoted, or signed out).
+  const [addOnQty, setAddOnQty] = useState({});
+  const [discountCode, setDiscountCode] = useState("");
+  const [codeInput, setCodeInput] = useState("");
+  const [codeError, setCodeError] = useState("");
+  const [quote, setQuote] = useState(null);
+  const [quoting, setQuoting] = useState(false);
 
   const tier = useMemo(() => tiers.find((item) => Number(item.id) === Number(tierId)) || null, [tierId, tiers]);
   const selectedString = useMemo(
@@ -333,7 +347,10 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   const needsOtherString = Boolean(tier && !isOwnTier(tier) && !isPresetCompositionTier(tier) && (stringId === "other" || catalog.length === 0));
   const subtotalCents = (Number(tier?.price_cents || 0) * quantity);
   const taxCents = restringTaxCents({ tier, quantity, vendor: selectedVendor });
-  const totalCents = subtotalCents + taxCents;
+  // The API's price once quoted (add-ons, discount and tax included); before that, the
+  // restring alone, worked out here the way the API does.
+  const pricing = quote?.pricing || null;
+  const totalCents = pricing ? Number(pricing.total_cents || 0) : subtotalCents + taxCents;
   const totalLabel = formatMoneyCents(totalCents);
 
   const go = useCallback((next) => {
@@ -800,6 +817,81 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
       : perRacketItems,
   });
 
+  // The string jobs plus any add-ons chosen at checkout.
+  const orderItems = () => [...buildItems(), ...addOnCheckoutItems(addOnQty)];
+  const checkoutItemsKey = screen === "checkout" && tier ? JSON.stringify(orderItems()) : "";
+
+  const applyDiscountCode = async () => {
+    const code = codeInput.trim();
+    if (!code || !selectedVendor) return;
+    setQuoting(true);
+    setCodeError("");
+    try {
+      const result = await quoteCheckout({ vendorId: selectedVendor.id, items: orderItems(), discountCode: code });
+      setQuote(result);
+      setDiscountCode(code);
+    } catch (err) {
+      setCodeError(checkoutErrorMessage(err, "That code couldn't be checked. Try again."));
+    } finally {
+      setQuoting(false);
+    }
+  };
+
+  const removeDiscountCode = () => {
+    setDiscountCode("");
+    setCodeInput("");
+    setCodeError("");
+  };
+
+  const changeAddOn = (offerId, delta) => {
+    setAddOnQty((current) => {
+      const next = Math.max(0, Math.min(20, Number(current[offerId] || 0) + delta));
+      return { ...current, [offerId]: next };
+    });
+  };
+
+  // Back from checkout to change the order. Any order already started for payment is
+  // dropped from the screen; a new one is made from the edited choices.
+  const editOrder = (target) => {
+    if (checkoutHandoff) {
+      checkoutHandoff.onBack?.();
+      return;
+    }
+    setCheckoutResult(null);
+    go(target);
+  };
+
+  // Price the order with the API whenever it changes at checkout: the shop's add-ons, the
+  // discount, and the total the card will be charged. Signed-out players see the restring
+  // price until they sign in, as before.
+  useEffect(() => {
+    if (!checkoutItemsKey || !isAuthenticated || !selectedVendor || checkoutResult) return undefined;
+    let cancelled = false;
+    setQuoting(true);
+    quoteCheckout({ vendorId: selectedVendor.id, items: JSON.parse(checkoutItemsKey), discountCode: discountCode || null })
+      .then((result) => {
+        if (!cancelled) setQuote(result);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        const detail = err?.data?.detail;
+        if (detail === "add_on_offer_not_found") setAddOnQty({});
+        if (detail === "discount_code_invalid" || detail === "discount_code_attempts_exceeded") {
+          setDiscountCode("");
+          setCodeError(checkoutErrorMessage(err));
+          return;
+        }
+        setQuote(null);
+        setError(checkoutErrorMessage(err, "Your order couldn't be priced. Try again."));
+      })
+      .finally(() => {
+        if (!cancelled) setQuoting(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [checkoutItemsKey, checkoutResult, discountCode, isAuthenticated, selectedVendor]);
+
   const startCheckout = async (paymentMethodId = null) => {
     if (!isAuthenticated) {
       authDrawer.openAuth({
@@ -815,11 +907,17 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     try {
       const result = await createCheckoutOrder({
         vendorId: selectedVendor.id,
-        items: buildItems(),
+        items: orderItems(),
         paymentMethodId,
+        discountCode: discountCode || null,
       });
       setCheckoutResult(result);
       setConfirmedOrder(result.order);
+      // A code made it free: it's already paid, and there's no card step.
+      if (result.comp) {
+        void refreshOrders();
+        go("confirmation");
+      }
       return result;
     } catch (err) {
       if (err?.status === 401 || err?.status === 403) {
@@ -831,7 +929,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
         });
         return;
       }
-      setError(err?.data?.detail || err.message || "Checkout failed.");
+      setError(checkoutErrorMessage(err));
       return null;
     } finally {
       setBusy(false);
@@ -1231,7 +1329,16 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
             <span className="rsg-label">How many rackets?</span>
             <div className="rsg-tiles">
               {[1, 2, 3, 4].map((count) => <TileButton key={count} active={quantity === count} onClick={() => setQuantity(count)}><small>rackets</small><b>{count}</b></TileButton>)}
+              <TileButton active={quantity > 4} onClick={() => setQuantity((current) => (current > 4 ? current : 5))}><small>rackets</small><b>5+</b></TileButton>
             </div>
+            {quantity > 4 ? (
+              <div className="rsg-count">
+                <button type="button" aria-label="One racket fewer" onClick={() => setQuantity((current) => Math.max(1, current - 1))}><Minus size={18} /></button>
+                <b aria-live="polite">{quantity} rackets</b>
+                <button type="button" aria-label="One racket more" disabled={quantity >= MAX_RACKETS} onClick={() => setQuantity((current) => Math.min(MAX_RACKETS, current + 1))}><Plus size={18} /></button>
+              </div>
+            ) : null}
+            {quantity >= MAX_RACKETS ? <p className="rsg-fine">Up to {MAX_RACKETS} rackets in one order. Place another order for more.</p> : null}
             {quantity >= 2 ? (
               <>
                 <span className="rsg-label">Setup</span>
@@ -1263,13 +1370,40 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
         {screen === "checkout" && tier ? (
           <>
             <section className="rsg-card">
-              <h1>Checkout</h1>
+              <div className="rsg-checkout-head">
+                <h1>Checkout</h1>
+                {!checkoutResult ? (
+                  <div className="rsg-edit-links">
+                    {checkoutHandoff ? (
+                      <button type="button" onClick={() => editOrder()}><Pencil size={14} aria-hidden="true" /> Edit</button>
+                    ) : (
+                      <>
+                        <button type="button" onClick={() => editOrder("config")}><Pencil size={14} aria-hidden="true" /> String</button>
+                        <button type="button" onClick={() => editOrder("rackets")}><Plus size={14} aria-hidden="true" /> Rackets</button>
+                      </>
+                    )}
+                  </div>
+                ) : null}
+              </div>
               <div className="rsg-summary">
                 <b>{tier.name} · x{quantity}</b>
                 <span>{checkoutHandoff ? checkoutHandoff.summary : adviceRequested ? "Specs decided at drop-off" : `${isPresetCompositionTier(tier) ? serviceCompositionLabel(tier.string_composition) : `${selectedStringName || "String"} · gauge ${gauge}`} · ${splitTension ? `${tension}/${crosses}` : tension} lbs`}</span>
                 <span>{selectedVendor?.name} · {selectedVendor?.address}</span>
                 {orderNotes ? <span>{orderNotes}</span> : null}
-                {taxCents > 0 ? (
+                {pricing ? (
+                  <>
+                    {(quote.items || []).filter((item) => item.add_on_offer_id).map((item) => (
+                      <span key={item.add_on_offer_id}>{item.label} ×{item.item_qty} · {formatMoneyCents(item.unit_price_cents * item.item_qty)}</span>
+                    ))}
+                    {pricing.discount_amount_cents > 0 || pricing.tax_cents > 0 || (quote.items || []).some((item) => item.add_on_offer_id) ? (
+                      <span>Subtotal · {formatMoneyCents(pricing.subtotal_cents)}</span>
+                    ) : null}
+                    {pricing.discount_amount_cents > 0 ? (
+                      <span className="rsg-discount-line">{pricing.discount_label || "Discount"} · −{formatMoneyCents(pricing.discount_amount_cents)}</span>
+                    ) : null}
+                    {pricing.tax_cents > 0 ? <span>Sales tax · {formatMoneyCents(pricing.tax_cents)}</span> : null}
+                  </>
+                ) : taxCents > 0 ? (
                   <>
                     <span>Subtotal · {formatMoneyCents(subtotalCents)}</span>
                     <span>Sales tax · {formatMoneyCents(taxCents)}</span>
@@ -1278,6 +1412,72 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
                 <strong>{totalLabel}</strong>
               </div>
             </section>
+            {isAuthenticated && !checkoutResult && quote?.add_on_offers?.length ? (
+              <section className="rsg-card">
+                <h2>Add to your order</h2>
+                <div className="rsg-addons">
+                  {quote.add_on_offers.map((offer) => {
+                    const qty = Number(addOnQty[offer.id] || 0);
+                    return (
+                      <div className="rsg-addon" key={offer.id}>
+                        {offer.image_url ? (
+                          <img className="rsg-addon__img" src={offer.image_url} alt="" />
+                        ) : (
+                          <span className="rsg-addon__img" aria-hidden="true"><Package size={20} /></span>
+                        )}
+                        <span className="rsg-addon__text">
+                          <b>{offer.name}</b>
+                          <small>
+                            {formatMoneyCents(offer.bundle_price_cents)}
+                            {offer.regular_price_cents > offer.bundle_price_cents ? <s>{formatMoneyCents(offer.regular_price_cents)}</s> : null}
+                            {" "}with your restring
+                          </small>
+                        </span>
+                        <span className="rsg-stepper">
+                          {qty > 0 ? (
+                            <>
+                              <button type="button" aria-label={`One fewer ${offer.name}`} disabled={busy} onClick={() => changeAddOn(offer.id, -1)}><Minus size={16} /></button>
+                              <b aria-live="polite">{qty}</b>
+                            </>
+                          ) : null}
+                          <button type="button" aria-label={`Add ${offer.name}`} disabled={busy || qty >= 20} onClick={() => changeAddOn(offer.id, 1)}><Plus size={16} /></button>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            ) : null}
+            {isAuthenticated && !checkoutResult ? (
+              <section className="rsg-card rsg-code">
+                {discountCode ? (
+                  <div className="rsg-code__applied">
+                    <span>
+                      <b>{pricing?.discount_label || "Discount"}</b>
+                      <small>Code {discountCode.toUpperCase()} applied{pricing?.discount_amount_cents ? ` · −${formatMoneyCents(pricing.discount_amount_cents)}` : ""}</small>
+                    </span>
+                    <button type="button" onClick={removeDiscountCode}>Remove</button>
+                  </div>
+                ) : (
+                  <>
+                    <label className="rsg-label" htmlFor="rsg-discount-code">Discount code</label>
+                    <form className="rsg-code__row" onSubmit={(event) => { event.preventDefault(); void applyDiscountCode(); }}>
+                      <input
+                        id="rsg-discount-code"
+                        value={codeInput}
+                        onChange={(event) => { setCodeInput(event.target.value); setCodeError(""); }}
+                        autoCapitalize="characters"
+                        autoComplete="off"
+                        spellCheck={false}
+                        placeholder="Enter code"
+                      />
+                      <button type="submit" disabled={!codeInput.trim() || quoting}>Apply</button>
+                    </form>
+                    {codeError ? <p className="rsg-code__error" role="alert">{codeError}</p> : null}
+                  </>
+                )}
+              </section>
+            ) : null}
             {!isAuthenticated ? (
               <section className="rsg-card">
                 <h2>Create an account to track your order</h2>
@@ -1286,7 +1486,12 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
               </section>
             ) : (
               <section className="rsg-card">
-                {!checkoutResult ? (
+                {!checkoutResult && pricing && totalCents === 0 ? (
+                  // A code made it free: nothing to pay, so no card step.
+                  <button type="button" className="rsg-primary" disabled={busy || quoting} onClick={() => void startCheckout()}>
+                    {busy ? "Placing order..." : "Place order · Free"}
+                  </button>
+                ) : !checkoutResult ? (
                   <>
                     {paymentMethodsLoading ? <p>Loading saved payment methods...</p> : null}
                     {paymentMethods.length ? (
@@ -1316,11 +1521,11 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
                       </>
                     ) : null}
                     {paymentChoice === "saved" && paymentMethods.length ? (
-                      <button type="button" className="rsg-primary" disabled={busy || !selectedPaymentMethodId} onClick={payWithSavedMethod}>
+                      <button type="button" className="rsg-primary" disabled={busy || quoting || !selectedPaymentMethodId} onClick={payWithSavedMethod}>
                         {busy ? "Processing..." : `Pay ${totalLabel}`}
                       </button>
                     ) : (
-                      <button type="button" className="rsg-primary" disabled={busy} onClick={() => void startCheckout()}>
+                      <button type="button" className="rsg-primary" disabled={busy || quoting} onClick={() => void startCheckout()}>
                         {busy ? "Preparing payment..." : "Continue to payment"}
                       </button>
                     )}
@@ -1411,6 +1616,16 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
         .rsg-profile-img{height:170px;border-radius:18px;background:linear-gradient(135deg,#ede9fe,#dcfce7);display:flex;align-items:center;justify-content:center;font-size:56px;overflow:hidden}.rsg-profile-img img{width:100%;height:100%;object-fit:cover}.rsg-rating-link{display:inline-flex;align-items:baseline;gap:8px;border:0;background:none;padding:0;margin:4px 0;color:#6d28d9;font-weight:800;text-decoration:underline}.rsg-rating-stars{font-weight:900;color:#b8860b}.rsg-reviews-card h2{margin:0}.rsg-reviews-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px}.rsg-reviews-score{display:flex;align-items:baseline;gap:8px;color:#6b7280;font-size:13px;font-weight:700}.rsg-reviews-list{display:flex;flex-direction:column}.rsg-google-review{display:flex;gap:12px;padding:14px 0;border-bottom:1px solid #f1f2f4}.rsg-google-review:last-child{border-bottom:none}.rsg-review-avatar{width:36px;height:36px;border-radius:999px;background:#ede9fe;color:#6d28d9;font-weight:900;font-size:15px;display:flex;align-items:center;justify-content:center;object-fit:cover;flex-shrink:0}.rsg-review-body{flex:1;min-width:0}.rsg-review-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px}.rsg-review-top strong{font-size:14px}.rsg-review-top span{color:#6b7280;font-size:12.5px}.rsg-review-stars{color:#e0a800;font-size:13px;letter-spacing:1px;margin:1px 0 4px}.rsg-review-stars span{color:#e1e3e8}.rsg-review-body p{font-size:13.5px;color:#374151}.rsg-google-link{font-size:12.5px;font-weight:800;color:#6d28d9;text-decoration:none;margin-top:4px;display:inline-block}.rsg-reviews-foot{display:flex;align-items:center;gap:8px;border-top:1px solid #f1f2f4;padding-top:12px;margin-top:2px;color:#6b7280;font-size:12.5px}.rsg-reviews-foot .rsg-google-link{margin-left:auto;margin-top:0}.rsg-google-logo{font-weight:900;font-size:14px;letter-spacing:0}.rsg-google-logo b{color:#4285f4}.rsg-google-logo i{color:#ea4335;font-style:normal}.rsg-google-logo u{color:#fbbc05;text-decoration:none}.rsg-google-logo i:nth-of-type(2){color:#34a853}.rsg-google-logo s{color:#ea4335;text-decoration:none}
         .rsg-racket{border:1px solid #eef2f7;border-radius:16px;padding:12px}.rsg-summary{display:grid;gap:6px}.rsg-summary span{color:#6b7280}.rsg-summary strong{font-size:24px}.rsg-payment{display:grid;gap:12px}.rsg-pay-methods{display:grid;gap:9px;margin-top:8px}.rsg-pay-method{width:100%;display:flex;align-items:center;gap:10px;text-align:left;border:1px solid #e5e7eb;background:#fff;border-radius:15px;padding:12px}.rsg-pay-method.is-active{border-color:#7c3aed;background:#f5f0ff}.rsg-pay-method span{display:grid;gap:2px}.rsg-pay-method small{color:#6b7280}.rsg-fine{font-size:12px!important;text-align:center}.rsg-alert,.rsg-error{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:14px;padding:12px;margin-bottom:12px}.rsg-done{text-align:center}.rsg-done svg{color:#059669;margin:auto}.rsg-steps p{display:flex;gap:10px}.rsg-steps b{display:inline-flex;width:26px;height:26px;border-radius:999px;align-items:center;justify-content:center;background:#ede9fe;color:#6d28d9}.rsg-order-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}.rsg-status-pill{display:inline-grid;gap:1px;border-radius:12px;background:#eef2ff;color:#4338ca;padding:6px 10px;font-weight:900;font-size:13px}.rsg-status-pill--payment{background:#ecfdf5;color:#047857}.rsg-status-pill small{color:inherit;opacity:.72;font-size:10px;text-transform:uppercase;letter-spacing:.04em}
         @media (max-width:640px){.rsg-shell{padding-inline:12px}.rsg-hero h1,.rsg-card h1{font-size:30px}.rsg-vendor,.rsg-actions,.rsg-loc{align-items:stretch;flex-direction:column}.rsg-icon-btn{width:100%}}
+        .rsg-checkout-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.rsg-checkout-head h1{margin:0}
+        .rsg-edit-links{display:flex;gap:8px}.rsg-edit-links button{display:inline-flex;align-items:center;gap:5px;min-height:36px;padding:0 12px;border:1px solid var(--color-primary-border);border-radius:9999px;background:var(--coach-color-surface);color:var(--color-primary-dark);font-size:13px;font-weight:700;cursor:pointer}
+        .rsg-discount-line{color:var(--coach-color-success)!important;font-weight:500}
+        .rsg-addons{display:grid;gap:10px;margin-top:10px}.rsg-addon{display:flex;align-items:center;gap:12px;padding:10px;border:1px solid var(--coach-color-border);border-radius:14px}
+        .rsg-addon__img{display:inline-flex;flex:0 0 48px;width:48px;height:48px;align-items:center;justify-content:center;border-radius:10px;background:var(--color-primary-tint);color:var(--color-primary);object-fit:cover}
+        .rsg-addon__text{display:flex;min-width:0;flex:1;flex-direction:column}.rsg-addon__text b{font-size:15px;overflow-wrap:break-word}.rsg-addon__text small{color:var(--coach-color-subtle);font-size:13px}.rsg-addon__text s{margin-left:6px;color:var(--coach-color-muted)}
+        .rsg-stepper,.rsg-count{display:inline-flex;align-items:center;gap:8px;flex-shrink:0}.rsg-stepper button,.rsg-count button{display:inline-flex;width:36px;height:36px;align-items:center;justify-content:center;border:1px solid var(--color-primary-border);border-radius:9999px;background:var(--coach-color-surface);color:var(--color-primary-dark);cursor:pointer}.rsg-stepper button:disabled,.rsg-count button:disabled{opacity:.45;cursor:default}.rsg-stepper b{min-width:18px;text-align:center}
+        .rsg-count{display:flex;justify-content:center;gap:16px;margin:4px 0 8px}.rsg-count b{font-size:18px}
+        .rsg-code .rsg-label{margin-top:0}.rsg-code__row{display:flex;gap:8px;margin-top:8px}.rsg-code__row input{flex:1;min-width:0;border:1px solid var(--coach-color-border);border-radius:14px;padding:12px;text-transform:uppercase}.rsg-code__row button,.rsg-code__applied button{min-height:44px;padding:0 18px;border:1px solid var(--color-primary-border);border-radius:9999px;background:var(--coach-color-surface);color:var(--color-primary-dark);font-weight:700;cursor:pointer}.rsg-code__row button:disabled{opacity:.5;cursor:default}
+        .rsg-code__error{margin:8px 0 0;color:#b91c1c;font-size:14px}.rsg-code__applied{display:flex;align-items:center;justify-content:space-between;gap:12px}.rsg-code__applied span{display:grid;gap:2px}.rsg-code__applied small{color:var(--coach-color-success)}
       `}</style>
     </div>
   );
