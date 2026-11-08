@@ -190,3 +190,14 @@ test("checkout errors read as plain sentences", () => {
   assert.equal(checkoutErrorMessage({ message: "Network down" }), "Network down");
   assert.equal(checkoutErrorMessage({}, "Couldn't price your order."), "Couldn't price your order.");
 });
+
+test("a shop-priced string costs labor plus the string, taxed on the string; otherwise the service price", () => {
+  const tier = { id: 2, price_cents: 4499, taxable_cents: 1500, string_category: "std_poly" };
+  const own = { id: 1, price_cents: 2999, taxable_cents: 0, string_category: null };
+  assert.deepEqual(playerFlow.restringUnitPrice(tier, { string_price_cents: 2200, restring_price_cents: 5199 }), { unitCents: 5199, taxableCents: 2200 });
+  assert.deepEqual(playerFlow.restringUnitPrice(tier, { string_price_cents: null, restring_price_cents: null }), { unitCents: 4499, taxableCents: 1500 });
+  assert.deepEqual(playerFlow.restringUnitPrice(tier, null), { unitCents: 4499, taxableCents: 1500 });
+  assert.deepEqual(playerFlow.restringUnitPrice(own, { string_price_cents: 2200, restring_price_cents: 5199 }), { unitCents: 2999, taxableCents: 0 });
+  assert.equal(playerFlow.restringTaxCents({ tier, quantity: 2, vendor: { tax_rate: "0.1" }, string: { string_price_cents: 2200, restring_price_cents: 5199 } }), 440);
+  assert.deepEqual(playerFlow.categoryPrice(tier, [{ string_price_cents: 2200, restring_price_cents: 5199 }, {}]), { priceCents: 4499, varies: true });
+});

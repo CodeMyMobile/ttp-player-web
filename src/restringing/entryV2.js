@@ -1,6 +1,7 @@
 // Pure helpers for the redesigned restring entry page (VITE_RESTRING_V2): the "Order again"
 // card, rebuilding an order from it, and the "Stringers near you" list.
 import { formatShopDate, formatTension, itemStringName } from "./myOrders.js";
+import { restringUnitPrice } from "./playerFlow.js";
 import { vendorOpenStatus } from "./vendorPage.js";
 
 const clean = (value) => String(value || "").trim();
@@ -29,10 +30,12 @@ export function lastRestring(orders) {
 }
 
 /**
- * What the "Order again" card shows. The price is today's price for that service, not what
- * was paid last time: that's what Reorder will charge. Null when the service no longer exists.
+ * What the "Order again" card shows. The price is today's price, not what was paid last
+ * time: that's what Reorder will charge. `catalog` is that shop's strings for the service:
+ * a string it has priced costs labor plus the string; otherwise the service's price applies.
+ * Null when the service no longer exists.
  */
-export function orderAgainCard(entry, tiers) {
+export function orderAgainCard(entry, tiers, catalog = []) {
   if (!entry) return null;
   const { order, item } = entry;
   const tier = (Array.isArray(tiers) ? tiers : []).find((row) => Number(row.id) === Number(item.service_tier_id));
@@ -45,7 +48,10 @@ export function orderAgainCard(entry, tiers) {
       : formatTension(item.tension_lbs_mains, item.tension_lbs_crosses) || "Stringer’s choice tension",
     date: formatShopDate(order.picked_up_at || order.fulfilled_at || order.created_at),
     shop: clean(order.vendor_name),
-    priceCents: Number(tier.price_cents) || 0,
+    priceCents: restringUnitPrice(
+      tier,
+      (Array.isArray(catalog) ? catalog : []).find((row) => item.string_id != null && String(row.id) === String(item.string_id)) || null,
+    ).unitCents,
     tierName: clean(tier.name),
   };
 }

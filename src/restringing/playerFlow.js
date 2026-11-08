@@ -231,13 +231,39 @@ export function checkoutErrorMessage(error, fallback = "Checkout failed.") {
 export const formatMoneyCents = (cents) =>
   `$${(Number(cents || 0) / 100).toFixed(2)}`;
 
+const centsOrNull = (value) => (value === null || value === undefined || value === "" ? null : Number(value));
+
+/**
+ * One restring's price and its taxable part, as the API prices it. A string the shop has
+ * priced costs labor plus the string (the catalog's restring_price_cents), taxed on the
+ * string only; any other restring costs its service's price, taxed on its taxable_cents.
+ */
+export function restringUnitPrice(tier, string = null) {
+  const restring = centsOrNull(string?.restring_price_cents);
+  const stringPrice = centsOrNull(string?.string_price_cents);
+  if (tier?.string_category && restring !== null && stringPrice !== null) {
+    return { unitCents: restring, taxableCents: stringPrice };
+  }
+  return {
+    unitCents: Number(tier?.price_cents) || 0,
+    taxableCents: Math.max(0, Number(tier?.taxable_cents) || 0),
+  };
+}
+
+/** The lowest price among a category's strings, and whether they differ (a "from" price). */
+export function categoryPrice(tier, strings = []) {
+  const prices = (strings.length ? strings : [null]).map((string) => restringUnitPrice(tier, string).unitCents);
+  const lowest = Math.min(...prices);
+  return { priceCents: lowest, varies: prices.some((price) => price !== lowest) };
+}
+
 // Sales tax on a restring, so the player sees what their card will be charged
 // before the order exists. The API is what prices the order; this mirrors it.
-// A tier's taxable_cents is its string (labor is not taxed), and a vendor has
-// a tax_rate only when the shop charges sales tax.
-export function restringTaxCents({ tier, quantity = 1, vendor }) {
+// Labor is not taxed, and a vendor has a tax_rate only when the shop charges
+// sales tax.
+export function restringTaxCents({ tier, quantity = 1, vendor, string = null }) {
   const count = Math.max(1, Number(quantity) || 1);
-  const taxable = Math.max(0, Number(tier?.taxable_cents) || 0) * count;
+  const taxable = restringUnitPrice(tier, string).taxableCents * count;
   return Math.round(taxable * (Number(vendor?.tax_rate) || 0));
 }
 

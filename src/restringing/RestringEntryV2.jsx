@@ -46,13 +46,40 @@ function useNearbyStringers() {
   return state;
 }
 
+// The last order's shop's strings for its service, so the Order again price includes a
+// string the shop has priced. Loading until they arrive; empty (the service's price) on error.
+function useShopStrings(entry) {
+  const vendorId = entry?.order?.vendor_id ?? null;
+  const serviceTierId = entry?.item?.service_tier_id ?? null;
+  const hasString = entry?.item?.string_id != null;
+  const [state, setState] = useState({ key: "", loading: false, catalog: [] });
+  const key = hasString && vendorId && serviceTierId ? `${vendorId}:${serviceTierId}` : "";
+  useEffect(() => {
+    if (!key) return undefined;
+    let cancelled = false;
+    setState({ key, loading: true, catalog: [] });
+    listVendorStrings({ vendorId, serviceTierId })
+      .then((data) => {
+        if (!cancelled) setState({ key, loading: false, catalog: data?.catalog || [] });
+      })
+      .catch(() => {
+        if (!cancelled) setState({ key, loading: false, catalog: [] });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [key, serviceTierId, vendorId]);
+  return state.key === key ? state : { loading: Boolean(key), catalog: [] };
+}
+
 /**
  * The redesigned restring entry (VITE_RESTRING_V2): Order again, the two ways in, Stringers
  * near you, and My orders. Choosing and paying stay in RestringingPlayerFlow.
  */
 export default function RestringEntryV2({ tiers, orders, isAuthenticated, ordersLine, busy, onKnow, onHelp, onOrders, onReorder }) {
   const entry = lastRestring(orders);
-  const card = orderAgainCard(entry, tiers);
+  const againCatalog = useShopStrings(entry);
+  const card = orderAgainCard(entry, tiers, againCatalog.catalog);
   const nearby = useNearbyStringers();
   const ownString = takesOwnString(tiers);
 
@@ -74,7 +101,7 @@ export default function RestringEntryV2({ tiers, orders, isAuthenticated, orders
             {[card.shop, card.date ? `Last strung ${card.date}` : ""].filter(Boolean).join(" · ")}
           </span>
           <div className="rsx-again__row">
-            <strong>{formatMoneyCents(card.priceCents)}</strong>
+            <strong>{againCatalog.loading ? "" : formatMoneyCents(card.priceCents)}</strong>
             <button type="button" className="rsx-again__btn" disabled={busy} onClick={() => onReorder(entry)}>
               {busy ? "Loading…" : "Reorder"}
             </button>

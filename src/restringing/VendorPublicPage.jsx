@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext.jsx";
 import { useAuthDrawer } from "../context/AuthDrawerContext.jsx";
 import RestringingPlayerFlow from "./RestringingPlayerFlow.jsx";
 import { googleMapsUriForVendor, googleReviewsForVendor, hasGoogleSummary } from "./googleReviews.js";
-import { WIZARD_QUESTIONS, formatMoneyCents, recommendStringCategory, restringTaxCents, vendorImageSrc } from "./playerFlow.js";
+import { WIZARD_QUESTIONS, formatMoneyCents, recommendStringCategory, restringTaxCents, restringUnitPrice, vendorImageSrc } from "./playerFlow.js";
 import { getVendorProfile, listServiceTiers, listVendorStrings, listVendors } from "./restringingService.js";
 import {
   STRING_CHOICE,
@@ -451,8 +451,10 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
     : decideAtDropOff
       ? "Decided at drop-off"
       : stringerChoosesTension ? "Stringer’s choice" : `${effectiveTension} lbs`;
-  const taxCents = restringTaxCents({ tier, vendor });
-  const totalLine = tier ? formatMoneyCents(Number(tier.price_cents || 0) + taxCents) : "—";
+  // A string the shop has priced costs labor plus the string; otherwise the service's price.
+  const pricedString = effectiveChoice === STRING_CHOICE.SPECIFIED ? selectedString : null;
+  const taxCents = restringTaxCents({ tier, vendor, string: pricedString });
+  const totalLine = tier ? formatMoneyCents(restringUnitPrice(tier, pricedString).unitCents + taxCents) : "—";
   const taxNote = taxCents > 0 ? `incl. ${formatMoneyCents(taxCents)} sales tax` : "";
   const turnaround = Number(vendor.turnaround_days);
   const readyLine = Number.isFinite(turnaround) && turnaround > 0
@@ -696,7 +698,9 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
                         <button key={string.id} type="button" className="vp-opt" aria-pressed={Number(selectedString?.id) === Number(string.id)} onClick={() => chooseString(string)}>
                           <span className="vp-radio" />
                           <span className="vp-opt-text"><b>{stringName(string)}</b>{gauges.length ? <small>Gauge{gauges.length === 1 ? "" : "s"} {gauges.join(", ")}</small> : null}</span>
-                          <span className="vp-pill">In stock</span>
+                          {string.restring_price_cents != null
+                            ? <span className="vp-opt-price">{formatMoneyCents(string.restring_price_cents)}</span>
+                            : <span className="vp-pill">In stock</span>}
                         </button>
                       );
                     })}

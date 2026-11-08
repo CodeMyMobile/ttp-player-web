@@ -1,6 +1,7 @@
 // Pure helpers for "I know what I want" (VITE_RESTRING_V2): the shop's in-stock strings,
-// grouped by category, each category priced at its service tier (what checkout charges).
-import { categoryLabel, serviceCompositionLabel } from "./playerFlow.js";
+// grouped by category. A string the shop has priced costs labor plus the string; the rest
+// cost their service's price (what checkout charges either way).
+import { categoryLabel, categoryPrice, restringUnitPrice, serviceCompositionLabel } from "./playerFlow.js";
 
 // One line per category. App copy: the catalog has no description of a category.
 const CATEGORY_BLURBS = {
@@ -46,8 +47,9 @@ const isOwnTier = (tier) => tier && tier.string_category == null && !tier.string
 
 /**
  * The groups to show: one per category with strings in stock at the shop, one per preset
- * (natural gut / hybrid) service, where the shop picks the strings. Each carries its tier's
- * price. Categories with nothing in stock are left out rather than shown empty.
+ * (natural gut / hybrid) service, where the shop picks the strings. Each carries its lowest
+ * price, with `varies` when its strings cost different amounts (shown as "from"), and each
+ * string its own price. Categories with nothing in stock are left out rather than shown empty.
  */
 export function stringGroups(tiers, catalog) {
   const rows = Array.isArray(catalog) ? catalog.filter((row) => row && row.in_stock !== false) : [];
@@ -56,15 +58,18 @@ export function stringGroups(tiers, catalog) {
     if (tier.string_category) {
       const strings = rows
         .filter((row) => row.category === tier.string_category)
-        .sort((left, right) => `${left.brand} ${left.name}`.localeCompare(`${right.brand} ${right.name}`));
+        .sort((left, right) => `${left.brand} ${left.name}`.localeCompare(`${right.brand} ${right.name}`))
+        .map((row) => ({ ...row, priceCents: restringUnitPrice(tier, row).unitCents }));
       if (!strings.length) return;
+      const { priceCents, varies } = categoryPrice(tier, strings);
       groups.push({
         key: tier.string_category,
         tierId: tier.id,
         kind: "string",
         label: groupLabel(tier, categoryLabel(tier.string_category)),
         blurb: CATEGORY_BLURBS[tier.string_category] || "",
-        priceCents: Number(tier.price_cents) || 0,
+        priceCents,
+        varies,
         strings,
       });
     } else if (tier.string_composition) {
@@ -78,6 +83,7 @@ export function stringGroups(tiers, catalog) {
         ),
         blurb: CATEGORY_BLURBS[tier.string_composition] || "",
         priceCents: Number(tier.price_cents) || 0,
+        varies: false,
         strings: [],
       });
     }
@@ -113,5 +119,5 @@ export function pickSummary(pick, groups, tiers) {
   if (!group) return null;
   if (pick.kind === "preset") return { title: group.label, priceCents: group.priceCents };
   const string = group.strings.find((row) => String(row.id) === String(pick.stringId));
-  return string ? { title: `${string.brand} ${string.name}`.trim(), priceCents: group.priceCents } : null;
+  return string ? { title: `${string.brand} ${string.name}`.trim(), priceCents: string.priceCents } : null;
 }
