@@ -20,6 +20,7 @@ import {
   RefreshCw,
   Star,
   Target,
+  Wallet,
 } from "lucide-react";
 import AppNav from "../components/AppNav.jsx";
 import FeatureNavBar, { FeatureNavIconButton } from "../components/FeatureNavBar";
@@ -311,6 +312,9 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState("");
   const [paymentChoice, setPaymentChoice] = useState("new");
   const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(false);
+  // Apple Pay as its own choice beside the saved cards, offered only when this device can pay
+  // with it (as on coach packages and private-lesson booking).
+  const [applePayRequest, setApplePayRequest] = useState(null);
   const restringV2 = isRestringV2Enabled();
   // Reorder: the string (and gauge) to keep when the shop's catalog for the tier loads, instead
   // of the first in the list. Read once by the catalog effect.
@@ -936,6 +940,120 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     }
   };
 
+  // Prepared ahead, so the Apple Pay sheet can open straight from the tap; its total follows
+  // the quote as add-ons and codes change.
+  const applePayAmount = screen === "checkout" && isAuthenticated && !checkoutResult ? totalCents : 0;
+  const applePayAmountRef = useRef(applePayAmount);
+  applePayAmountRef.current = applePayAmount;
+  const applePayWanted = applePayAmount > 0;
+  useEffect(() => {
+    let cancelled = false;
+    setApplePayRequest(null);
+    if (!stripePromise || !applePayWanted) return undefined;
+    (async () => {
+      const stripe = await stripePromise;
+      if (!stripe || cancelled) return;
+      const request = stripe.paymentRequest({
+        country: "US",
+        currency: "usd",
+        total: { label: "The Tennis Plan", amount: applePayAmountRef.current },
+      });
+      const canPay = await request.canMakePayment();
+      if (!cancelled && canPay?.applePay) setApplePayRequest(request);
+    })().catch(() => {
+      if (!cancelled) setApplePayRequest(null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [applePayWanted]);
+
+  useEffect(() => {
+    if (applePayRequest && applePayAmount > 0) {
+      applePayRequest.update({ total: { label: "The Tennis Plan", amount: applePayAmount } });
+    }
+  }, [applePayRequest, applePayAmount]);
+
+  useEffect(() => {
+    if (!applePayRequest && paymentChoice === "wallet") {
+      setPaymentChoice(paymentMethods.length ? "saved" : "new");
+    }
+  }, [applePayRequest, paymentChoice, paymentMethods.length]);
+
+  // The sheet gives a card; the order is made and charged with it, like a saved card.
+  const finishApplePay = async (event) => {
+    let completed = false;
+    const complete = (status) => {
+      if (completed) return;
+      completed = true;
+      event.complete(status);
+    };
+    const paymentMethodId = event.paymentMethod.id;
+    const result = await startCheckout(paymentMethodId);
+    if (result?.comp) {
+      complete("success");
+      return;
+    }
+    if (!result?.client_secret) {
+      complete("fail");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const stripe = await stripePromise;
+      if (!stripe) throw new Error("Stripe is not ready.");
+      const confirmation = await stripe.confirmCardPayment(
+        result.client_secret,
+        { payment_method: paymentMethodId },
+        { handleActions: false },
+      );
+      if (confirmation.error) {
+        complete("fail");
+        setError(confirmation.error.message || "Payment could not be completed.");
+        return;
+      }
+      complete("success");
+      // A bank that asks for an extra check gets it after the sheet closes.
+      if (confirmation.paymentIntent?.status === "requires_action") {
+        const followUp = await stripe.confirmCardPayment(result.client_secret);
+        if (followUp.error) {
+          setError(followUp.error.message || "Payment could not be completed.");
+          return;
+        }
+      }
+      setConfirmedOrder(result.order);
+      await refreshOrders();
+      go("confirmation");
+    } catch (err) {
+      complete("fail");
+      setError(err?.message || "Payment could not be completed.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Called straight from the tap: Apple Pay only opens from a user gesture.
+  const payWithApplePay = () => {
+    const request = applePayRequest;
+    if (!request || busy || quoting) return;
+    setError("");
+    const onPaymentMethod = (event) => {
+      request.off("cancel", onCancel);
+      void finishApplePay(event);
+    };
+    const onCancel = () => request.off("paymentmethod", onPaymentMethod);
+    request.once("paymentmethod", onPaymentMethod);
+    request.once("cancel", onCancel);
+    try {
+      request.show();
+    } catch {
+      request.off("paymentmethod", onPaymentMethod);
+      request.off("cancel", onCancel);
+      setError("Apple Pay couldn't open. Choose another way to pay.");
+    }
+  };
+
   const payWithSavedMethod = async () => {
     if (!selectedPaymentMethodId) {
       setError("Choose a saved payment method first.");
@@ -1494,10 +1612,20 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
                 ) : !checkoutResult ? (
                   <>
                     {paymentMethodsLoading ? <p>Loading saved payment methods...</p> : null}
-                    {paymentMethods.length ? (
+                    {paymentMethods.length || applePayRequest ? (
                       <>
                         <span className="rsg-label">Payment method</span>
                         <div className="rsg-pay-methods">
+                          {applePayRequest ? (
+                            <button
+                              type="button"
+                              className={`rsg-pay-method ${paymentChoice === "wallet" ? "is-active" : ""}`}
+                              onClick={() => setPaymentChoice("wallet")}
+                            >
+                              <Wallet size={18} />
+                              <span><b>Apple Pay</b><small>Pay with Apple Pay on this device</small></span>
+                            </button>
+                          ) : null}
                           {paymentMethods.map((method) => (
                             <button
                               key={method.id}
@@ -1520,7 +1648,11 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
                         </div>
                       </>
                     ) : null}
-                    {paymentChoice === "saved" && paymentMethods.length ? (
+                    {paymentChoice === "wallet" && applePayRequest ? (
+                      <button type="button" className="rsg-primary" disabled={busy || quoting} onClick={payWithApplePay}>
+                        {busy ? "Processing..." : `Pay ${totalLabel} with Apple Pay`}
+                      </button>
+                    ) : paymentChoice === "saved" && paymentMethods.length ? (
                       <button type="button" className="rsg-primary" disabled={busy || quoting || !selectedPaymentMethodId} onClick={payWithSavedMethod}>
                         {busy ? "Processing..." : `Pay ${totalLabel}`}
                       </button>
