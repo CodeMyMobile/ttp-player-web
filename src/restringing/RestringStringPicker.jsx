@@ -55,7 +55,7 @@ export default function RestringStringPicker({ tiers, catalog, vendor, initialPi
               <h2>{group.label}</h2>
               {group.blurb ? <p>{group.blurb}</p> : null}
             </div>
-            <strong>{formatMoneyCents(group.priceCents)}</strong>
+            <strong>{group.varies ? `from ${formatMoneyCents(group.priceCents)}` : formatMoneyCents(group.priceCents)}</strong>
           </header>
           {group.kind === "preset" ? (
             <PickRow
@@ -69,7 +69,10 @@ export default function RestringStringPicker({ tiers, catalog, vendor, initialPi
               <PickRow
                 key={string.id}
                 title={`${string.brand} ${string.name}`.trim()}
-                detail={Array.isArray(string.gauges_stocked) && string.gauges_stocked.length ? `Gauges ${string.gauges_stocked.join(", ")}` : ""}
+                detail={[
+                  group.varies ? formatMoneyCents(string.priceCents) : "",
+                  Array.isArray(string.gauges_stocked) && string.gauges_stocked.length ? `Gauges ${string.gauges_stocked.join(", ")}` : "",
+                ].filter(Boolean).join(" · ")}
                 picked={isPicked({ kind: "string", tierId: group.tierId, stringId: string.id })}
                 onPick={() => setPick({ kind: "string", tierId: group.tierId, stringId: String(string.id) })}
               />

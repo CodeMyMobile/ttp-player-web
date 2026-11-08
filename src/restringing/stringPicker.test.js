@@ -80,3 +80,20 @@ test("a category the app has no name for is named after its service, never a bar
   );
   assert.equal(groups[0].label, "Kevlar");
 });
+
+test("a category's strings carry their own prices, and the header says 'from' when they differ", () => {
+  const catalog = [
+    { id: 1, brand: "Luxilon", name: "ALU Power", category: "prem_poly", in_stock: true, string_price_cents: 2500, restring_price_cents: 5499 },
+    { id: 2, brand: "Solinco", name: "Hyper-G", category: "prem_poly", in_stock: true, string_price_cents: null, restring_price_cents: null },
+    { id: 3, brand: "Head", name: "Velocity", category: "prem_multi", in_stock: true },
+  ];
+  const groups = stringGroups(tiers, catalog);
+  const poly = groups.find((group) => group.key === "prem_poly");
+  assert.deepEqual(poly.strings.map((string) => string.priceCents), [5499, 4999]);
+  assert.equal(poly.priceCents, 4999);
+  assert.equal(poly.varies, true);
+  const multi = groups.find((group) => group.key === "prem_multi");
+  assert.equal(multi.priceCents, 4999);
+  assert.equal(multi.varies, false);
+  assert.deepEqual(pickSummary({ kind: "string", tierId: 6, stringId: "1" }, groups, tiers), { title: "Luxilon ALU Power", priceCents: 5499 });
+});

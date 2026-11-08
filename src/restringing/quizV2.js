@@ -2,7 +2,7 @@
 // one in-stock string with its reasons plus one alternative. The catalog says what category a
 // string is, not how it plays, so the reasons are about the category, and the string is the
 // shop's first in stock in that category ("Our pick").
-import { categoryLabel, serviceCompositionLabel } from "./playerFlow.js";
+import { categoryLabel, restringUnitPrice, serviceCompositionLabel } from "./playerFlow.js";
 
 export const QUIZ_QUESTIONS = [
   {
@@ -144,7 +144,7 @@ function optionFor(category, tiers, catalog) {
     .filter((row) => row && row.category === tier.string_category && row.in_stock !== false)
     .sort((left, right) => `${left.brand} ${left.name}`.localeCompare(`${right.brand} ${right.name}`))[0];
   if (!string) return null;
-  return { category, label: labelFor(category), tierId: tier.id, priceCents: Number(tier.price_cents) || 0, kind: "string", string };
+  return { category, label: labelFor(category), tierId: tier.id, priceCents: restringUnitPrice(tier, string).unitCents, kind: "string", string };
 }
 
 /**

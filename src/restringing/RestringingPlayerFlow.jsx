@@ -36,7 +36,7 @@ import {
   categoryLabel,
   defaultGaugeForString,
   formatMoneyCents,
-  restringTaxCents,
+  restringUnitPrice,
   lbsToKg,
   normalizePaymentMethods,
   recommendStringCategory,
@@ -349,8 +349,15 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     [selectedString],
   );
   const needsOtherString = Boolean(tier && !isOwnTier(tier) && !isPresetCompositionTier(tier) && (stringId === "other" || catalog.length === 0));
-  const subtotalCents = (Number(tier?.price_cents || 0) * quantity);
-  const taxCents = restringTaxCents({ tier, quantity, vendor: selectedVendor });
+  // Each racket's string: a shop-priced string sets that racket's price (labor + string).
+  const racketPrices = (setupMode === "different" && quantity >= 2 && perRacketItems.length
+    ? perRacketItems.map((item) => catalog.find((row) => String(row.id) === String(item.stringId)) || null)
+    : Array.from({ length: quantity }, () => selectedString)
+  ).map((string) => restringUnitPrice(tier, string));
+  const subtotalCents = racketPrices.reduce((sum, price) => sum + price.unitCents, 0);
+  const taxCents = Math.round(
+    racketPrices.reduce((sum, price) => sum + price.taxableCents, 0) * (Number(selectedVendor?.tax_rate) || 0),
+  );
   // The API's price once quoted (add-ons, discount and tax included); before that, the
   // restring alone, worked out here the way the API does.
   const pricing = quote?.pricing || null;
@@ -1404,6 +1411,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
                   {catalog.map((item) => (
                     <button key={item.id} type="button" className={String(stringId || catalog[0]?.id) === String(item.id) ? "is-active" : ""} onClick={() => { setStringId(String(item.id)); setGauge(defaultGaugeForString(item)); }}>
                       {item.brand} {item.name}
+                      {item.restring_price_cents != null ? ` · ${formatMoneyCents(item.restring_price_cents)}` : ""}
                     </button>
                   ))}
                   <button type="button" className={needsOtherString ? "is-active" : ""} onClick={() => setStringId("other")}>Other...</button>

@@ -126,3 +126,13 @@ test("Open now only while the shop's hours say so", () => {
   assert.deepEqual(stringerTags({ hours }, { now: new Date("2026-11-04T20:00:00Z") }), ["Open now"]);
   assert.deepEqual(stringerTags({ hours }, { now: new Date("2026-11-05T04:00:00Z") }), []);
 });
+
+test("the card's price is the shop's price for that string when it has one", () => {
+  const entry = lastRestring([order(1, "picked_up", "2026-10-20T18:00:00Z")]);
+  const stringId = entry.item.string_id;
+  const priced = [{ id: stringId, string_price_cents: 2000, restring_price_cents: 4999 + 1 }];
+  assert.equal(orderAgainCard(entry, tiers, priced).priceCents, 5000);
+  // Not priced, or another string: the service's price.
+  assert.equal(orderAgainCard(entry, tiers, [{ id: stringId, string_price_cents: null, restring_price_cents: null }]).priceCents, 4999);
+  assert.equal(orderAgainCard(entry, tiers, [{ id: -1, string_price_cents: 2000, restring_price_cents: 5000 }]).priceCents, 4999);
+});

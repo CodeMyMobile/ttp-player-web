@@ -106,3 +106,10 @@ test("the hybrid is matched as production stores it: a category with stocked str
   assert.equal(result.pick.string.id, 30);
   assert.equal(result.tensionLbs, 48);
 });
+
+test("the pick costs the shop's price for that string when it has one", () => {
+  const priced = catalog.map((row) => (row.name === "ALU Power" ? { ...row, string_price_cents: 2500, restring_price_cents: 5499 } : row));
+  const result = recommendFromQuiz({ level: "advanced", arm: "no", priority: "spin", frequency: "few" }, { tiers, catalog: priced });
+  assert.equal(result.pick.string.name, "ALU Power");
+  assert.equal(result.pick.priceCents, 5499);
+});
