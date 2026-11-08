@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildCoachInviteItems } from "./dashboardInvites.js";
+import { buildCoachInviteItems, buildPlayerInviteItems } from "./dashboardInvites.js";
 
 test("dashboard does not show a group lesson invite when current participant is confirmed", () => {
   const items = buildCoachInviteItems(
@@ -98,4 +98,17 @@ test("dashboard does not guess a pending group participant when current user ide
   );
 
   assert.deepEqual(items, []);
+});
+
+test("a match invite's location drops the street address, and the comma before it", () => {
+  const [item] = buildPlayerInviteItems([
+    {
+      id: 31,
+      token: "tok",
+      match: { id: 9, location_text: "Westchester Recreation Center Tennis Courts, 7000 W Manchester Ave, Los Angeles, CA" },
+      inviter: { full_name: "Jordan Reyes" },
+    },
+  ]);
+  assert.equal(item.locationLabel, "Westchester Recreation Center Tennis Courts");
+  assert.equal(item.senderName, "Jordan Reyes");
 });

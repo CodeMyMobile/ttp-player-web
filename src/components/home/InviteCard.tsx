@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Clock } from "lucide-react";
+import { CalendarDays, Clock, MapPin } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
   declinePromptFor,
-  inviteMetaLabel,
+  inviteDetails,
+  inviteDetailsPath,
   moreInvitesLabel,
   type HomeInviteItem,
 } from "../../utils/homeInvite";
@@ -36,7 +37,8 @@ export function InviteCard({
 
   if (!invite) return null;
 
-  const meta = inviteMetaLabel(invite);
+  const { description, when, where } = inviteDetails(invite);
+  const detailsPath = inviteDetailsPath(invite);
   const more = moreInvitesLabel(remaining);
 
   // Declining SMSes the organiser, so it must not sit one mistap from Accept.
@@ -68,9 +70,28 @@ export function InviteCard({
           )}
           <span className="home-invite__copy">
             <span className="home-invite__title">{invite.senderName} wants to play</span>
-            {meta ? <span className="home-invite__meta">{meta}</span> : null}
+            {description ? <span className="home-invite__meta">{description}</span> : null}
           </span>
         </div>
+
+        {/* When and where get a line each and may wrap: they are what the player is
+            saying yes or no to, so they must never be the part that's cut off. */}
+        {when || where ? (
+          <ul className="home-invite__details">
+            {when ? (
+              <li>
+                <CalendarDays size={14} aria-hidden="true" />
+                {when}
+              </li>
+            ) : null}
+            {where ? (
+              <li>
+                <MapPin size={14} aria-hidden="true" />
+                {where}
+              </li>
+            ) : null}
+          </ul>
+        ) : null}
 
         {confirming ? (
           // Stops a tap on the panel itself from bubbling to the card's dismiss
@@ -99,7 +120,7 @@ export function InviteCard({
             </div>
           </div>
         ) : (
-          <div className="home-invite__actions">
+          <div className={`home-invite__actions${detailsPath ? " home-invite__actions--three" : ""}`}>
             <button
               type="button"
               className="home-invite__btn home-invite__btn--primary"
@@ -108,6 +129,11 @@ export function InviteCard({
             >
               Accept
             </button>
+            {detailsPath ? (
+              <Link className="home-invite__btn home-invite__btn--ghost-outline home-invite__details-link" to={detailsPath}>
+                See details
+              </Link>
+            ) : null}
             {/* No "Propose time" — there is no endpoint for it. */}
             <button
               type="button"
