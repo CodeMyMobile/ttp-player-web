@@ -3,7 +3,8 @@ import test from "node:test";
 
 import {
   declinePromptFor,
-  inviteMetaLabel,
+  inviteDetails,
+  inviteDetailsPath,
   moreInvitesLabel,
   selectHomeInvite,
   sortInvitesBySoonest,
@@ -122,14 +123,20 @@ test("the decline prompt survives a missing sender name", () => {
   assert.ok(!/undefined/.test(declinePromptFor(invite({ senderName: undefined }))));
 });
 
-test("the meta line joins what exists and omits what doesn't", () => {
-  assert.equal(
-    inviteMetaLabel(
-      invite({ description: "4.0 Flex", whenLabel: "Sat 9 Aug, 10 AM", locationLabel: "Penmar" }),
+test("details come apart into the kind of match, when, and where", () => {
+  assert.deepEqual(
+    inviteDetails(
+      invite({ description: "Invited you to a singles match", whenLabel: "Sat Nov 8, 10:00 AM", locationLabel: " Penmar Park " }),
     ),
-    "4.0 Flex · Sat 9 Aug, 10 AM · Penmar",
+    { description: "Invited you to a singles match", when: "Sat Nov 8, 10:00 AM", where: "Penmar Park" },
   );
-  assert.equal(inviteMetaLabel(invite({ whenLabel: "Sat 9 Aug, 10 AM" })), "Sat 9 Aug, 10 AM");
-  assert.equal(inviteMetaLabel(invite()), null);
-  assert.equal(inviteMetaLabel(null), null);
+  assert.deepEqual(inviteDetails(invite({ whenLabel: "  " })), { description: null, when: null, where: null });
+  assert.deepEqual(inviteDetails(null), { description: null, when: null, where: null });
+});
+
+test("See details opens the invite page, or the match page without a token", () => {
+  assert.equal(inviteDetailsPath(invite({ token: "a1b2" })), "/i/a1b2");
+  assert.equal(inviteDetailsPath(invite({ token: null, destination: "/matches/9" })), "/matches/9");
+  assert.equal(inviteDetailsPath(invite({ token: null })), null);
+  assert.equal(inviteDetailsPath(null), null);
 });

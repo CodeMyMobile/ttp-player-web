@@ -333,6 +333,55 @@
   color: #ede9fe;
 }
 
+/* When and where: a line each, allowed to wrap, so a phone never cuts them off. */
+.home-v2 .home-invite__details {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.home-v2 .home-invite__details li {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+  overflow-wrap: anywhere;
+}
+
+.home-v2 .home-invite__details svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #ddd6fe;
+}
+
+.home-v2 .home-invite__details-link {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+/* Three buttons don't fit a 320px phone: Accept takes its own row, the others share one. */
+@media (max-width: 359px) {
+  .home-v2 .home-invite__actions--three {
+    flex-wrap: wrap;
+  }
+
+  .home-v2 .home-invite__actions--three .home-invite__btn--primary {
+    flex-basis: 100%;
+  }
+
+  .home-v2 .home-invite__actions--three .home-invite__details-link,
+  .home-v2 .home-invite__actions--three .home-invite__btn--ghost {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
 .home-v2 .home-invite__actions {
   display: flex;
   align-items: center;

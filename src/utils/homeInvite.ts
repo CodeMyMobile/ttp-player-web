@@ -95,14 +95,30 @@ export const declinePromptFor = (invite: HomeInviteItem | null): string => {
     : "Decline this match? They will be notified.";
 };
 
+/** A label worth printing: a non-blank string, trimmed. Null otherwise. */
+const labelOf = (value: unknown): string | null =>
+  typeof value === "string" && value.trim() !== "" ? value.trim() : null;
+
 /**
- * The card's sub-line: "4.0 Flex · Sat 9 Aug, 10 AM · Penmar", minus whatever is
- * missing. Null when every part is missing, so the line is omitted rather than
- * rendered as stray separators.
+ * What the card shows under the sender: the kind of match, then when and where on
+ * their own lines. They used to share one ellipsised line, which on a phone cut
+ * off the time and place, leaving Accept and Decline with nothing to decide on.
+ * Each part is null when the record didn't carry it, so the row is omitted.
  */
-export const inviteMetaLabel = (invite: HomeInviteItem | null): string | null => {
-  const parts = [invite?.description, invite?.whenLabel, invite?.locationLabel].filter(
-    (part): part is string => typeof part === "string" && part.trim() !== "",
-  );
-  return parts.length ? parts.join(" · ") : null;
+export const inviteDetails = (
+  invite: HomeInviteItem | null,
+): { description: string | null; when: string | null; where: string | null } => ({
+  description: labelOf(invite?.description),
+  when: labelOf(invite?.whenLabel),
+  where: labelOf(invite?.locationLabel),
+});
+
+/**
+ * "See details": the invite page (/i/:token), the same one the invite text links to,
+ * with the full match and its own Accept and Decline. Without a token, the match page.
+ */
+export const inviteDetailsPath = (invite: HomeInviteItem | null): string | null => {
+  const token = labelOf(invite?.token);
+  if (token) return `/i/${encodeURIComponent(token)}`;
+  return labelOf(invite?.destination);
 };

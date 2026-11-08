@@ -38,7 +38,9 @@ const formatDisplayLocation = (value) => {
     return label.split(",")[0]?.trim() || label;
   }
 
-  const trimmedName = label.replace(/\s+\d{1,6}\b.*$/, "").trim();
+  // "Westchester Rec Center, 7000 W Manchester Ave" → "Westchester Rec Center", without the
+  // comma that stood before the street number.
+  const trimmedName = label.replace(/\s+\d{1,6}\b.*$/, "").replace(/[\s,]+$/, "").trim();
   if (trimmedName) return trimmedName;
 
   return label.split(",")[0]?.trim() || label;
