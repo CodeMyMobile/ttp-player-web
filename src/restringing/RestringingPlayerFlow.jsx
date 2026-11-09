@@ -59,12 +59,16 @@ import {
   quoteCheckout,
   getVendorProfile,
   listMyOrders,
+  listMyStrings,
   listSavedPaymentMethods,
   listServiceTiers,
   listVendorStrings,
   recommendStrings,
   listVendors,
+  rateMyString,
+  saveGameProfile,
 } from "./restringingService.js";
+import { ratingBody } from "./stringFeedback.js";
 import { vendorHoursSummary } from "./vendorPage.js";
 import { findVendorBySlug, vendorProfilePath } from "./vendorProfileRoutes.js";
 import MyOrdersScreen from "./MyOrdersScreen.jsx";
@@ -285,6 +289,8 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   const [orders, setOrders] = useState([]);
   const [ordersUpdatedAt, setOrdersUpdatedAt] = useState(null);
   const [ordersRefreshing, setOrdersRefreshing] = useState(false);
+  // My strings: { strings, consented, profile }, for the "How's your …?" cards and the list.
+  const [myStrings, setMyStrings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -410,18 +416,38 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   const refreshOrders = useCallback(async () => {
     if (!isAuthenticated) {
       setOrders([]);
+      setMyStrings(null);
       return;
     }
     setOrdersRefreshing(true);
+    // Strings and ratings load beside the orders; without them the page is just My orders.
+    const strings = listMyStrings().then(setMyStrings, () => setMyStrings(null));
     try {
       setOrders(await listMyOrders());
       setOrdersUpdatedAt(Date.now());
     } catch {
       setOrders([]);
     } finally {
+      await strings;
       setOrdersRefreshing(false);
     }
   }, [isAuthenticated]);
+
+  const rateString = useCallback(async (orderItemId, answers) => {
+    const row = await rateMyString(orderItemId, ratingBody(answers, { consented: Boolean(myStrings?.consented) }));
+    setMyStrings((current) => current && {
+      ...current,
+      consented: true,
+      strings: current.strings.map((item) => (item.order_item_id === orderItemId && row ? row : item)),
+    });
+    return row;
+  }, [myStrings?.consented]);
+
+  const saveProfile = useCallback(async (answers) => {
+    const profile = await saveGameProfile(answers);
+    setMyStrings((current) => current && { ...current, profile });
+    return profile;
+  }, []);
 
   const refreshPaymentMethods = useCallback(async () => {
     if (!isAuthenticated) {
@@ -802,6 +828,8 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
       setQuizIndex((index) => index + 1);
       return;
     }
+    // The answers also go on the player's profile, for string feedback. Best effort.
+    if (isAuthenticated) saveGameProfile(next).catch(() => {});
     if (!pickerShop) {
       setQuizResult(null);
       go("quizResult");
@@ -1830,6 +1858,9 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
             onBack={back}
             onCancel={async (orderId) => { await cancelOrder(orderId); await refreshOrders(); }}
             onStartNew={() => go("home")}
+            myStrings={myStrings}
+            onRateString={rateString}
+            onSaveProfile={saveProfile}
           />
         ) : null}
       </main>

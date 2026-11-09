@@ -8,7 +8,7 @@ import RestringingPlayerFlow from "./RestringingPlayerFlow.jsx";
 import { googleMapsUriForVendor, googleReviewsForVendor, hasGoogleSummary } from "./googleReviews.js";
 import { formatMoneyCents, restringTaxCents, restringUnitPrice, vendorImageSrc } from "./playerFlow.js";
 import { QUIZ_QUESTIONS } from "./quizV2.js";
-import { getVendorProfile, listServiceTiers, listVendorStrings, listVendors, recommendStrings } from "./restringingService.js";
+import { getVendorProfile, listServiceTiers, listVendorStrings, listVendors, recommendStrings, saveGameProfile } from "./restringingService.js";
 import {
   STRING_CHOICE,
   buildVendorPageCheckoutItem,
@@ -517,6 +517,8 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
   // with the alternatives offered beside it.
   const finishQuiz = async (answers) => {
     setQuizOpen(false);
+    // The answers also go on a signed-in player's profile, for string feedback. Best effort.
+    if (isAuthenticated) saveGameProfile(answers).catch(() => {});
     try {
       const result = await recommendStrings({ vendorId, answers });
       setQuizResult(result);

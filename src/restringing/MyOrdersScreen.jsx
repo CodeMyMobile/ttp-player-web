@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, MapPin, Navigation, RefreshCw, RotateCcw } from "lucide-react";
+import { ChevronLeft, MapPin, Navigation, RefreshCw, RotateCcw, Star } from "lucide-react";
 import {
   directionsUrl,
   displayAddress,
@@ -18,6 +18,21 @@ import {
   updatedLabel,
   usualSetup,
 } from "./myOrders.js";
+import {
+  AGAIN_OPTIONS,
+  ARM_OPTIONS,
+  COMMENT_MAX_LENGTH,
+  CONSENT_LINE,
+  FEEL_OPTIONS,
+  TRAIT_KEYS,
+  TRAIT_OPTIONS,
+  nextGameQuestion,
+  ratingCards,
+  setupLine,
+  setupName,
+  starsLabel,
+  startingAnswers,
+} from "./stringFeedback.js";
 import { vendorOpenStatus } from "./vendorPage.js";
 import { vendorSlug } from "./vendorProfileRoutes.js";
 import "./MyOrdersScreen.css";
@@ -223,6 +238,193 @@ function ShopCard({ order }) {
   );
 }
 
+// ----- How the strings felt -----
+
+function Stars({ value, onChange, size = 30 }) {
+  return (
+    <div className="mo-stars" role="radiogroup" aria-label="Overall rating">
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button
+          key={n}
+          type="button"
+          role="radio"
+          aria-checked={value === n}
+          aria-label={`${n} star${n === 1 ? "" : "s"}`}
+          className={n <= value ? "is-on" : ""}
+          onClick={() => onChange(n)}
+        >
+          <Star size={size} />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Choices({ label, options, value, onChange }) {
+  return (
+    <div className="mo-choice">
+      <span className="mo-choice-label">{label}</span>
+      <div className="mo-opts" role="group" aria-label={label}>
+        {options.map((option) => (
+          <button
+            key={String(option.value)}
+            type="button"
+            aria-pressed={value === option.value}
+            onClick={() => onChange(value === option.value ? null : option.value)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Stars first; the rest appear once there's a rating, and are all optional.
+function RatingForm({ row, consented, onSave, onDone }) {
+  const [answers, setAnswers] = useState(() => startingAnswers(row));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const set = (key) => (value) => setAnswers((current) => ({ ...current, [key]: value }));
+
+  const save = async () => {
+    setSaving(true);
+    setError("");
+    try {
+      await onSave(row.order_item_id, answers);
+      onDone?.();
+    } catch {
+      setError("Couldn’t save your rating. Try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="mo-rate-form">
+      <Stars value={answers.overall} onChange={set("overall")} />
+      {answers.overall ? (
+        <>
+          <Choices label="Would you get it again?" options={AGAIN_OPTIONS} value={answers.again} onChange={set("again")} />
+          <Choices label="How does it feel?" options={FEEL_OPTIONS} value={answers.feel} onChange={set("feel")} />
+          <div className="mo-traits">
+            {TRAIT_KEYS.map((trait) => (
+              <Choices key={trait.key} label={trait.label} options={TRAIT_OPTIONS} value={answers[trait.key]} onChange={set(trait.key)} />
+            ))}
+          </div>
+          <Choices label="Any arm or elbow discomfort?" options={ARM_OPTIONS} value={answers.arm_discomfort} onChange={set("arm_discomfort")} />
+          <label className="mo-choice">
+            <span className="mo-choice-label">Anything else? <span className="mo-muted">(optional)</span></span>
+            <textarea
+              className="mo-comment"
+              rows={2}
+              maxLength={COMMENT_MAX_LENGTH}
+              value={answers.comment}
+              onChange={(event) => set("comment")(event.target.value)}
+              placeholder="Great on serves, lost tension fast…"
+            />
+          </label>
+          {error ? <p className="mo-rate-error" role="alert">{error}</p> : null}
+          <button type="button" className="mo-btn mo-btn--primary" disabled={saving} onClick={save}>
+            {saving ? "Saving…" : "Save rating"}
+          </button>
+          {!consented ? <p className="mo-fine">{CONSENT_LINE}</p> : null}
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+// After a rating: one question about their game, if there's one they haven't answered.
+function GameQuestion({ profile, onSaveProfile }) {
+  const [question] = useState(() => nextGameQuestion(profile));
+  const [answered, setAnswered] = useState(false);
+  if (!question) return null;
+  if (answered) return <p className="mo-muted">Thanks, that helps us pick strings for you.</p>;
+  return (
+    <div className="mo-game-q">
+      <Choices
+        label={`One about your game: ${question.label.charAt(0).toLowerCase()}${question.label.slice(1)}`}
+        options={question.options}
+        value={null}
+        onChange={(value) => {
+          if (!value) return;
+          setAnswered(true);
+          Promise.resolve(onSaveProfile?.({ [question.key]: value })).catch(() => {});
+        }}
+      />
+    </div>
+  );
+}
+
+function RateStringCard({ row, consented, profile, onRate, onSaveProfile }) {
+  const [done, setDone] = useState(false);
+  const line = setupLine(row);
+  const textRating = row.feedback?.answered_via === "sms" ? row.feedback.overall : null;
+  return (
+    <section className="mo-card mo-rate" aria-label={`Rate your ${setupName(row)}`}>
+      <div className="mo-rate-head">
+        <h2>{done ? "Thanks for rating" : `How’s your ${setupName(row)}?`}</h2>
+        <span className="mo-meta">{[line.title, line.when].filter(Boolean).join(" · ")}</span>
+      </div>
+      {done ? (
+        <GameQuestion profile={profile} onSaveProfile={onSaveProfile} />
+      ) : (
+        <>
+          {textRating ? <p className="mo-muted">You gave it {starsLabel(textRating)} by text. A few more taps?</p> : null}
+          <RatingForm row={row} consented={consented} onSave={onRate} onDone={() => setDone(true)} />
+        </>
+      )}
+    </section>
+  );
+}
+
+const MY_STRINGS_SHOWN = 5;
+
+function MyStringRow({ row, consented, onRate }) {
+  const [open, setOpen] = useState(false);
+  const line = setupLine(row);
+  const overall = row.feedback?.overall;
+  return (
+    <li className="mo-string">
+      <div className="mo-string-main">
+        <span className="mo-string-text">
+          <b>{setupName(row)}</b>
+          <span className="mo-meta">{[line.title, line.when].filter(Boolean).join(" · ")}</span>
+        </span>
+        {overall ? (
+          <span className="mo-string-rating" aria-label={starsLabel(overall)}><Star size={14} /> {overall}/5</span>
+        ) : row.can_rate && !open ? (
+          <button type="button" className="mo-btn mo-btn--small" onClick={() => setOpen(true)}>Rate</button>
+        ) : null}
+      </div>
+      {open && !overall ? (
+        <RatingForm row={row} consented={consented} onSave={onRate} onDone={() => setOpen(false)} />
+      ) : null}
+    </li>
+  );
+}
+
+// Every racket strung and collected, with the player's rating of it.
+function MyStringsCard({ strings, consented, onRate }) {
+  const [showAll, setShowAll] = useState(false);
+  if (!strings.length) return null;
+  const shown = showAll ? strings : strings.slice(0, MY_STRINGS_SHOWN);
+  return (
+    <section className="mo-card mo-side-card">
+      <h2>My strings</h2>
+      <ul className="mo-strings">
+        {shown.map((row) => <MyStringRow key={row.order_item_id} row={row} consented={consented} onRate={onRate} />)}
+      </ul>
+      {strings.length > MY_STRINGS_SHOWN ? (
+        <button type="button" className="mo-link mo-link--button" onClick={() => setShowAll((value) => !value)}>
+          {showAll ? "Show fewer" : `Show all ${strings.length}`}
+        </button>
+      ) : null}
+    </section>
+  );
+}
+
 // The indicator moves at half the finger's speed; release past PULL_TRIGGER to refresh.
 const PULL_TRIGGER = 56;
 const PULL_MAX = 96;
@@ -254,7 +456,18 @@ function usePullToRefresh(onRefresh, refreshing) {
   return { pull, handlers: { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel: () => { startY.current = null; setPull(0); } } };
 }
 
-export default function MyOrdersScreen({ orders, updatedAt, refreshing, onRefresh, onBack, onCancel, onStartNew }) {
+export default function MyOrdersScreen({
+  orders,
+  updatedAt,
+  refreshing,
+  onRefresh,
+  onBack,
+  onCancel,
+  onStartNew,
+  myStrings = null,
+  onRateString,
+  onSaveProfile,
+}) {
   const [tab, setTab] = useState("all");
   const { pull, handlers: pullHandlers } = usePullToRefresh(onRefresh, refreshing);
   const [now, setNow] = useState(() => Date.now());
@@ -262,6 +475,17 @@ export default function MyOrdersScreen({ orders, updatedAt, refreshing, onRefres
   const { active, past } = useMemo(() => splitOrders(rows), [rows]);
   const setup = useMemo(() => usualSetup(rows), [rows]);
   const shopOrder = setup?.order || rows[0] || null;
+  const strings = useMemo(() => (Array.isArray(myStrings?.strings) ? myStrings.strings : []), [myStrings]);
+  // Cards rated here stay, to thank the player and ask about their game, until the next visit.
+  const [ratedHere, setRatedHere] = useState(() => new Set());
+  const rateCards = useMemo(
+    () => [...ratingCards(strings), ...strings.filter((row) => ratedHere.has(row.order_item_id) && !row.to_rate)],
+    [ratedHere, strings],
+  );
+  const rateFromCard = async (orderItemId, answers) => {
+    await onRateString(orderItemId, answers);
+    setRatedHere((current) => new Set(current).add(orderItemId));
+  };
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 30_000);
@@ -318,6 +542,18 @@ export default function MyOrdersScreen({ orders, updatedAt, refreshing, onRefres
 
       <div className={`mo-layout ${tab === "all" && (showActive || showPast) ? "has-section-label" : ""}`}>
         <div className="mo-main">
+          {onRateString
+            ? rateCards.map((row) => (
+              <RateStringCard
+                key={row.order_item_id}
+                row={row}
+                consented={Boolean(myStrings?.consented)}
+                profile={myStrings?.profile}
+                onRate={rateFromCard}
+                onSaveProfile={onSaveProfile}
+              />
+            ))
+            : null}
           {showNothingActive ? (
             <section className="mo-card mo-nothing-active">
               <span className="mo-nothing-text">
@@ -353,6 +589,7 @@ export default function MyOrdersScreen({ orders, updatedAt, refreshing, onRefres
         </div>
         <aside className="mo-side">
           <UsualSetupCard setup={setup} onStartNew={onStartNew} />
+          {onRateString ? <MyStringsCard strings={strings} consented={Boolean(myStrings?.consented)} onRate={onRateString} /> : null}
           {shopOrder ? <ShopCard order={shopOrder} /> : null}
         </aside>
       </div>
