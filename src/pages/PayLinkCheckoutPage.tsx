@@ -19,12 +19,14 @@ import {
   payLinkAddOnErrorMessage,
   payLinkDiscountErrorMessage,
   payLinkItemDetail,
+  payLinkCostLines,
   payLinkItemTitle,
   removeRestringingPayLinkDiscountCode,
   setRestringingPayLinkAddOnQuantity,
   shouldShowAccountPrompt,
   type RestringingPayLinkAddOnOffer,
   type RestringingPayLinkCheckout,
+  type RestringingPayLinkItem,
   type RestringingPayLinkSummary,
 } from "../api/restringingPayLinks";
 import {
@@ -69,6 +71,7 @@ const demoSummary = (hasAccount: boolean): RestringingPayLinkSummary => ({
       tension_lbs_crosses: 52,
       advice_requested: false,
       unit_price_cents: 2999,
+      taxable_unit_cents: 0,
       item_qty: 1,
     }],
   },
@@ -105,6 +108,7 @@ const demoWithAddOn = (
       label: offer.name,
       item_qty: quantity,
       unit_price_cents: offer.bundle_price_cents,
+      taxable_unit_cents: offer.bundle_price_cents,
       add_on_offer_id: offer.id,
     });
   }
@@ -566,6 +570,12 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
 
   const renderOrderSummary = () => {
     if (!summary) return null;
+    // Labor and string for the restrings, then the other items, above the subtotal.
+    const costLines = payLinkCostLines(summary.order.items);
+    // A new racket's photo, or an add-on's product photo from the shop's offer.
+    const offerPhotos = new Map((summary.add_on_offers || []).map((offer) => [offer.id, offer.image_url || null]));
+    const itemPhoto = (item: RestringingPayLinkItem) =>
+      item.item_type === "racket" ? item.image_url || null : item.add_on_offer_id ? offerPhotos.get(item.add_on_offer_id) || null : null;
 
     return (
       <section className="pay-link-card pay-link-panel">
@@ -590,9 +600,7 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
           {summary.order.items.map((item) => (
             <div className="pay-link-item" key={item.id}>
               <div className="pay-link-item__line">
-                {item.item_type === "racket" && item.image_url ? (
-                  <img className="pay-link-item__photo" src={item.image_url} alt="" />
-                ) : null}
+                {itemPhoto(item) ? <img className="pay-link-item__photo" src={itemPhoto(item) as string} alt="" /> : null}
                 <div className="pay-link-item__text">
                   <div className="pay-link-item__name">{payLinkItemTitle(item)}</div>
                   <div className="pay-link-muted">{payLinkItemDetail(item)}</div>
@@ -626,6 +634,7 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
               const saving = offer.regular_price_cents - offer.bundle_price_cents;
               return (
                 <div className="pay-link-add-on" key={offer.id}>
+                  {offer.image_url ? <img className="pay-link-add-on__photo" src={offer.image_url} alt="" /> : null}
                   <div className="pay-link-add-on__body">
                     <span className="pay-link-add-on__eyebrow">Add to your order</span>
                     <span className="pay-link-add-on__name">{offer.name}</span>
@@ -663,6 +672,16 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
               );
             })}
             {addOnError ? <p className="pay-link-discount__error" role="alert">{addOnError}</p> : null}
+          </div>
+        ) : null}
+        {costLines.length ? (
+          <div className="pay-link-lines">
+            {costLines.map((line) => (
+              <div className="pay-link-line" key={line.label}>
+                <span>{line.label}</span>
+                <span>{line.cents === 0 && line.label.startsWith("Stringing") ? "Free" : formatPayLinkMoney(line.cents)}</span>
+              </div>
+            ))}
           </div>
         ) : null}
         <div className="pay-link-total">

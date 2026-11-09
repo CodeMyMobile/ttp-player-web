@@ -664,6 +664,16 @@
   background: var(--pay-violet-soft);
 }
 
+/* The product photo the shop added to the offer. */
+.pay-link-add-on__photo {
+  flex: 0 0 auto;
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  background: #fff;
+  object-fit: contain;
+}
+
 .pay-link-add-on__body {
   display: grid;
   flex: 1;
@@ -731,4 +741,29 @@
   min-width: 20px;
   font-weight: 800;
   text-align: center;
+}
+
+/* The invoice's lines above the subtotal: stringing, string, then other items. */
+.pay-link-lines {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--pay-line);
+}
+
+.pay-link-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.pay-link-line span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.pay-link-line span:last-child {
+  white-space: nowrap;
 }

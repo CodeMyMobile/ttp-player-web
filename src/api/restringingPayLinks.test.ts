@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  payLinkCostLines,
   addOnQuantity,
   payLinkAddOnErrorMessage,
   applyRestringingPayLinkDiscountCode,
@@ -211,4 +212,26 @@ test("addOnQuantity counts the add-on's cans on the order, and 0 when there are 
 test("payLinkAddOnErrorMessage names an ended offer, and falls back for anything else", () => {
   assert.equal(payLinkAddOnErrorMessage({ data: { detail: "add_on_offer_not_found" } }), "That offer has just ended.");
   assert.equal(payLinkAddOnErrorMessage(new Error("network")), "Your order could not be updated. Try again.");
+});
+
+test("payLinkCostLines splits the restrings into stringing and string, then lists other items", () => {
+  assert.deepEqual(
+    payLinkCostLines([
+      { id: 1, item_type: "restring", unit_price_cents: 5499, taxable_unit_cents: 2500, item_qty: 1 },
+      { id: 2, item_type: "restring", unit_price_cents: 4999, taxable_unit_cents: 2000, item_qty: 1 },
+      { id: 3, item_type: "custom", label: "Dunlop ATP (can)", add_on_offer_id: 7, unit_price_cents: 399, taxable_unit_cents: 399, item_qty: 2 },
+    ]),
+    [
+      { label: "Stringing × 2", cents: 5998 },
+      { label: "Strings × 2", cents: 4500 },
+      { label: "Dunlop ATP (can) × 2", cents: 798 },
+    ],
+  );
+  // Own string: labor only. One racket: no "× 1".
+  assert.deepEqual(
+    payLinkCostLines([{ id: 1, item_type: "restring", unit_price_cents: 2999, taxable_unit_cents: 0, item_qty: 1 }]),
+    [{ label: "Stringing", cents: 2999 }],
+  );
+  // An older API without the split: no lines rather than a guess.
+  assert.deepEqual(payLinkCostLines([{ id: 1, item_type: "restring", unit_price_cents: 4999, item_qty: 1 }]), []);
 });
