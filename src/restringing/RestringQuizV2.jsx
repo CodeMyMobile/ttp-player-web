@@ -41,12 +41,15 @@ export function RestringQuizQuestion({ index, answers, levelFromRating = null, o
   );
 }
 
-const optionTitle = (option) =>
-  option.string ? `${option.string.brand} ${option.string.name}`.trim() : `${option.label} · shop’s choice`;
+const optionTitle = (option) => `${option.string.brand} ${option.string.name}`.trim();
 
-/** The result: one string with its reasons, one alternative, and the way to every string. */
+/**
+ * The result from the recommendation engine: our pick with why it fits, up to two
+ * alternatives with how each differs from it, and the way to every string.
+ */
 export function RestringQuizResult({ result, vendor, onChoose, onSeeAll }) {
-  if (!result) {
+  const options = result?.options || [];
+  if (!options.length) {
     return (
       <section className="rsq">
         <h1>We couldn’t match a string in stock</h1>
@@ -55,38 +58,40 @@ export function RestringQuizResult({ result, vendor, onChoose, onSeeAll }) {
       </section>
     );
   }
-  const { pick, alternative, reasons, tensionLbs, warning } = result;
+  const [pick, ...alternatives] = options;
   return (
     <div className="rsq rsq-result">
       <section className="rsq-pick">
         <span className="rsq-pill"><Sparkles size={14} aria-hidden="true" /> Our pick</span>
         <h1>{optionTitle(pick)}</h1>
         <span className="rsq-pick__meta">
-          {pick.label} · {tensionLbs} lbs · {formatMoneyCents(pick.priceCents)}
+          {pick.category_label} · {pick.tension_lbs} lbs · {formatMoneyCents(pick.price_cents)}
         </span>
         <ul className="rsq-reasons">
-          {reasons.map((reason) => (
+          {pick.reasons.map((reason) => (
             <li key={reason}><Check size={16} aria-hidden="true" /> {reason}</li>
           ))}
         </ul>
-        {warning ? (
-          <p className="rsq-warning"><TriangleAlert size={16} aria-hidden="true" /> {warning}</p>
+        {result.warning ? (
+          <p className="rsq-warning"><TriangleAlert size={16} aria-hidden="true" /> {result.warning}</p>
         ) : null}
-        <button type="button" className="rsq-primary" onClick={() => onChoose(pick)}>
-          {pick.kind === "preset" ? "Choose this" : "Choose this string"}
-        </button>
+        <button type="button" className="rsq-primary" onClick={() => onChoose(pick)}>Choose this string</button>
       </section>
 
-      {alternative ? (
+      {alternatives.length ? (
         <section className="rsq-alt">
-          <span className="rsq-alt__label">Or try</span>
-          <div className="rsq-alt__row">
-            <span>
-              <b>{optionTitle(alternative)}</b>
-              <small>{alternative.label} · {formatMoneyCents(alternative.priceCents)}</small>
-            </span>
-            <button type="button" className="rsq-secondary" onClick={() => onChoose(alternative)}>Choose</button>
-          </div>
+          <span className="rsq-alt__label">Or compare</span>
+          {alternatives.map((option) => (
+            <div className="rsq-alt__row" key={option.string.id}>
+              <span>
+                <b>{optionTitle(option)}</b>
+                <small>{option.category_label} · {formatMoneyCents(option.price_cents)}</small>
+                {option.differences?.length ? <small className="rsq-alt__diff">vs our pick: {option.differences.join(" · ")}</small> : null}
+                {option.reasons?.[0] ? <small>{option.reasons[0]}</small> : null}
+              </span>
+              <button type="button" className="rsq-secondary" onClick={() => onChoose(option)}>Choose</button>
+            </div>
+          ))}
         </section>
       ) : null}
 

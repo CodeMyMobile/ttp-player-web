@@ -222,6 +222,22 @@
   font-size: 13px;
 }
 
+.rsq-alt__row + .rsq-alt__row {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--coach-color-divider);
+}
+
+.rsq-alt__row > span {
+  gap: 2px;
+}
+
+/* How an alternative differs from the pick. */
+.rsq-alt__diff {
+  color: var(--color-primary-dark) !important;
+  font-weight: 600;
+}
+
 .rsq-secondary {
   flex-shrink: 0;
   min-height: 44px;

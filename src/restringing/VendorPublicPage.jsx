@@ -6,8 +6,9 @@ import { useAuth } from "../context/AuthContext.jsx";
 import { useAuthDrawer } from "../context/AuthDrawerContext.jsx";
 import RestringingPlayerFlow from "./RestringingPlayerFlow.jsx";
 import { googleMapsUriForVendor, googleReviewsForVendor, hasGoogleSummary } from "./googleReviews.js";
-import { WIZARD_QUESTIONS, formatMoneyCents, recommendStringCategory, restringTaxCents, restringUnitPrice, vendorImageSrc } from "./playerFlow.js";
-import { getVendorProfile, listServiceTiers, listVendorStrings, listVendors } from "./restringingService.js";
+import { formatMoneyCents, restringTaxCents, restringUnitPrice, vendorImageSrc } from "./playerFlow.js";
+import { QUIZ_QUESTIONS } from "./quizV2.js";
+import { getVendorProfile, listServiceTiers, listVendorStrings, listVendors, recommendStrings } from "./restringingService.js";
 import {
   STRING_CHOICE,
   buildVendorPageCheckoutItem,
@@ -21,7 +22,6 @@ import {
   parseVendorPagePrefill,
   saveOrderDraft,
   tensionConfigForCategory,
-  tierForRecommendedCategory,
   vendorOpenStatus,
 } from "./vendorPage.js";
 import { findVendorBySlug, vendorSlug } from "./vendorProfileRoutes.js";
@@ -173,12 +173,13 @@ function ReviewsSection({ vendor }) {
   );
 }
 
-// The existing 4-question string quiz, as a modal (a bottom sheet on phones).
+// "Help me choose": the same five questions as the app and the coach app, as a modal (a
+// bottom sheet on phones). The answers go to the shared recommendation engine.
 function StringQuizSheet({ onClose, onFinish }) {
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState({});
   const sheetRef = useRef(null);
-  const question = WIZARD_QUESTIONS[index];
+  const question = QUIZ_QUESTIONS[index];
 
   useEffect(() => {
     const onKey = (event) => {
@@ -197,14 +198,14 @@ function StringQuizSheet({ onClose, onFinish }) {
     sheetRef.current?.querySelector(".vp-quiz-option")?.focus();
   }, [index]);
 
-  const answer = (option) => {
-    const next = { ...answers, [question.key]: option };
+  const answer = (value) => {
+    const next = { ...answers, [question.key]: value };
     setAnswers(next);
-    if (index + 1 < WIZARD_QUESTIONS.length) {
+    if (index + 1 < QUIZ_QUESTIONS.length) {
       setIndex(index + 1);
       return;
     }
-    onFinish(recommendStringCategory(next));
+    onFinish(next);
   };
 
   return (
@@ -221,22 +222,22 @@ function StringQuizSheet({ onClose, onFinish }) {
           {index > 0 ? (
             <button type="button" className="vp-quiz-icon" aria-label="Previous question" onClick={() => setIndex(index - 1)}><ChevronLeft size={20} /></button>
           ) : <span />}
-          <span className="vp-quiz-count">Question {index + 1} of {WIZARD_QUESTIONS.length}</span>
+          <span className="vp-quiz-count">Question {index + 1} of {QUIZ_QUESTIONS.length}</span>
           <button type="button" className="vp-quiz-icon" aria-label="Close" onClick={onClose}><X size={20} /></button>
         </div>
-        <div className="vp-quiz-progress"><span style={{ width: `${((index + 1) / WIZARD_QUESTIONS.length) * 100}%` }} /></div>
+        <div className="vp-quiz-progress"><span style={{ width: `${((index + 1) / QUIZ_QUESTIONS.length) * 100}%` }} /></div>
         <h2 id="vp-quiz-question">{question.label}</h2>
         <div className="vp-quiz-options">
           {question.options.map((option) => (
             <button
-              key={option}
+              key={option.value}
               type="button"
               className="vp-opt vp-quiz-option"
-              aria-pressed={answers[question.key] === option}
-              onClick={() => answer(option)}
+              aria-pressed={answers[question.key] === option.value}
+              onClick={() => answer(option.value)}
             >
               <span className="vp-radio" />
-              <span className="vp-opt-text"><b>{option}</b></span>
+              <span className="vp-opt-text"><b>{option.label}</b>{option.hint ? <small>{option.hint}</small> : null}</span>
             </button>
           ))}
         </div>
@@ -498,25 +499,33 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
   const presetTiers = tiers.filter((item) => !item.string_category && !isOwnStringTier(item));
   const ownTiers = tiers.filter((item) => isOwnStringTier(item));
 
-  const recommendedTierId = quizResult?.tierId ?? null;
+  const recommendedTierId = quizResult?.options?.[0]?.service_tier_id ?? null;
 
   // Quiz result: preselect the recommended tier (or the nearest this shop offers), stringer's
   // pick and the recommended tension, then send the player on to the racket field.
-  const finishQuiz = (result) => {
-    setQuizOpen(false);
-    const recommended = tierForRecommendedCategory(tiers, result.category);
-    if (!recommended) {
-      setQuizResult({ tierId: null, rationale: result.rationale, label: result.categoryLabel });
-      return;
-    }
-    chooseTier(recommended);
-    setTensionLbs(clampTension(result.tensionLbs, recommended.string_category));
+  // A recommended string: picked like one from the list, at its suggested tension.
+  const pickRecommended = (option) => {
+    const next = tiers.find((item) => Number(item.id) === Number(option.service_tier_id));
+    if (!next) return;
+    const string = catalog.rows.find((row) => Number(row.id) === Number(option.string.id)) || { ...option.string };
+    chooseString(string, next);
+    setTensionLbs(clampTension(option.tension_lbs, next.string_category));
     setStringerChoosesTension(false);
-    setQuizResult({ tierId: recommended.id, rationale: result.rationale, label: tierTitle(recommended) });
+  };
+
+  // Quiz answers go to the shared recommendation engine; its pick is selected for the player,
+  // with the alternatives offered beside it.
+  const finishQuiz = async (answers) => {
+    setQuizOpen(false);
+    try {
+      const result = await recommendStrings({ vendorId, answers });
+      setQuizResult(result);
+      if (result?.options?.[0]) pickRecommended(result.options[0]);
+    } catch {
+      setQuizResult({ options: [], warning: null });
+    }
     window.setTimeout(() => {
-      const step = document.getElementById("vp-step-racket");
-      step?.scrollIntoView({ behavior: "smooth", block: "center" });
-      step?.querySelector("input")?.focus({ preventScroll: true });
+      document.getElementById("vp-step-string")?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 0);
   };
 
@@ -660,7 +669,7 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
                 <Lightbulb size={24} aria-hidden="true" />
                 <div>
                   <b>Not sure which string you need?</b>
-                  <p className="vp-muted">Answer {WIZARD_QUESTIONS.length} quick questions and we’ll recommend a string type for your game.</p>
+                  <p className="vp-muted">Answer {QUIZ_QUESTIONS.length} quick questions and we’ll recommend a string from this shop for your game.</p>
                 </div>
                 <button type="button" className="vp-btn vp-btn--primary" onClick={() => setQuizOpen(true)}>Take the quiz</button>
               </div>
@@ -671,10 +680,21 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
                   <button type="button" className="vp-link-btn" onClick={() => setQuizOpen(true)}>Not sure? Take the quiz</button>
                 </div>
                 {quizResult ? (
-                  <p className="vp-quiz-why">
-                    {quizResult.tierId ? <b>Recommended for you: {quizResult.label}. </b> : <b>We suggest {quizResult.label}, which this shop doesn’t list. </b>}
-                    {quizResult.rationale}
-                  </p>
+                  quizResult.options?.length ? (
+                    <div className="vp-quiz-why">
+                      <p><b>Recommended for you: {stringName(quizResult.options[0].string)}.</b> {quizResult.options[0].reasons.join(" ")}</p>
+                      {quizResult.warning ? <p>{quizResult.warning}</p> : null}
+                      {quizResult.options.slice(1).map((option) => (
+                        <p key={option.string.id}>
+                          Or{" "}
+                          <button type="button" className="vp-link-btn" onClick={() => pickRecommended(option)}>{stringName(option.string)}</button>
+                          {" "}({formatMoneyCents(option.price_cents)}){option.differences?.length ? `: ${option.differences.join(" · ")}` : ""}
+                        </p>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="vp-quiz-why">We couldn’t match a string in stock for those answers. Pick one below.</p>
+                  )
                 ) : null}
                 <div className="vp-strings">
                   {stringGroups.map(({ tier: group, strings }) => (
