@@ -36,6 +36,7 @@ import {
   categoryLabel,
   defaultGaugeForString,
   formatMoneyCents,
+  restringCostSplit,
   restringUnitPrice,
   lbsToKg,
   normalizePaymentMethods,
@@ -298,6 +299,10 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   const [crossesId, setCrossesId] = useState("");
   const [crossesGauge, setCrossesGauge] = useState("");
   const [shopStrings, setShopStrings] = useState([]);
+  // The setup screen shows the chosen string, not the whole list, until the player asks to
+  // change it; a hybrid's crosses only when they ask for one.
+  const [editingString, setEditingString] = useState(false);
+  const [hybridOpen, setHybridOpen] = useState(false);
   const [otherString, setOtherString] = useState("");
   const [ownString, setOwnString] = useState("");
   const [gauge, setGauge] = useState("16");
@@ -533,6 +538,8 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   useEffect(() => {
     setCrossesId("");
     setCrossesGauge("");
+    setEditingString(false);
+    setHybridOpen(false);
   }, [tierId, stringId]);
 
   useEffect(() => {
@@ -819,6 +826,16 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     } finally {
       setBusy(false);
     }
+  };
+
+  // Change the string: back to the list it was picked from, or the shop's strings here.
+  const changeString = () => {
+    const from = history[history.length - 1];
+    if (restringV2 && (from === "strings" || from === "quizResult")) {
+      back();
+      return;
+    }
+    setEditingString(true);
   };
 
   const validateConfig = () => {
@@ -1151,6 +1168,17 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     : stringId === "other"
       ? otherString
       : ownString;
+  // Checkout's line items: what the rackets' price is for labor and for string.
+  const costSplit = restringCostSplit({ quoteItems: quote?.items || null, localPrices: racketPrices });
+  const stringLineLabel = crossesString
+    ? `${selectedStringName} / ${crossesString.brand} ${crossesString.name} (hybrid)`
+    : checkoutHandoff
+      ? "String"
+      : adviceRequested || isPresetCompositionTier(tier) || (!selectedString && !needsOtherString)
+        ? `${tier?.string_composition ? serviceCompositionLabel(tier.string_composition) : categoryLabel(tier?.string_category)} (stringer’s pick)`
+        : needsOtherString
+          ? clean(otherString) || "String"
+          : selectedStringName || "String";
 
   // ----- Phone chrome: FeatureNavBar in place of AppNav, bottom nav outside task flows -----
   const goHome = () => {
@@ -1440,6 +1468,20 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
               <p>Included strings: {serviceCompositionLabel(tier.string_composition)}. Your stringer will choose the matching setup.</p>
             ) : isOwnTier(tier) ? (
               <Field label="String you are bringing"><input value={ownString} onChange={(event) => setOwnString(event.target.value)} placeholder="Luxilon ALU Power 16L" /></Field>
+            ) : selectedString && !editingString && !needsOtherString ? (
+              <>
+                <span className="rsg-label">String</span>
+                <div className="rsg-picked">
+                  <span>
+                    <b>{selectedStringName}</b>
+                    <small>
+                      {formatMoneyCents(restringUnitPrice(tier, selectedString).unitCents)}
+                      {selectedGaugeOptions.length === 1 ? ` · gauge ${selectedGaugeOptions[0]}` : ""}
+                    </small>
+                  </span>
+                  <button type="button" className="rsg-link-btn" onClick={changeString}>Change</button>
+                </div>
+              </>
             ) : (
               <>
                 <span className="rsg-label">String</span>
@@ -1457,21 +1499,33 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
             )}
             {!isPresetCompositionTier(tier) ? (
               <>
-                <span className="rsg-label">Gauge</span>
-                <div className="rsg-tiles">
-                  {selectedGaugeOptions.map((item) => <TileButton key={item} active={gauge === item && !adviceRequested} disabled={adviceRequested} onClick={() => setGauge(item)}><small>gauge</small><b>{item}</b></TileButton>)}
-                </div>
-                {canHybrid && hybridStrings.length ? (
+                {/* One stocked gauge needs no choosing: it shows with the string above. */}
+                {selectedGaugeOptions.length > 1 || !selectedString || editingString ? (
                   <>
-                    <span className="rsg-label">Crosses (hybrid)</span>
+                    <span className="rsg-label">Gauge</span>
+                    <div className="rsg-tiles">
+                      {selectedGaugeOptions.map((item) => <TileButton key={item} active={gauge === item && !adviceRequested} disabled={adviceRequested} onClick={() => setGauge(item)}><small>gauge</small><b>{item}</b></TileButton>)}
+                    </div>
+                  </>
+                ) : null}
+                {canHybrid && hybridStrings.length && !hybridOpen && !crossesString ? (
+                  <button type="button" className="rsg-link-btn rsg-link-btn--block" onClick={() => setHybridOpen(true)}>
+                    Use a different string for the crosses (hybrid)
+                  </button>
+                ) : null}
+                {canHybrid && hybridStrings.length && (hybridOpen || crossesString) ? (
+                  <>
+                    <span className="rsg-label">Crosses string (hybrid)</span>
                     <div className="rsg-chips">
-                      <button type="button" className={!crossesString ? "is-active" : ""} onClick={() => { setCrossesId(""); setCrossesGauge(""); }}>Same as mains</button>
                       {hybridStrings.map((item) => (
                         <button key={item.id} type="button" className={String(crossesId) === String(item.id) ? "is-active" : ""} onClick={() => { setCrossesId(String(item.id)); setCrossesGauge(defaultGaugeForString(item)); }}>
                           {item.brand} {item.name}
                         </button>
                       ))}
                     </div>
+                    <button type="button" className="rsg-link-btn rsg-link-btn--block" onClick={() => { setCrossesId(""); setCrossesGauge(""); setHybridOpen(false); }}>
+                      Same string for the crosses
+                    </button>
                     {crossesString ? (
                       <>
                         <small className="rsg-hint">Hybrid: stringing plus half of each string’s price.</small>
@@ -1574,26 +1628,23 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
                 <span>{checkoutHandoff ? checkoutHandoff.summary : adviceRequested ? "Specs decided at drop-off" : `${isPresetCompositionTier(tier) ? serviceCompositionLabel(tier.string_composition) : crossesString ? `${selectedStringName} ${gauge} mains / ${crossesString.brand} ${crossesString.name} ${crossesGauge} crosses` : `${selectedStringName || "String"} · gauge ${gauge}`} · ${splitTension ? `${tension}/${crosses}` : tension} lbs`}</span>
                 <span>{selectedVendor?.name} · {selectedVendor?.address}</span>
                 {orderNotes ? <span>{orderNotes}</span> : null}
-                {pricing ? (
-                  <>
-                    {(quote.items || []).filter((item) => item.add_on_offer_id).map((item) => (
-                      <span key={item.add_on_offer_id}>{item.label} ×{item.item_qty} · {formatMoneyCents(item.unit_price_cents * item.item_qty)}</span>
-                    ))}
-                    {pricing.discount_amount_cents > 0 || pricing.tax_cents > 0 || (quote.items || []).some((item) => item.add_on_offer_id) ? (
-                      <span>Subtotal · {formatMoneyCents(pricing.subtotal_cents)}</span>
-                    ) : null}
-                    {pricing.discount_amount_cents > 0 ? (
-                      <span className="rsg-discount-line">{pricing.discount_label || "Discount"} · −{formatMoneyCents(pricing.discount_amount_cents)}</span>
-                    ) : null}
-                    {pricing.tax_cents > 0 ? <span>Sales tax · {formatMoneyCents(pricing.tax_cents)}</span> : null}
-                  </>
-                ) : taxCents > 0 ? (
-                  <>
-                    <span>Subtotal · {formatMoneyCents(subtotalCents)}</span>
-                    <span>Sales tax · {formatMoneyCents(taxCents)}</span>
-                  </>
-                ) : null}
-                <strong>{totalLabel}</strong>
+                {/* Line items: stringing labor, the string, add-ons, any discount, then sales tax. */}
+                <div className="rsg-lines">
+                  <span><span>Stringing{costSplit.rackets > 1 ? ` × ${costSplit.rackets}` : ""}</span><span>{formatMoneyCents(costSplit.laborCents)}</span></span>
+                  {costSplit.stringCents > 0 ? (
+                    <span><span>{stringLineLabel}{costSplit.rackets > 1 ? ` × ${costSplit.rackets}` : ""}</span><span>{formatMoneyCents(costSplit.stringCents)}</span></span>
+                  ) : null}
+                  {pricing ? (quote.items || []).filter((item) => item.add_on_offer_id).map((item) => (
+                    <span key={item.add_on_offer_id}><span>{item.label} × {item.item_qty}</span><span>{formatMoneyCents(item.unit_price_cents * item.item_qty)}</span></span>
+                  )) : null}
+                  {pricing?.discount_amount_cents > 0 ? (
+                    <span className="rsg-discount-line"><span>{pricing.discount_label || "Discount"}</span><span>−{formatMoneyCents(pricing.discount_amount_cents)}</span></span>
+                  ) : null}
+                  {(pricing ? pricing.tax_cents : taxCents) > 0 ? (
+                    <span><span>Sales tax</span><span>{formatMoneyCents(pricing ? pricing.tax_cents : taxCents)}</span></span>
+                  ) : null}
+                </div>
+                <strong className="rsg-total"><span>Total</span><span>{totalLabel}</span></strong>
               </div>
             </section>
             {isAuthenticated && !checkoutResult && quote?.add_on_offers?.length ? (
@@ -1817,7 +1868,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
         .rsg-checkout-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.rsg-checkout-head h1{margin:0}
         .rsg-edit-links{display:flex;gap:8px}.rsg-edit-links button{display:inline-flex;align-items:center;gap:5px;min-height:36px;padding:0 12px;border:1px solid var(--color-primary-border);border-radius:9999px;background:var(--coach-color-surface);color:var(--color-primary-dark);font-size:13px;font-weight:700;cursor:pointer}
         .rsg-discount-line{color:var(--coach-color-success)!important;font-weight:500}
-        .rsg-hint{display:block;margin-top:8px;color:var(--coach-color-subtle);font-size:13px}.rsg-addons{display:grid;gap:10px;margin-top:10px}.rsg-addon{display:flex;align-items:center;gap:12px;padding:10px;border:1px solid var(--coach-color-border);border-radius:14px}
+        .rsg-hint{display:block;margin-top:8px;color:var(--coach-color-subtle);font-size:13px}.rsg-lines{display:grid;gap:6px;margin-top:6px;padding-top:8px;border-top:1px solid var(--coach-color-divider)}.rsg-lines>span,.rsg-total{display:flex;justify-content:space-between;gap:12px}.rsg-lines>span>span:first-child{min-width:0;overflow-wrap:anywhere}.rsg-total{padding-top:8px;border-top:1px solid var(--coach-color-divider)}.rsg-summary .rsg-total span{color:var(--coach-color-heading)}.rsg-picked{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:8px;padding:12px 14px;border:1px solid var(--color-primary-border);border-radius:14px;background:var(--color-primary-tint)}.rsg-picked span{display:grid;gap:2px;min-width:0}.rsg-picked b{overflow-wrap:anywhere}.rsg-picked small{color:var(--coach-color-subtle);font-size:13px}.rsg-link-btn{flex-shrink:0;min-height:44px;padding:0 4px;border:0;background:none;color:var(--color-primary-dark);font-weight:700;cursor:pointer}.rsg-link-btn--block{display:block;margin-top:10px;text-align:left}.rsg-addons{display:grid;gap:10px;margin-top:10px}.rsg-addon{display:flex;align-items:center;gap:12px;padding:10px;border:1px solid var(--coach-color-border);border-radius:14px}
         .rsg-addon__img{display:inline-flex;flex:0 0 48px;width:48px;height:48px;align-items:center;justify-content:center;border-radius:10px;background:var(--color-primary-tint);color:var(--color-primary);object-fit:cover}
         .rsg-addon__text{display:flex;min-width:0;flex:1;flex-direction:column}.rsg-addon__text b{font-size:15px;overflow-wrap:break-word}.rsg-addon__text small{color:var(--coach-color-subtle);font-size:13px}.rsg-addon__text s{margin-left:6px;color:var(--coach-color-muted)}
         .rsg-stepper,.rsg-count{display:inline-flex;align-items:center;gap:8px;flex-shrink:0}.rsg-stepper button,.rsg-count button{display:inline-flex;width:36px;height:36px;align-items:center;justify-content:center;border:1px solid var(--color-primary-border);border-radius:9999px;background:var(--coach-color-surface);color:var(--color-primary-dark);cursor:pointer}.rsg-stepper button:disabled,.rsg-count button:disabled{opacity:.45;cursor:default}.rsg-stepper b{min-width:18px;text-align:center}

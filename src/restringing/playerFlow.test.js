@@ -216,3 +216,27 @@ test("a custom hybrid sends the crosses with the mains and costs labor plus half
     { unitCents: 2999 + 2050, taxableCents: 2050 },
   );
 });
+
+test("checkout splits the rackets' price into stringing labor and string", () => {
+  // From the API quote when its lines say the string part; add-ons are left out.
+  assert.deepEqual(
+    playerFlow.restringCostSplit({
+      quoteItems: [
+        { item_type: "restring", unit_price_cents: 5499, taxable_unit_cents: 2500, item_qty: 1 },
+        { item_type: "restring", unit_price_cents: 5499, taxable_unit_cents: 2500, item_qty: 1 },
+        { item_type: "add_on", add_on_offer_id: 3, unit_price_cents: 499, taxable_unit_cents: 499, item_qty: 2 },
+      ],
+    }),
+    { rackets: 2, laborCents: 5998, stringCents: 5000 },
+  );
+  // An older quote without the split: worked out here instead.
+  assert.deepEqual(
+    playerFlow.restringCostSplit({
+      quoteItems: [{ item_type: "restring", unit_price_cents: 4999, item_qty: 1 }],
+      localPrices: [{ unitCents: 4999, taxableCents: 2000 }],
+    }),
+    { rackets: 1, laborCents: 2999, stringCents: 2000 },
+  );
+  // Own string: labor only.
+  assert.deepEqual(playerFlow.restringCostSplit({ localPrices: [{ unitCents: 2999, taxableCents: 0 }] }), { rackets: 1, laborCents: 2999, stringCents: 0 });
+});
