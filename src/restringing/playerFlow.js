@@ -277,6 +277,32 @@ export function categoryPrice(tier, strings = []) {
   return { priceCents: lowest, varies: prices.some((price) => price !== lowest) };
 }
 
+/**
+ * The rackets' cost split into stringing labor and string, for checkout's line items:
+ * { rackets, laborCents, stringCents }, before any discount. From the API's quote when its
+ * lines carry taxable_unit_cents (the string part), otherwise from `localPrices`, the
+ * restringUnitPrice of each racket worked out here.
+ */
+export function restringCostSplit({ quoteItems = null, localPrices = [] } = {}) {
+  const restrings = Array.isArray(quoteItems)
+    ? quoteItems.filter((item) => !item.add_on_offer_id && item.item_type !== "custom" && item.item_type !== "add_on")
+    : [];
+  const empty = { rackets: 0, laborCents: 0, stringCents: 0 };
+  if (restrings.length && restrings.every((item) => item.taxable_unit_cents !== undefined && item.taxable_unit_cents !== null)) {
+    return restrings.reduce((sum, item) => {
+      const qty = Number(item.item_qty) || 1;
+      const unit = Number(item.unit_price_cents) || 0;
+      const string = Math.min(unit, Math.max(0, Number(item.taxable_unit_cents) || 0));
+      return { rackets: sum.rackets + qty, laborCents: sum.laborCents + (unit - string) * qty, stringCents: sum.stringCents + string * qty };
+    }, empty);
+  }
+  return localPrices.reduce((sum, price) => ({
+    rackets: sum.rackets + 1,
+    laborCents: sum.laborCents + price.unitCents - price.taxableCents,
+    stringCents: sum.stringCents + price.taxableCents,
+  }), empty);
+}
+
 // Sales tax on a restring, so the player sees what their card will be charged
 // before the order exists. The API is what prices the order; this mirrors it.
 // Labor is not taxed, and a vendor has a tax_rate only when the shop charges
