@@ -29,6 +29,8 @@ export interface RestringingPayLinkItem {
   tension_lbs_crosses?: number | null;
   advice_requested?: boolean;
   unit_price_cents?: number;
+  /** The string (or goods) part of unit_price_cents; on a restring the rest is stringing labor. */
+  taxable_unit_cents?: number | null;
   /** Set when the item is an add-on the player bought here at its bundle price. */
   add_on_offer_id?: number | null;
   /** A new racket the player's coach ordered: its grip and photo. */
@@ -46,6 +48,8 @@ export interface RestringingPayLinkAddOnOffer {
   regular_price_cents: number;
   bundle_price_cents: number;
   taxable: boolean;
+  /** The product's photo, when the shop added one. */
+  image_url?: string | null;
 }
 
 export interface RestringingPayLinkOrder {
@@ -272,6 +276,42 @@ export const payLinkItemTitle = (item: RestringingPayLinkItem) => {
   if (item.item_type === "racket") return item.label || "New racket";
   if (item.item_type === "custom") return item.label || "Custom item";
   return item.service_tier_name || "Racket service";
+};
+
+export interface PayLinkCostLine {
+  label: string;
+  cents: number;
+}
+
+/**
+ * The invoice's lines above the subtotal: stringing labor and string for the restrings,
+ * then every other item. Empty when the API didn't say each line's string part
+ * (taxable_unit_cents), so the invoice never shows a split it can't back up.
+ */
+export const payLinkCostLines = (items: RestringingPayLinkItem[] | null | undefined): PayLinkCostLine[] => {
+  const all = items || [];
+  const restrings = all.filter((item) => (item.item_type || "restring") === "restring" && !item.add_on_offer_id);
+  if (restrings.some((item) => item.taxable_unit_cents === undefined || item.taxable_unit_cents === null)) return [];
+  const lines: PayLinkCostLine[] = [];
+  if (restrings.length) {
+    const count = restrings.reduce((sum, item) => sum + Number(item.item_qty || 1), 0);
+    const split = restrings.reduce((sum, item) => {
+      const qty = Number(item.item_qty || 1);
+      const unit = Number(item.unit_price_cents || 0);
+      const string = Math.min(unit, Math.max(0, Number(item.taxable_unit_cents || 0)));
+      return { labor: sum.labor + (unit - string) * qty, string: sum.string + string * qty };
+    }, { labor: 0, string: 0 });
+    const times = count > 1 ? ` × ${count}` : "";
+    lines.push({ label: `Stringing${times}`, cents: split.labor });
+    if (split.string > 0) lines.push({ label: `${count > 1 ? "Strings" : "String"}${times}`, cents: split.string });
+  }
+  all
+    .filter((item) => !restrings.includes(item))
+    .forEach((item) => {
+      const qty = Number(item.item_qty || 1);
+      lines.push({ label: `${payLinkItemTitle(item)}${qty > 1 ? ` × ${qty}` : ""}`, cents: Number(item.unit_price_cents || 0) * qty });
+    });
+  return lines;
 };
 
 /** The line under it. */
