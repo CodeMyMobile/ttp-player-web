@@ -294,6 +294,10 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   const [recommendation, setRecommendation] = useState(null);
   const [tierId, setTierId] = useState(checkoutHandoff?.tierId ?? null);
   const [stringId, setStringId] = useState("");
+  // A custom hybrid's crosses: any in-stock string the shop has priced, from all its strings.
+  const [crossesId, setCrossesId] = useState("");
+  const [crossesGauge, setCrossesGauge] = useState("");
+  const [shopStrings, setShopStrings] = useState([]);
   const [otherString, setOtherString] = useState("");
   const [ownString, setOwnString] = useState("");
   const [gauge, setGauge] = useState("16");
@@ -349,11 +353,17 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     [selectedString],
   );
   const needsOtherString = Boolean(tier && !isOwnTier(tier) && !isPresetCompositionTier(tier) && (stringId === "other" || catalog.length === 0));
+  const hybridStrings = useMemo(
+    () => shopStrings.filter((row) => row.in_stock !== false && row.string_price_cents != null),
+    [shopStrings],
+  );
+  const canHybrid = Boolean(tier?.string_category && selectedString?.string_price_cents != null && !adviceRequested && stringId !== "other");
+  const crossesString = canHybrid ? hybridStrings.find((row) => String(row.id) === String(crossesId)) || null : null;
   // Each racket's string: a shop-priced string sets that racket's price (labor + string).
   const racketPrices = (setupMode === "different" && quantity >= 2 && perRacketItems.length
     ? perRacketItems.map((item) => catalog.find((row) => String(row.id) === String(item.stringId)) || null)
     : Array.from({ length: quantity }, () => selectedString)
-  ).map((string) => restringUnitPrice(tier, string));
+  ).map((string) => restringUnitPrice(tier, string, crossesString && string === selectedString ? crossesString : null));
   const subtotalCents = racketPrices.reduce((sum, price) => sum + price.unitCents, 0);
   const taxCents = Math.round(
     racketPrices.reduce((sum, price) => sum + price.taxableCents, 0) * (Number(selectedVendor?.tax_rate) || 0),
@@ -501,6 +511,29 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
       cancelled = true;
     };
   }, [activeVendorSlug, allVendors, checkoutHandoff, loading, vendors]);
+
+  useEffect(() => {
+    if (!selectedVendor) {
+      setShopStrings([]);
+      return undefined;
+    }
+    let cancelled = false;
+    listVendorStrings({ vendorId: selectedVendor.id })
+      .then((data) => {
+        if (!cancelled) setShopStrings(data?.catalog || []);
+      })
+      .catch(() => {
+        if (!cancelled) setShopStrings([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedVendor]);
+
+  useEffect(() => {
+    setCrossesId("");
+    setCrossesGauge("");
+  }, [tierId, stringId]);
 
   useEffect(() => {
     if (!tier || !selectedVendor) return;
@@ -794,6 +827,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     if (adviceRequested && !isOwnTier(tier)) return true;
     if (isOwnTier(tier)) return Boolean(clean(ownString));
     if (needsOtherString) return Boolean(clean(otherString));
+    if (crossesString && !crossesGauge) return false;
     return Boolean(stringId || catalog[0]?.id);
   };
 
@@ -826,6 +860,8 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     perRacketItems: isPresetCompositionTier(tier)
       ? perRacketItems.map((item) => ({ ...item, stringId: null, customStringText: null, ownStringText: null, gauge: null }))
       : perRacketItems,
+    crossesStringId: crossesString ? crossesString.id : null,
+    crossesGauge: crossesString ? crossesGauge : null,
   });
 
   // The string jobs plus any add-ons chosen at checkout.
@@ -1425,6 +1461,28 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
                 <div className="rsg-tiles">
                   {selectedGaugeOptions.map((item) => <TileButton key={item} active={gauge === item && !adviceRequested} disabled={adviceRequested} onClick={() => setGauge(item)}><small>gauge</small><b>{item}</b></TileButton>)}
                 </div>
+                {canHybrid && hybridStrings.length ? (
+                  <>
+                    <span className="rsg-label">Crosses (hybrid)</span>
+                    <div className="rsg-chips">
+                      <button type="button" className={!crossesString ? "is-active" : ""} onClick={() => { setCrossesId(""); setCrossesGauge(""); }}>Same as mains</button>
+                      {hybridStrings.map((item) => (
+                        <button key={item.id} type="button" className={String(crossesId) === String(item.id) ? "is-active" : ""} onClick={() => { setCrossesId(String(item.id)); setCrossesGauge(defaultGaugeForString(item)); }}>
+                          {item.brand} {item.name}
+                        </button>
+                      ))}
+                    </div>
+                    {crossesString ? (
+                      <>
+                        <small className="rsg-hint">Hybrid: stringing plus half of each string’s price.</small>
+                        <span className="rsg-label">Crosses gauge</span>
+                        <div className="rsg-tiles">
+                          {catalogGaugesForString(crossesString).map((item) => <TileButton key={item} active={crossesGauge === item} onClick={() => setCrossesGauge(item)}><small>gauge</small><b>{item}</b></TileButton>)}
+                        </div>
+                      </>
+                    ) : null}
+                  </>
+                ) : null}
               </>
             ) : null}
             <span className="rsg-label">{splitTension ? "Tension - mains" : "Tension"}</span>
@@ -1513,7 +1571,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
               </div>
               <div className="rsg-summary">
                 <b>{tier.name} · x{quantity}</b>
-                <span>{checkoutHandoff ? checkoutHandoff.summary : adviceRequested ? "Specs decided at drop-off" : `${isPresetCompositionTier(tier) ? serviceCompositionLabel(tier.string_composition) : `${selectedStringName || "String"} · gauge ${gauge}`} · ${splitTension ? `${tension}/${crosses}` : tension} lbs`}</span>
+                <span>{checkoutHandoff ? checkoutHandoff.summary : adviceRequested ? "Specs decided at drop-off" : `${isPresetCompositionTier(tier) ? serviceCompositionLabel(tier.string_composition) : crossesString ? `${selectedStringName} ${gauge} mains / ${crossesString.brand} ${crossesString.name} ${crossesGauge} crosses` : `${selectedStringName || "String"} · gauge ${gauge}`} · ${splitTension ? `${tension}/${crosses}` : tension} lbs`}</span>
                 <span>{selectedVendor?.name} · {selectedVendor?.address}</span>
                 {orderNotes ? <span>{orderNotes}</span> : null}
                 {pricing ? (
@@ -1759,7 +1817,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
         .rsg-checkout-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.rsg-checkout-head h1{margin:0}
         .rsg-edit-links{display:flex;gap:8px}.rsg-edit-links button{display:inline-flex;align-items:center;gap:5px;min-height:36px;padding:0 12px;border:1px solid var(--color-primary-border);border-radius:9999px;background:var(--coach-color-surface);color:var(--color-primary-dark);font-size:13px;font-weight:700;cursor:pointer}
         .rsg-discount-line{color:var(--coach-color-success)!important;font-weight:500}
-        .rsg-addons{display:grid;gap:10px;margin-top:10px}.rsg-addon{display:flex;align-items:center;gap:12px;padding:10px;border:1px solid var(--coach-color-border);border-radius:14px}
+        .rsg-hint{display:block;margin-top:8px;color:var(--coach-color-subtle);font-size:13px}.rsg-addons{display:grid;gap:10px;margin-top:10px}.rsg-addon{display:flex;align-items:center;gap:12px;padding:10px;border:1px solid var(--coach-color-border);border-radius:14px}
         .rsg-addon__img{display:inline-flex;flex:0 0 48px;width:48px;height:48px;align-items:center;justify-content:center;border-radius:10px;background:var(--color-primary-tint);color:var(--color-primary);object-fit:cover}
         .rsg-addon__text{display:flex;min-width:0;flex:1;flex-direction:column}.rsg-addon__text b{font-size:15px;overflow-wrap:break-word}.rsg-addon__text small{color:var(--coach-color-subtle);font-size:13px}.rsg-addon__text s{margin-left:6px;color:var(--coach-color-muted)}
         .rsg-stepper,.rsg-count{display:inline-flex;align-items:center;gap:8px;flex-shrink:0}.rsg-stepper button,.rsg-count button{display:inline-flex;width:36px;height:36px;align-items:center;justify-content:center;border:1px solid var(--color-primary-border);border-radius:9999px;background:var(--coach-color-surface);color:var(--color-primary-dark);cursor:pointer}.rsg-stepper button:disabled,.rsg-count button:disabled{opacity:.45;cursor:default}.rsg-stepper b{min-width:18px;text-align:center}

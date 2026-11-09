@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
+import { itemStringName,
   estimatedReadyDate,
   formatTension,
   orderItemLine,
@@ -242,4 +242,12 @@ test("ordersSummaryLine sums up orders for Restring home", () => {
     ordersSummaryLine([order({ id: 5, fulfillment_status: "ready_for_pickup" }), order({ id: 6 })]),
     "2 in progress · ready now",
   );
+});
+
+test("a custom hybrid names both strings", () => {
+  assert.equal(
+    itemStringName({ string_brand: "Babolat", string_name: "RPM Blast", crosses_string_brand: "Wilson", crosses_string_name: "NXT" }),
+    "Babolat RPM Blast mains / Wilson NXT crosses",
+  );
+  assert.equal(itemStringName({ string_brand: "Babolat", string_name: "RPM Blast" }), "Babolat RPM Blast");
 });
