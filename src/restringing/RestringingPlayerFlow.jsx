@@ -62,6 +62,7 @@ import {
   listSavedPaymentMethods,
   listServiceTiers,
   listVendorStrings,
+  recommendStrings,
   listVendors,
 } from "./restringingService.js";
 import { vendorHoursSummary } from "./vendorPage.js";
@@ -71,7 +72,7 @@ import { formatOrderTotal, ordersSummaryLine, usualSetup } from "./myOrders.js";
 import RestringEntryV2 from "./RestringEntryV2.jsx";
 import RestringStringPicker from "./RestringStringPicker.jsx";
 import { RestringQuizQuestion, RestringQuizResult } from "./RestringQuizV2.jsx";
-import { QUIZ_QUESTIONS, levelFromNtrp, recommendFromQuiz, tensionFor } from "./quizV2.js";
+import { QUIZ_QUESTIONS, levelFromNtrp } from "./quizV2.js";
 import { getPlayerPersonalDetails } from "../api/playerProfile";
 import { getStoredAuthToken } from "../services/authToken.js";
 import { playerLevelOf } from "../utils/groupLessonLevelFit";
@@ -793,28 +794,36 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     }
   };
 
-  const answerQuiz = (key, value) => {
+  // The last answer asks the recommendation engine about the shop's strings.
+  const answerQuiz = async (key, value) => {
     const next = { ...quizAnswers, [key]: value };
     setQuizAnswers(next);
     if (quizIndex + 1 < QUIZ_QUESTIONS.length) {
       setQuizIndex((index) => index + 1);
       return;
     }
-    setQuizResult(recommendFromQuiz(next, { tiers, catalog: pickerCatalog }));
+    if (!pickerShop) {
+      setQuizResult(null);
+      go("quizResult");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      setQuizResult(await recommendStrings({ vendorId: pickerShop.id, answers: next }));
+    } catch {
+      setQuizResult(null);
+    } finally {
+      setBusy(false);
+    }
     go("quizResult");
   };
 
-  // A result's string (or the shop's-choice service) goes the same way as a pick from the
-  // list, at the quiz's tension for it.
+  // A recommended string goes the same way as a pick from the list, at its suggested tension.
   const chooseFromQuiz = (option) => {
-    continueFromPicker({
-      kind: option.kind,
-      tierId: option.tierId,
-      stringId: option.string ? String(option.string.id) : undefined,
-    });
-    const lbs = tensionFor(option.category, quizAnswers);
-    setTension(lbs);
-    setCrosses(lbs);
+    continueFromPicker({ kind: "string", tierId: option.service_tier_id, stringId: String(option.string.id) });
+    setTension(option.tension_lbs);
+    setCrosses(option.tension_lbs);
   };
 
   const openVendorProfile = async (vendor) => {

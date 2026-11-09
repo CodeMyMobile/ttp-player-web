@@ -21,6 +21,11 @@ export const getVendorProfile = (vendorId) =>
 export const listVendorStrings = ({ vendorId, serviceTierId }) =>
   unwrap(api(`/restringing/vendors/${vendorId}/catalog${qs({ service_tier_id: serviceTierId })}`));
 
+// The string recommendation engine (shared with the coach app): five answers and a shop in,
+// { options: [pick, ...alternatives], warning } out.
+export const recommendStrings = ({ vendorId, answers }) =>
+  unwrap(api("/restringing/recommendations", { method: "POST", json: { vendor_id: vendorId, answers } }));
+
 export const getClaimPreview = (token) =>
   unwrap(api(`/restringing/claim-links/${encodeURIComponent(token)}`));
 
