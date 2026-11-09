@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  LEVEL_QUESTION,
+  needsLevel,
   nextGameQuestion,
   ratingBody,
   ratingCards,
@@ -57,4 +59,13 @@ test("one game question at a time, only those not answered", () => {
   assert.equal(nextGameQuestion(null).key, "swing");
   assert.equal(nextGameQuestion({ swing: "full" }).key, "play_style");
   assert.equal(nextGameQuestion({ swing: "full", play_style: "net" }), null);
+});
+
+test("the level is asked only when the API knows none", () => {
+  assert.equal(needsLevel(null), true);
+  assert.equal(needsLevel({ level: null, level_source: null }), true);
+  assert.equal(needsLevel({ level: "intermediate", level_source: "self_rated", ntrp: 3.5 }), false);
+  assert.equal(needsLevel({ level: "advanced", level_source: "results", ntrp: 4.5 }), false);
+  // The restring quiz's own question, with its four levels.
+  assert.deepEqual(LEVEL_QUESTION.options.map((option) => option.value), ["getting_started", "intermediate", "advanced", "competitive"]);
 });

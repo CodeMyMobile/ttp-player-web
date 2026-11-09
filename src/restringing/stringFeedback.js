@@ -3,6 +3,7 @@
 // used, anonymised, to improve string recommendations; the first one says so.
 
 import { formatShopDate, orderItemLine } from "./myOrders.js";
+import { QUIZ_QUESTIONS } from "./quizV2.js";
 
 export const CONSENT_LINE = "Your ratings are used, anonymised, to improve string recommendations.";
 
@@ -36,6 +37,13 @@ export const ARM_OPTIONS = [
 ];
 
 export const COMMENT_MAX_LENGTH = 500;
+
+// The level question, as the restring quiz asks it. Asked with a rating only when the API
+// knows no level: not from match results, a self-rating, or an earlier answer.
+export const LEVEL_QUESTION = QUIZ_QUESTIONS.find((question) => question.key === "level");
+
+/** Whether to ask the player's level: the profile (API-resolved) has none. */
+export const needsLevel = (profile) => !profile?.level;
 
 // After a rating, one question about their game at a time, only those not yet answered.
 export const GAME_QUESTIONS = [

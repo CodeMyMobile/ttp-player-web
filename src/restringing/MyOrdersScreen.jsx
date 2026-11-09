@@ -24,8 +24,10 @@ import {
   COMMENT_MAX_LENGTH,
   CONSENT_LINE,
   FEEL_OPTIONS,
+  LEVEL_QUESTION,
   TRAIT_KEYS,
   TRAIT_OPTIONS,
+  needsLevel,
   nextGameQuestion,
   ratingCards,
   setupLine,
@@ -280,9 +282,12 @@ function Choices({ label, options, value, onChange }) {
   );
 }
 
-// Stars first; the rest appear once there's a rating, and are all optional.
-function RatingForm({ row, consented, onSave, onDone }) {
+// Stars first; the rest appear once there's a rating, and are all optional. With no level
+// known for the player, their level is asked too and saved first, so it's kept with the rating.
+function RatingForm({ row, consented, profile, onSave, onSaveProfile, onDone }) {
   const [answers, setAnswers] = useState(() => startingAnswers(row));
+  const [askLevel] = useState(() => needsLevel(profile) && Boolean(onSaveProfile));
+  const [level, setLevel] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const set = (key) => (value) => setAnswers((current) => ({ ...current, [key]: value }));
@@ -291,6 +296,7 @@ function RatingForm({ row, consented, onSave, onDone }) {
     setSaving(true);
     setError("");
     try {
+      if (askLevel && level) await onSaveProfile({ level }).catch(() => {});
       await onSave(row.order_item_id, answers);
       onDone?.();
     } catch {
@@ -305,6 +311,14 @@ function RatingForm({ row, consented, onSave, onDone }) {
       <Stars value={answers.overall} onChange={set("overall")} />
       {answers.overall ? (
         <>
+          {askLevel && LEVEL_QUESTION ? (
+            <Choices
+              label={LEVEL_QUESTION.label}
+              options={LEVEL_QUESTION.options.map((option) => ({ value: option.value, label: option.hint ? `${option.label} · ${option.hint}` : option.label }))}
+              value={level}
+              onChange={setLevel}
+            />
+          ) : null}
           <Choices label="Would you get it again?" options={AGAIN_OPTIONS} value={answers.again} onChange={set("again")} />
           <Choices label="How does it feel?" options={FEEL_OPTIONS} value={answers.feel} onChange={set("feel")} />
           <div className="mo-traits">
@@ -372,7 +386,14 @@ function RateStringCard({ row, consented, profile, onRate, onSaveProfile }) {
       ) : (
         <>
           {textRating ? <p className="mo-muted">You gave it {starsLabel(textRating)} by text. A few more taps?</p> : null}
-          <RatingForm row={row} consented={consented} onSave={onRate} onDone={() => setDone(true)} />
+          <RatingForm
+            row={row}
+            consented={consented}
+            profile={profile}
+            onSave={onRate}
+            onSaveProfile={onSaveProfile}
+            onDone={() => setDone(true)}
+          />
         </>
       )}
     </section>
@@ -381,7 +402,7 @@ function RateStringCard({ row, consented, profile, onRate, onSaveProfile }) {
 
 const MY_STRINGS_SHOWN = 5;
 
-function MyStringRow({ row, consented, onRate }) {
+function MyStringRow({ row, consented, profile, onRate, onSaveProfile }) {
   const [open, setOpen] = useState(false);
   const line = setupLine(row);
   const overall = row.feedback?.overall;
@@ -399,14 +420,21 @@ function MyStringRow({ row, consented, onRate }) {
         ) : null}
       </div>
       {open && !overall ? (
-        <RatingForm row={row} consented={consented} onSave={onRate} onDone={() => setOpen(false)} />
+        <RatingForm
+          row={row}
+          consented={consented}
+          profile={profile}
+          onSave={onRate}
+          onSaveProfile={onSaveProfile}
+          onDone={() => setOpen(false)}
+        />
       ) : null}
     </li>
   );
 }
 
 // Every racket strung and collected, with the player's rating of it.
-function MyStringsCard({ strings, consented, onRate }) {
+function MyStringsCard({ strings, consented, profile, onRate, onSaveProfile }) {
   const [showAll, setShowAll] = useState(false);
   if (!strings.length) return null;
   const shown = showAll ? strings : strings.slice(0, MY_STRINGS_SHOWN);
@@ -414,7 +442,16 @@ function MyStringsCard({ strings, consented, onRate }) {
     <section className="mo-card mo-side-card">
       <h2>My strings</h2>
       <ul className="mo-strings">
-        {shown.map((row) => <MyStringRow key={row.order_item_id} row={row} consented={consented} onRate={onRate} />)}
+        {shown.map((row) => (
+          <MyStringRow
+            key={row.order_item_id}
+            row={row}
+            consented={consented}
+            profile={profile}
+            onRate={onRate}
+            onSaveProfile={onSaveProfile}
+          />
+        ))}
       </ul>
       {strings.length > MY_STRINGS_SHOWN ? (
         <button type="button" className="mo-link mo-link--button" onClick={() => setShowAll((value) => !value)}>
@@ -589,7 +626,15 @@ export default function MyOrdersScreen({
         </div>
         <aside className="mo-side">
           <UsualSetupCard setup={setup} onStartNew={onStartNew} />
-          {onRateString ? <MyStringsCard strings={strings} consented={Boolean(myStrings?.consented)} onRate={onRateString} /> : null}
+          {onRateString ? (
+            <MyStringsCard
+              strings={strings}
+              consented={Boolean(myStrings?.consented)}
+              profile={myStrings?.profile}
+              onRate={onRateString}
+              onSaveProfile={onSaveProfile}
+            />
+          ) : null}
           {shopOrder ? <ShopCard order={shopOrder} /> : null}
         </aside>
       </div>
