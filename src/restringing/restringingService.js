@@ -70,6 +70,20 @@ export const quoteCheckout = ({ vendorId, items, discountCode = null }) =>
 export const listMyOrders = () =>
   unwrap(api("/player/restringing/orders")).then((data) => data.orders || []);
 
+// My strings: every racket strung and collected, with the player's rating, whether they've
+// agreed to ratings being used, and their game profile.
+export const listMyStrings = () =>
+  unwrap(api("/player/restringing/strings"));
+
+export const rateMyString = (orderItemId, body) =>
+  unwrap(api(`/player/restringing/strings/${orderItemId}/rating`, { method: "PUT", json: body }))
+    .then((data) => data.string);
+
+// The string questions' answers (and swing and style), kept on the player's profile.
+export const saveGameProfile = (answers) =>
+  unwrap(api("/player/restringing/game-profile", { method: "POST", json: { answers } }))
+    .then((data) => data.profile);
+
 export const cancelOrder = (orderId) =>
   unwrap(api(`/player/restringing/orders/${orderId}/cancel`, {
     method: "POST",
