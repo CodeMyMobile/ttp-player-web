@@ -336,14 +336,16 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
     if (draft.pendingBook && isAuthenticated) setCheckoutOpen(true);
   }, [authLoading, draftRestored, isAuthenticated, prefillSearch, tiers, vendorId]);
 
+  // All of the shop's strings, so the player can pick a string first; its category's
+  // service follows from it.
   useEffect(() => {
-    if (!vendorId || !tier || isOwnStringTier(tier)) {
+    if (!vendorId) {
       setCatalog({ status: "idle", rows: [] });
       return undefined;
     }
     let cancelled = false;
     setCatalog({ status: "loading", rows: [] });
-    listVendorStrings({ vendorId, serviceTierId: tier.id })
+    listVendorStrings({ vendorId })
       .then((data) => {
         if (!cancelled) setCatalog({ status: "ready", rows: Array.isArray(data?.catalog) ? data.catalog : [] });
       })
@@ -353,7 +355,7 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
     return () => {
       cancelled = true;
     };
-  }, [tier, vendorId]);
+  }, [vendorId]);
 
   // The saved order has served its purpose once checkout has it.
   useEffect(() => {
@@ -404,7 +406,7 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
   const ownTier = isOwnStringTier(tier);
   const tension = tensionConfigForCategory(tier?.string_category);
   const selectedString = stringChoice === STRING_CHOICE.SPECIFIED
-    ? catalog.rows.find((item) => Number(item.id) === Number(stringId)) || null
+    ? catalog.rows.find((item) => Number(item.id) === Number(stringId) && item.category === tier?.string_category) || null
     : null;
   // A restored string that the shop no longer lists falls back to stringer's pick.
   const stringStillLoading = catalog.status !== "ready" && stringChoice === STRING_CHOICE.SPECIFIED;
@@ -436,7 +438,7 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
     racketMakeModel,
   };
 
-  const serviceLine = !tier ? "Choose a service" : ownTier ? "Restringing only" : `Restring + ${tierTitle(tier).toLowerCase()}`;
+  const serviceLine = !tier ? "Choose a string" : ownTier ? "Restringing only" : `Restring + ${tierTitle(tier).toLowerCase()}`;
   const stringLine = !tier
     ? "—"
     : ownTier
@@ -470,12 +472,31 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
     setBookError("");
   };
 
-  const chooseString = (string) => {
+  // A string, or (null) stringer's pick, in `next`'s category. A new category resets the
+  // tension to that category's recommendation.
+  const chooseString = (string, next = tier) => {
+    if (next && Number(next.id) !== Number(tierId)) {
+      setTierId(next.id);
+      setTensionLbs(tensionConfigForCategory(next.string_category).defaultLbs);
+    }
     setStringChoice(string ? STRING_CHOICE.SPECIFIED : STRING_CHOICE.SHOP);
     setStringId(string ? string.id : null);
     setGauge(null);
     setBookError("");
   };
+
+  // The string list: each category's in-stock strings with their price, the category's
+  // stringer's pick, then services where the shop picks or the player brings the string.
+  const stringGroups = tiers
+    .filter((item) => item.string_category)
+    .map((item) => ({
+      tier: item,
+      strings: catalog.rows
+        .filter((row) => row.category === item.string_category && row.in_stock !== false)
+        .sort((left, right) => stringName(left).localeCompare(stringName(right))),
+    }));
+  const presetTiers = tiers.filter((item) => !item.string_category && !isOwnStringTier(item));
+  const ownTiers = tiers.filter((item) => isOwnStringTier(item));
 
   const recommendedTierId = quizResult?.tierId ?? null;
 
@@ -632,7 +653,7 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
             <section className="vp-card vp-booking">
               <div>
                 <h2>Book a restring</h2>
-                <p className="vp-muted vp-booking-intro">Pick a service, then a string, then your tension.</p>
+                <p className="vp-muted vp-booking-intro">Pick a string, then your tension.</p>
               </div>
 
               <div className="vp-quiz-box">
@@ -644,20 +665,10 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
                 <button type="button" className="vp-btn vp-btn--primary" onClick={() => setQuizOpen(true)}>Take the quiz</button>
               </div>
 
-              <div className="vp-step" id="vp-step-service">
-                <div className="vp-step-h">1 · Service</div>
-                <div className="vp-grid2">
-                  {tiers.map((item) => (
-                    <button key={item.id} type="button" className="vp-opt" aria-pressed={Number(item.id) === Number(tierId)} onClick={() => chooseTier(item)}>
-                      <span className="vp-radio" />
-                      <span className="vp-opt-text">
-                        <b>{tierTitle(item)}</b>
-                        {tierSub(item) ? <small>{tierSub(item)}</small> : null}
-                        {Number(item.id) === Number(recommendedTierId) ? <span className="vp-pill vp-pill--rec vp-pill--inline">Recommended for you</span> : null}
-                      </span>
-                      <span className="vp-opt-price">{formatMoneyCents(item.price_cents)}</span>
-                    </button>
-                  ))}
+              <div className="vp-step" id="vp-step-string">
+                <div className="vp-step-h">
+                  <span>1 · String</span>
+                  <button type="button" className="vp-link-btn" onClick={() => setQuizOpen(true)}>Not sure? Take the quiz</button>
                 </div>
                 {quizResult ? (
                   <p className="vp-quiz-why">
@@ -665,64 +676,79 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
                     {quizResult.rationale}
                   </p>
                 ) : null}
-              </div>
-
-              <div className="vp-step" id="vp-step-string">
-                <div className="vp-step-h">
-                  <span>2 · String</span>
-                  <button type="button" className="vp-link-btn" onClick={() => setQuizOpen(true)}>Not sure? Take the quiz</button>
-                </div>
-                {!tier ? (
-                  <p className="vp-muted vp-small">Choose a service first.</p>
-                ) : ownTier ? (
-                  <label className="vp-field">
-                    Your string (brand and model)
-                    <input value={ownStringText} onChange={(event) => setOwnStringText(event.target.value)} placeholder="e.g. Babolat RPM Blast 17" />
-                    <span className="vp-muted">Bring your string set with the racket at drop-off.</span>
-                  </label>
-                ) : (
-                  <div className="vp-strings">
-                    <div className="vp-muted vp-small">{tierTitle(tier)} strings in stock</div>
-                    <button type="button" className="vp-opt" aria-pressed={effectiveChoice === STRING_CHOICE.SHOP} onClick={() => chooseString(null)}>
-                      <span className="vp-radio" />
-                      <span className="vp-opt-text"><b>Stringer’s pick</b><small>Any {tierTitle(tier).toLowerCase()} we have in stock</small></span>
-                      <span className="vp-pill vp-pill--rec">Recommended</span>
-                    </button>
-                    <button type="button" className="vp-opt" aria-pressed={decideAtDropOff} onClick={() => { setStringChoice(STRING_CHOICE.AT_DROP_OFF); setStringId(null); setGauge(null); setBookError(""); }}>
-                      <span className="vp-radio" />
-                      <span className="vp-opt-text"><b>Not sure? Decide at drop-off</b><small>Your stringer recommends the string and tension when you bring the racket in</small></span>
-                    </button>
-                    {catalog.rows.map((string) => {
-                      const gauges = gaugeChoiceForString(string).gauges;
-                      return (
-                        <button key={string.id} type="button" className="vp-opt" aria-pressed={Number(selectedString?.id) === Number(string.id)} onClick={() => chooseString(string)}>
-                          <span className="vp-radio" />
-                          <span className="vp-opt-text"><b>{stringName(string)}</b>{gauges.length ? <small>Gauge{gauges.length === 1 ? "" : "s"} {gauges.join(", ")}</small> : null}</span>
-                          {string.restring_price_cents != null
-                            ? <span className="vp-opt-price">{formatMoneyCents(string.restring_price_cents)}</span>
-                            : <span className="vp-pill">In stock</span>}
-                        </button>
-                      );
-                    })}
-                    {catalog.status === "loading" ? <p className="vp-muted vp-small">Loading strings…</p> : null}
-                    {catalog.status === "error" ? <p className="vp-muted vp-small">We couldn’t load this shop’s strings. You can still book with stringer’s pick.</p> : null}
-                    {catalog.status === "ready" && !catalog.rows.length ? <p className="vp-muted vp-small">This shop hasn’t listed its strings yet.</p> : null}
-                    {selectedString && gaugeChoice.needsChoice ? (
-                      <div className="vp-gauges">
-                        <span>Gauge for {stringName(selectedString)}</span>
-                        {gaugeChoice.gauges.map((option) => (
-                          <button key={option} type="button" aria-pressed={option === effectiveGauge} onClick={() => setGauge(option)}>{option}</button>
-                        ))}
+                <div className="vp-strings">
+                  {stringGroups.map(({ tier: group, strings }) => (
+                    <div key={group.id} className="vp-string-group" aria-label={tierTitle(group)}>
+                      <div className="vp-muted vp-small vp-string-group__h">
+                        {tierTitle(group)}
+                        {Number(group.id) === Number(recommendedTierId) ? <span className="vp-pill vp-pill--rec vp-pill--inline">Recommended for you</span> : null}
                       </div>
-                    ) : null}
-                  </div>
-                )}
+                      {strings.map((string) => {
+                        const gauges = gaugeChoiceForString(string).gauges;
+                        return (
+                          <button key={string.id} type="button" className="vp-opt" aria-pressed={Number(selectedString?.id) === Number(string.id)} onClick={() => chooseString(string, group)}>
+                            <span className="vp-radio" />
+                            <span className="vp-opt-text"><b>{stringName(string)}</b>{gauges.length ? <small>Gauge{gauges.length === 1 ? "" : "s"} {gauges.join(", ")}</small> : null}</span>
+                            <span className="vp-opt-price">{formatMoneyCents(restringUnitPrice(group, string).unitCents)}</span>
+                          </button>
+                        );
+                      })}
+                      <button type="button" className="vp-opt" aria-pressed={Number(tierId) === Number(group.id) && effectiveChoice === STRING_CHOICE.SHOP} onClick={() => chooseString(null, group)}>
+                        <span className="vp-radio" />
+                        <span className="vp-opt-text"><b>Stringer’s pick</b><small>Any {tierTitle(group).toLowerCase()} we have in stock</small></span>
+                        <span className="vp-opt-price">{formatMoneyCents(group.price_cents)}</span>
+                      </button>
+                    </div>
+                  ))}
+                  {[...presetTiers, ...ownTiers].length ? (
+                    <div className="vp-string-group">
+                      <div className="vp-muted vp-small vp-string-group__h">More options</div>
+                      {presetTiers.map((item) => (
+                        <button key={item.id} type="button" className="vp-opt" aria-pressed={Number(item.id) === Number(tierId)} onClick={() => chooseTier(item)}>
+                          <span className="vp-radio" />
+                          <span className="vp-opt-text"><b>{tierTitle(item)}</b>{tierSub(item) ? <small>{tierSub(item)}</small> : null}</span>
+                          <span className="vp-opt-price">{formatMoneyCents(item.price_cents)}</span>
+                        </button>
+                      ))}
+                      {ownTiers.map((item) => (
+                        <button key={item.id} type="button" className="vp-opt" aria-pressed={Number(item.id) === Number(tierId)} onClick={() => chooseTier(item)}>
+                          <span className="vp-radio" />
+                          <span className="vp-opt-text"><b>Bring my own string</b><small>You supply the string; you pay for stringing only</small></span>
+                          <span className="vp-opt-price">{formatMoneyCents(item.price_cents)}</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                  {catalog.status === "loading" ? <p className="vp-muted vp-small">Loading strings…</p> : null}
+                  {catalog.status === "error" ? <p className="vp-muted vp-small">We couldn’t load this shop’s strings. You can still book with stringer’s pick.</p> : null}
+                  {ownTier ? (
+                    <label className="vp-field">
+                      Your string (brand and model)
+                      <input value={ownStringText} onChange={(event) => setOwnStringText(event.target.value)} placeholder="e.g. Babolat RPM Blast 17" />
+                      <span className="vp-muted">Bring your string set with the racket at drop-off.</span>
+                    </label>
+                  ) : null}
+                  {tier && !ownTier ? (
+                    <button type="button" className="vp-opt" aria-pressed={decideAtDropOff} onClick={() => { setStringChoice(decideAtDropOff ? STRING_CHOICE.SHOP : STRING_CHOICE.AT_DROP_OFF); setStringId(null); setGauge(null); setBookError(""); }}>
+                      <span className="vp-radio" />
+                      <span className="vp-opt-text"><b>Not sure? Decide at drop-off</b><small>Your stringer recommends the string and tension when you bring the racket in, at the {tierTitle(tier).toLowerCase()} price</small></span>
+                    </button>
+                  ) : null}
+                  {selectedString && gaugeChoice.needsChoice ? (
+                    <div className="vp-gauges">
+                      <span>Gauge for {stringName(selectedString)}</span>
+                      {gaugeChoice.gauges.map((option) => (
+                        <button key={option} type="button" aria-pressed={option === effectiveGauge} onClick={() => setGauge(option)}>{option}</button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
               </div>
 
               <div className="vp-step">
-                <div className="vp-step-h">3 · Tension</div>
+                <div className="vp-step-h">2 · Tension</div>
                 {!tier ? (
-                  <p className="vp-muted vp-small">Choose a service first.</p>
+                  <p className="vp-muted vp-small">Choose a string first.</p>
                 ) : decideAtDropOff ? (
                   <p className="vp-muted vp-small">Your stringer sets the tension with you at drop-off.</p>
                 ) : (
@@ -750,7 +776,7 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
               </div>
 
               <div className="vp-step" id="vp-step-racket">
-                <div className="vp-step-h">4 · Your racket</div>
+                <div className="vp-step-h">3 · Your racket</div>
                 <label className="vp-field">
                   Make and model
                   <input value={racketMakeModel} onChange={(event) => { setRacketMakeModel(event.target.value); setBookError(""); }} placeholder="e.g. Babolat Pure Aero 98" required />
