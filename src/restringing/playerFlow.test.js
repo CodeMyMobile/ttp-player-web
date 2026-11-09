@@ -201,3 +201,18 @@ test("a shop-priced string costs labor plus the string, taxed on the string; oth
   assert.equal(playerFlow.restringTaxCents({ tier, quantity: 2, vendor: { tax_rate: "0.1" }, string: { string_price_cents: 2200, restring_price_cents: 5199 } }), 440);
   assert.deepEqual(playerFlow.categoryPrice(tier, [{ string_price_cents: 2200, restring_price_cents: 5199 }, {}]), { priceCents: 4499, varies: true });
 });
+
+test("a custom hybrid sends the crosses with the mains and costs labor plus half of each string", () => {
+  const [item] = playerFlow.buildCheckoutItems({ serviceTierId: 2, selectedStringId: 9, gauge: "16", crossesStringId: 12, crossesGauge: "17", racketMakeModel: "Pure Aero" });
+  assert.equal(item.string_id, 9);
+  assert.equal(item.crosses_string_id, 12);
+  assert.equal(item.crosses_gauge, "17");
+  // No mains string (stringer's choice), no hybrid.
+  const [shopChoice] = playerFlow.buildCheckoutItems({ serviceTierId: 2, selectedStringId: null, crossesStringId: 12, racketMakeModel: "Pure Aero" });
+  assert.equal("crosses_string_id" in shopChoice, false);
+  const tier = { id: 2, price_cents: 4499, taxable_cents: 1500, string_category: "std_poly" };
+  assert.deepEqual(
+    playerFlow.restringUnitPrice(tier, { string_price_cents: 2299, restring_price_cents: 5298 }, { string_price_cents: 1800 }),
+    { unitCents: 2999 + 2050, taxableCents: 2050 },
+  );
+});

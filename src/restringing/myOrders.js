@@ -205,6 +205,8 @@ export function formatTension(mains, crosses) {
 
 export function itemStringName(item) {
   const catalog = [clean(item?.string_brand), clean(item?.string_name)].filter(Boolean).join(" ");
+  const crosses = [clean(item?.crosses_string_brand), clean(item?.crosses_string_name)].filter(Boolean).join(" ");
+  if (catalog && crosses) return `${catalog} mains / ${crosses} crosses`;
   if (catalog) return catalog;
   if (clean(item?.own_string_text)) return `Own string: ${clean(item.own_string_text)}`;
   if (clean(item?.custom_string_text)) return clean(item.custom_string_text);

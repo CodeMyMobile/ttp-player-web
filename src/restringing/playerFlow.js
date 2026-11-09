@@ -139,9 +139,14 @@ function buildOneItem({
   adviceRequested = false,
   racketMakeModel = "",
   notes = null,
+  crossesStringId = null,
+  crossesGauge = null,
 }) {
   const advice = Boolean(adviceRequested);
   const stringId = selectedStringId === null || selectedStringId === "" ? null : Number(selectedStringId);
+  const crossesId = crossesStringId === null || crossesStringId === "" ? null : Number(crossesStringId);
+  // A custom hybrid: the string above is the mains, this the crosses.
+  const hybrid = Number.isInteger(stringId) && stringId > 0 && Number.isInteger(crossesId) && crossesId > 0;
   const mains = boundedTension(tensionMains);
   const crosses = boundedTension(tensionCrosses ?? tensionMains);
 
@@ -156,6 +161,7 @@ function buildOneItem({
     advice_requested: advice,
     racket_make_model: cleanText(racketMakeModel),
     notes: nullableText(notes),
+    ...(hybrid ? { crosses_string_id: crossesId, crosses_gauge: advice ? null : nullableText(crossesGauge) } : {}),
   };
 }
 
@@ -176,6 +182,8 @@ export function buildCheckoutItems({
   quantity = 1,
   setupMode = "same",
   perRacketItems = [],
+  crossesStringId = null,
+  crossesGauge = null,
 }) {
   const count = Math.max(1, Math.min(MAX_RACKETS, Number(quantity) || 1));
   if (setupMode === "different" && !adviceRequested) {
@@ -190,6 +198,8 @@ export function buildCheckoutItems({
       adviceRequested: false,
       racketMakeModel: item.racketMakeModel,
       notes: item.note,
+      crossesStringId,
+      crossesGauge,
     }));
   }
 
@@ -204,6 +214,8 @@ export function buildCheckoutItems({
     adviceRequested,
     racketMakeModel,
     notes: orderNotes,
+    crossesStringId,
+    crossesGauge,
   }));
 }
 
@@ -236,11 +248,19 @@ const centsOrNull = (value) => (value === null || value === undefined || value =
 /**
  * One restring's price and its taxable part, as the API prices it. A string the shop has
  * priced costs labor plus the string (the catalog's restring_price_cents), taxed on the
- * string only; any other restring costs its service's price, taxed on its taxable_cents.
+ * string only; a custom hybrid (`crosses`) costs labor plus half of each string; any
+ * other restring costs its service's price, taxed on its taxable_cents.
  */
-export function restringUnitPrice(tier, string = null) {
+export function restringUnitPrice(tier, string = null, crosses = null) {
   const restring = centsOrNull(string?.restring_price_cents);
   const stringPrice = centsOrNull(string?.string_price_cents);
+  // A custom hybrid: labor plus half of each string, the halves rounded half-up once.
+  const crossesPrice = centsOrNull(crosses?.string_price_cents);
+  if (tier?.string_category && crosses && restring !== null && stringPrice !== null && crossesPrice !== null) {
+    const labor = restring - stringPrice;
+    const strings = Math.floor((stringPrice + crossesPrice) / 2 + 0.5);
+    return { unitCents: labor + strings, taxableCents: strings };
+  }
   if (tier?.string_category && restring !== null && stringPrice !== null) {
     return { unitCents: restring, taxableCents: stringPrice };
   }
