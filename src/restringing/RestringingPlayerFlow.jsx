@@ -71,7 +71,7 @@ import {
 import { ratingBody } from "./stringFeedback.js";
 import { vendorHoursSummary } from "./vendorPage.js";
 import { findVendorBySlug, vendorProfilePath } from "./vendorProfileRoutes.js";
-import MyOrdersScreen from "./MyOrdersScreen.jsx";
+import MyOrdersScreen, { RateStringScreen } from "./MyOrdersScreen.jsx";
 import { formatOrderTotal, ordersSummaryLine, usualSetup } from "./myOrders.js";
 import RestringEntryV2 from "./RestringEntryV2.jsx";
 import RestringStringPicker from "./RestringStringPicker.jsx";
@@ -291,6 +291,8 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   const [ordersRefreshing, setOrdersRefreshing] = useState(false);
   // My strings: { strings, consented, profile }, for the "How's your …?" cards and the list.
   const [myStrings, setMyStrings] = useState(null);
+  // The racket a rating text links to (?screen=rate&item=…).
+  const [rateItemId, setRateItemId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -504,6 +506,12 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     if (params.get("screen") === "orders") {
       setScreen("orders");
       setHistory((items) => (items.length ? items : ["home"]));
+      void refreshOrders();
+    } else if (params.get("screen") === "rate") {
+      setRateItemId(params.get("item"));
+      setScreen("rate");
+      // Back goes to My orders, where the rest of their strings are.
+      setHistory((items) => (items.length ? items : ["home", "orders"]));
       void refreshOrders();
     }
   }, [location.search, refreshOrders]);
@@ -1261,6 +1269,8 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
             </FeatureNavIconButton>
           ),
         }
+      : screen === "rate"
+        ? { backLabel: "My orders", onBack: back, title: "Rate your string" }
       : screen === "confirmation"
         ? { backLabel: "Restring", onBack: goHome, title: STEP_TITLES.confirmation }
         : { backLabel: "Back", onBack: back, title: STEP_TITLES[screen] || "" };
@@ -1847,6 +1857,23 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
             </section>
             <button type="button" className="rsg-secondary" onClick={() => { void refreshOrders(); go("orders"); }}>View my orders</button>
           </>
+        ) : null}
+
+        {screen === "rate" ? (
+          <RateStringScreen
+            itemId={rateItemId}
+            myStrings={myStrings}
+            loading={authLoading || ordersRefreshing || (isAuthenticated && !myStrings && !ordersUpdatedAt)}
+            signedIn={isAuthenticated}
+            onSignIn={() => authDrawer.openAuth({
+              mode: "signin",
+              reason: "Log in to rate your string.",
+              onSuccess: () => void refreshOrders(),
+            })}
+            onRate={rateString}
+            onSaveProfile={saveProfile}
+            onOrders={() => { void refreshOrders(); go("orders"); }}
+          />
         ) : null}
 
         {screen === "orders" ? (
