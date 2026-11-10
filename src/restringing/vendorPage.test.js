@@ -200,6 +200,20 @@ test("buildVendorPageCheckoutItem maps the player's own string", () => {
   assert.equal(item.string_id, null);
   assert.equal(item.gauge, null);
   assert.equal(item.tension_lbs_mains, 52);
+
+  // Picked from the catalog: the string's id goes with what the box says.
+  const named = buildVendorPageCheckoutItem({
+    tier: OWN_TIER,
+    stringChoice: STRING_CHOICE.SHOP,
+    ownStringText: "Babolat RPM Blast",
+    ownStringId: "11",
+    tensionLbs: 52,
+    racketMakeModel: "Pure Aero",
+  });
+  assert.equal(named.string_selection, "player_supplied");
+  assert.equal(named.string_id, 11);
+  assert.equal(named.own_string_text, "Babolat RPM Blast");
+  assert.equal(named.gauge, null);
 });
 
 function memoryStorage() {

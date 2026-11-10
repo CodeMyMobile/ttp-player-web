@@ -250,6 +250,8 @@ export function buildVendorPageCheckoutItem({
   stringId = null,
   gauge = null,
   ownStringText = "",
+  // The catalog string the player's own string is, when they picked or typed one.
+  ownStringId = null,
   tensionLbs = null,
   stringerChoosesTension = false,
   racketMakeModel = "",
@@ -279,7 +281,7 @@ export function buildVendorPageCheckoutItem({
   return {
     service_tier_id: Number(tier.id),
     string_selection: selection,
-    string_id: specified ? Number(stringId) : null,
+    string_id: specified ? Number(stringId) : ownTier ? positiveInt(ownStringId) : null,
     custom_string_text: null,
     own_string_text: ownTier ? cleanText(ownStringText) : null,
     gauge: specified ? cleanText(gauge) || null : null,

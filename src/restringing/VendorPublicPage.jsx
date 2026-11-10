@@ -8,6 +8,8 @@ import RestringingPlayerFlow from "./RestringingPlayerFlow.jsx";
 import { googleMapsUriForVendor, googleReviewsForVendor, hasGoogleSummary } from "./googleReviews.js";
 import { formatMoneyCents, restringTaxCents, restringUnitPrice, vendorImageSrc } from "./playerFlow.js";
 import { QUIZ_QUESTIONS } from "./quizV2.js";
+import { listAllStrings } from "./allStringsService.js";
+import { ownStringHint, ownStringResults, matchOwnString } from "./ownString.js";
 import { getVendorProfile, listServiceTiers, listVendorStrings, listVendors, recommendStrings, saveGameProfile } from "./restringingService.js";
 import {
   STRING_CHOICE,
@@ -265,6 +267,11 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
   const [stringId, setStringId] = useState(null);
   const [gauge, setGauge] = useState(null);
   const [ownStringText, setOwnStringText] = useState("");
+  // The catalog string the player's own string is, when they pick or type one ("" when not).
+  const [ownStringId, setOwnStringId] = useState("");
+  // Every catalog string, for the own-string search; the open list and its highlighted row.
+  const [allStrings, setAllStrings] = useState([]);
+  const [ownSearch, setOwnSearch] = useState(null);
   const [tensionLbs, setTensionLbs] = useState(null);
   const [stringerChoosesTension, setStringerChoosesTension] = useState(false);
   const [racketMakeModel, setRacketMakeModel] = useState("");
@@ -331,6 +338,7 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
     setStringId(draft.stringId ?? null);
     setGauge(draft.gauge ?? null);
     setOwnStringText(clean(draft.ownStringText));
+    setOwnStringId(draft.ownStringId ? String(draft.ownStringId) : "");
     setTensionLbs(draft.tensionLbs ?? null);
     setStringerChoosesTension(Boolean(draft.stringerChoosesTension));
     setRacketMakeModel(clean(draft.racketMakeModel));
@@ -357,6 +365,29 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
       cancelled = true;
     };
   }, [vendorId]);
+
+  // Every catalog string, once the player chooses to bring their own.
+  const bringingOwn = tiers.some((item) => Number(item.id) === Number(tierId) && item.string_category === null);
+  useEffect(() => {
+    if (!bringingOwn || !vendorId || allStrings.length) return undefined;
+    let cancelled = false;
+    listAllStrings({ vendorId })
+      .then((rows) => {
+        if (!cancelled) setAllStrings(rows);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [allStrings.length, bringingOwn, vendorId]);
+
+  // A restored or "restring again" own string names its catalog string once the list is in.
+  useEffect(() => {
+    if (!allStrings.length) return;
+    setOwnStringId((current) => current || String(matchOwnString(ownStringText, allStrings)?.id ?? ""));
+    // Only when the list arrives: typing keeps the id in step itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allStrings]);
 
   // The saved order has served its purpose once checkout has it.
   useEffect(() => {
@@ -424,6 +455,7 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
     stringId: selectedString?.id ?? null,
     gauge: effectiveGauge,
     ownStringText,
+    ownStringId,
     tensionLbs: effectiveTension,
     stringerChoosesTension,
     racketMakeModel,
@@ -434,6 +466,7 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
     stringId: effectiveChoice === STRING_CHOICE.SPECIFIED ? stringId : null,
     gauge: effectiveGauge,
     ownStringText,
+    ownStringId,
     tensionLbs: effectiveTension,
     stringerChoosesTension,
     racketMakeModel,
@@ -746,7 +779,64 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
                   {ownTier ? (
                     <label className="vp-field">
                       Your string (brand and model)
-                      <input value={ownStringText} onChange={(event) => setOwnStringText(event.target.value)} placeholder="e.g. Babolat RPM Blast 17" />
+                      <div className="vp-own-box">
+                        <input
+                          value={ownStringText}
+                          onChange={(event) => {
+                            setOwnStringText(event.target.value);
+                            setOwnStringId(String(matchOwnString(event.target.value, allStrings)?.id ?? ""));
+                            setOwnSearch({ active: 0 });
+                          }}
+                          onFocus={() => setOwnSearch({ active: 0 })}
+                          // After a tap on a result has landed.
+                          onBlur={() => window.setTimeout(() => setOwnSearch(null), 150)}
+                          onKeyDown={(event) => {
+                            const results = ownSearch ? ownStringResults(ownStringText, ownStringId, allStrings) : [];
+                            if (!results.length) return;
+                            if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                              event.preventDefault();
+                              const step = event.key === "ArrowDown" ? 1 : results.length - 1;
+                              setOwnSearch({ active: (ownSearch.active + step) % results.length });
+                            } else if (event.key === "Enter") {
+                              event.preventDefault();
+                              const result = results[ownSearch.active] || results[0];
+                              setOwnStringText(result.name);
+                              setOwnStringId(result.id);
+                              setOwnSearch(null);
+                            } else if (event.key === "Escape") {
+                              setOwnSearch(null);
+                            }
+                          }}
+                          role="combobox"
+                          aria-expanded={Boolean(ownSearch)}
+                          aria-autocomplete="list"
+                          autoComplete="off"
+                          placeholder="Start typing, e.g. RPM Blast"
+                        />
+                        {ownSearch && ownStringResults(ownStringText, ownStringId, allStrings).length ? (
+                          <ul className="vp-own-results" role="listbox">
+                            {ownStringResults(ownStringText, ownStringId, allStrings).map((result, index) => (
+                              <li
+                                key={result.id}
+                                role="option"
+                                aria-selected={index === ownSearch.active}
+                                onMouseDown={(event) => event.preventDefault()}
+                                onClick={() => {
+                                  setOwnStringText(result.name);
+                                  setOwnStringId(result.id);
+                                  setOwnSearch(null);
+                                }}
+                              >
+                                {result.name}
+                                {result.inStock ? <small>Stocked here</small> : null}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </div>
+                      {!(ownSearch && ownStringResults(ownStringText, ownStringId, allStrings).length) && ownStringHint(ownStringText, ownStringId, allStrings) ? (
+                        <span className="vp-muted">{ownStringHint(ownStringText, ownStringId, allStrings)}</span>
+                      ) : null}
                       <span className="vp-muted">Bring your string set with the racket at drop-off.</span>
                     </label>
                   ) : null}

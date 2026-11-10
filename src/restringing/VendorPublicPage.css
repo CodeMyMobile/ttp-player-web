@@ -1092,3 +1092,53 @@
     padding: 16px 18px calc(24px + env(safe-area-inset-bottom));
   }
 }
+
+/* Your own string: catalog matches drop down under the box as you type. */
+.vp-own-box {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.vp-own-results {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  max-height: 260px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: #fff;
+  border: 1px solid var(--vp-line);
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgba(16, 24, 40, 0.14);
+}
+
+.vp-own-results li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: var(--vp-ink);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.vp-own-results li[aria-selected="true"],
+.vp-own-results li:hover {
+  background: var(--vp-purple-soft);
+}
+
+.vp-own-results small {
+  color: var(--vp-purple-dark);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
