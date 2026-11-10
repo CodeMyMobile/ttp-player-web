@@ -834,7 +834,7 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
                           </ul>
                         ) : null}
                       </div>
-                      {!(ownSearch && ownStringResults(ownStringText, ownStringId, allStrings).length) && ownStringHint(ownStringText, ownStringId, allStrings) ? (
+                      {allStrings.length > 0 && !(ownSearch && ownStringResults(ownStringText, ownStringId, allStrings).length) && ownStringHint(ownStringText, ownStringId, allStrings) ? (
                         <span className="vp-muted">{ownStringHint(ownStringText, ownStringId, allStrings)}</span>
                       ) : null}
                       <span className="vp-muted">Bring your string set with the racket at drop-off.</span>

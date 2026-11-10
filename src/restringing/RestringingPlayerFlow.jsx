@@ -52,6 +52,8 @@ import {
   googleReviewsForVendor,
   hasGoogleSummary,
 } from "./googleReviews.js";
+import { listAllStrings } from "./allStringsService.js";
+import { matchOwnString, ownStringHint, ownStringResults } from "./ownString.js";
 import {
   cancelOrder,
   captureVendorLead,
@@ -314,6 +316,11 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   const [hybridOpen, setHybridOpen] = useState(false);
   const [otherString, setOtherString] = useState("");
   const [ownString, setOwnString] = useState("");
+  // The catalog string the player's own string is, when they pick or type one ("" when not).
+  const [ownStringId, setOwnStringId] = useState("");
+  // Every catalog string for the own-string search, with this shop's stock; the open list and its highlighted row.
+  const [allStrings, setAllStrings] = useState({ vendorId: null, rows: [] });
+  const [ownSearch, setOwnSearch] = useState(null);
   const [gauge, setGauge] = useState("16");
   const [tension, setTension] = useState(54);
   const [splitTension, setSplitTension] = useState(false);
@@ -610,6 +617,29 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     };
   }, [selectedVendor, tier]);
 
+  // Every catalog string, once the player chooses to bring their own. Without it the box is plain text.
+  const ownStringShopId = tier && isOwnTier(tier) ? selectedVendor?.id || null : null;
+  useEffect(() => {
+    if (!ownStringShopId || allStrings.vendorId === ownStringShopId) return undefined;
+    let cancelled = false;
+    listAllStrings({ vendorId: ownStringShopId })
+      .then((rows) => {
+        if (!cancelled) setAllStrings({ vendorId: ownStringShopId, rows });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [allStrings.vendorId, ownStringShopId]);
+
+  // A reordered own string names its catalog string once the list is in.
+  useEffect(() => {
+    if (!allStrings.rows.length) return;
+    setOwnStringId((current) => current || String(matchOwnString(ownString, allStrings.rows)?.id ?? ""));
+    // Only when the list arrives: typing keeps the id in step itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allStrings]);
+
   useEffect(() => {
     if (adviceRequested || isPresetCompositionTier(tier)) return;
     setGauge((current) => (
@@ -724,6 +754,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
       setGauge(plan.gauge || "16");
       setOtherString(plan.customString);
       setOwnString(plan.ownString);
+      setOwnStringId(String(matchOwnString(plan.ownString, allStrings.rows)?.id ?? ""));
       setTension(plan.tensionMains);
       setCrosses(plan.tensionCrosses);
       setSplitTension(plan.splitTension);
@@ -792,7 +823,10 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
       preferredStringRef.current = null;
       setStringId("");
     }
-    if (pick.kind === "own") setOwnString("");
+    if (pick.kind === "own") {
+      setOwnString("");
+      setOwnStringId("");
+    }
     setTension(nextTier.string_category?.includes("poly") ? 50 : 54);
     setCrosses(nextTier.string_category?.includes("poly") ? 48 : 52);
     setSplitTension(false);
@@ -908,7 +942,8 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
 
   const buildItems = () => checkoutHandoff ? [checkoutHandoff.item] : buildCheckoutItems({
     serviceTierId: tier.id,
-    selectedStringId: adviceRequested || isPresetCompositionTier(tier) ? null : needsOtherString ? null : stringId || catalog[0]?.id || null,
+    // An own string names its catalog string when the player picked or typed one.
+    selectedStringId: isOwnTier(tier) ? ownStringId || null : adviceRequested || isPresetCompositionTier(tier) ? null : needsOtherString ? null : stringId || catalog[0]?.id || null,
     customStringText: adviceRequested || isPresetCompositionTier(tier) ? null : needsOtherString ? otherString : null,
     ownStringText: isPresetCompositionTier(tier) ? null : isOwnTier(tier) ? ownString : null,
     gauge: isPresetCompositionTier(tier) ? null : gauge,
@@ -921,7 +956,10 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     setupMode,
     perRacketItems: isPresetCompositionTier(tier)
       ? perRacketItems.map((item) => ({ ...item, stringId: null, customStringText: null, ownStringText: null, gauge: null }))
-      : perRacketItems,
+      // Every racket gets the one own string the box names, as typed then.
+      : isOwnTier(tier)
+        ? perRacketItems.map((item) => ({ ...item, stringId: ownStringId || null, ownStringText: ownString }))
+        : perRacketItems,
     crossesStringId: crossesString ? crossesString.id : null,
     crossesGauge: crossesString ? crossesGauge : null,
   });
@@ -1514,7 +1552,66 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
             {isPresetCompositionTier(tier) ? (
               <p>Included strings: {serviceCompositionLabel(tier.string_composition)}. Your stringer will choose the matching setup.</p>
             ) : isOwnTier(tier) ? (
-              <Field label="String you are bringing"><input value={ownString} onChange={(event) => setOwnString(event.target.value)} placeholder="Luxilon ALU Power 16L" /></Field>
+              <Field label="String you are bringing">
+                <div className="rsg-own-box">
+                  <input
+                    value={ownString}
+                    onChange={(event) => {
+                      setOwnString(event.target.value);
+                      setOwnStringId(String(matchOwnString(event.target.value, allStrings.rows)?.id ?? ""));
+                      setOwnSearch({ active: 0 });
+                    }}
+                    onFocus={() => setOwnSearch({ active: 0 })}
+                    // After a tap on a result has landed.
+                    onBlur={() => window.setTimeout(() => setOwnSearch(null), 150)}
+                    onKeyDown={(event) => {
+                      const results = ownSearch ? ownStringResults(ownString, ownStringId, allStrings.rows) : [];
+                      if (!results.length) return;
+                      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                        event.preventDefault();
+                        const step = event.key === "ArrowDown" ? 1 : results.length - 1;
+                        setOwnSearch({ active: (ownSearch.active + step) % results.length });
+                      } else if (event.key === "Enter") {
+                        event.preventDefault();
+                        const result = results[ownSearch.active] || results[0];
+                        setOwnString(result.name);
+                        setOwnStringId(result.id);
+                        setOwnSearch(null);
+                      } else if (event.key === "Escape") {
+                        setOwnSearch(null);
+                      }
+                    }}
+                    role="combobox"
+                    aria-expanded={Boolean(ownSearch)}
+                    aria-autocomplete="list"
+                    autoComplete="off"
+                    placeholder="Start typing, e.g. RPM Blast"
+                  />
+                  {ownSearch && ownStringResults(ownString, ownStringId, allStrings.rows).length ? (
+                    <ul className="rsg-own-results" role="listbox">
+                      {ownStringResults(ownString, ownStringId, allStrings.rows).map((result, index) => (
+                        <li
+                          key={result.id}
+                          role="option"
+                          aria-selected={index === ownSearch.active}
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => {
+                            setOwnString(result.name);
+                            setOwnStringId(result.id);
+                            setOwnSearch(null);
+                          }}
+                        >
+                          {result.name}
+                          {result.inStock ? <em>Stocked here</em> : null}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+                {allStrings.rows.length > 0 && !(ownSearch && ownStringResults(ownString, ownStringId, allStrings.rows).length) && ownStringHint(ownString, ownStringId, allStrings.rows) ? (
+                  <small>{ownStringHint(ownString, ownStringId, allStrings.rows)}</small>
+                ) : null}
+              </Field>
             ) : selectedString && !editingString && !needsOtherString ? (
               <>
                 <span className="rsg-label">String</span>
@@ -1930,6 +2027,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
         .rsg-stepper{display:flex;align-items:center;justify-content:center;gap:12px;margin:8px 0}.rsg-stepper button{width:42px;height:42px;border-radius:999px;border:1px solid #e5e7eb;background:white}.rsg-stepper div{min-width:92px;text-align:center;border:1px solid #e5e7eb;border-radius:16px;padding:8px}.rsg-stepper b{display:block;font-size:24px}.rsg-stepper small{display:block;color:#6b7280}
         .rsg-check{display:flex;gap:9px;align-items:center;margin-top:12px;font-weight:800}.rsg-actions,.rsg-loc{display:flex;gap:8px;align-items:center}.rsg-actions .rsg-primary{margin-top:0;flex:1}.rsg-link{border:0;background:transparent;color:#6d28d9;font-weight:900;margin-top:10px}.rsg-vendor{display:flex;justify-content:space-between;gap:12px}.rsg-vendor-details{display:flex;align-items:flex-start;gap:12px;min-width:0}.rsg-vendor-img{width:64px;height:64px;flex:0 0 64px;border-radius:14px;background:linear-gradient(135deg,#ede9fe,#dcfce7);display:flex;align-items:center;justify-content:center;font-size:26px;overflow:hidden}.rsg-vendor-img img{width:100%;height:100%;object-fit:cover}.rsg-vendor p{display:flex;align-items:center;gap:5px}
         .rsg-profile-img{height:170px;border-radius:18px;background:linear-gradient(135deg,#ede9fe,#dcfce7);display:flex;align-items:center;justify-content:center;font-size:56px;overflow:hidden}.rsg-profile-img img{width:100%;height:100%;object-fit:cover}.rsg-rating-link{display:inline-flex;align-items:baseline;gap:8px;border:0;background:none;padding:0;margin:4px 0;color:#6d28d9;font-weight:800;text-decoration:underline}.rsg-rating-stars{font-weight:900;color:#b8860b}.rsg-reviews-card h2{margin:0}.rsg-reviews-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px}.rsg-reviews-score{display:flex;align-items:baseline;gap:8px;color:#6b7280;font-size:13px;font-weight:700}.rsg-reviews-list{display:flex;flex-direction:column}.rsg-google-review{display:flex;gap:12px;padding:14px 0;border-bottom:1px solid #f1f2f4}.rsg-google-review:last-child{border-bottom:none}.rsg-review-avatar{width:36px;height:36px;border-radius:999px;background:#ede9fe;color:#6d28d9;font-weight:900;font-size:15px;display:flex;align-items:center;justify-content:center;object-fit:cover;flex-shrink:0}.rsg-review-body{flex:1;min-width:0}.rsg-review-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px}.rsg-review-top strong{font-size:14px}.rsg-review-top span{color:#6b7280;font-size:12.5px}.rsg-review-stars{color:#e0a800;font-size:13px;letter-spacing:1px;margin:1px 0 4px}.rsg-review-stars span{color:#e1e3e8}.rsg-review-body p{font-size:13.5px;color:#374151}.rsg-google-link{font-size:12.5px;font-weight:800;color:#6d28d9;text-decoration:none;margin-top:4px;display:inline-block}.rsg-reviews-foot{display:flex;align-items:center;gap:8px;border-top:1px solid #f1f2f4;padding-top:12px;margin-top:2px;color:#6b7280;font-size:12.5px}.rsg-reviews-foot .rsg-google-link{margin-left:auto;margin-top:0}.rsg-google-logo{font-weight:900;font-size:14px;letter-spacing:0}.rsg-google-logo b{color:#4285f4}.rsg-google-logo i{color:#ea4335;font-style:normal}.rsg-google-logo u{color:#fbbc05;text-decoration:none}.rsg-google-logo i:nth-of-type(2){color:#34a853}.rsg-google-logo s{color:#ea4335;text-decoration:none}
+        .rsg-own-box{position:relative}.rsg-own-results{position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:20;max-height:260px;overflow-y:auto;margin:0;padding:4px;list-style:none;background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 12px 28px rgba(16,24,40,.14);font-weight:500}.rsg-own-results li{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px;padding:8px 10px;border-radius:10px;cursor:pointer}.rsg-own-results li[aria-selected="true"],.rsg-own-results li:hover{background:#f5f0ff}.rsg-own-results em{color:#6d28d9;font-size:12px;font-style:normal;font-weight:700;white-space:nowrap}
         .rsg-racket{border:1px solid #eef2f7;border-radius:16px;padding:12px}.rsg-summary{display:grid;gap:6px}.rsg-summary span{color:#6b7280}.rsg-summary strong{font-size:24px}.rsg-payment{display:grid;gap:12px}.rsg-pay-methods{display:grid;gap:9px;margin-top:8px}.rsg-pay-method{width:100%;display:flex;align-items:center;gap:10px;text-align:left;border:1px solid #e5e7eb;background:#fff;border-radius:15px;padding:12px}.rsg-pay-method.is-active{border-color:#7c3aed;background:#f5f0ff}.rsg-pay-method span{display:grid;gap:2px}.rsg-pay-method small{color:#6b7280}.rsg-fine{font-size:12px!important;text-align:center}.rsg-alert,.rsg-error{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:14px;padding:12px;margin-bottom:12px}.rsg-done{text-align:center}.rsg-done svg{color:#059669;margin:auto}.rsg-steps p{display:flex;gap:10px}.rsg-steps b{display:inline-flex;width:26px;height:26px;border-radius:999px;align-items:center;justify-content:center;background:#ede9fe;color:#6d28d9}.rsg-order-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}.rsg-status-pill{display:inline-grid;gap:1px;border-radius:12px;background:#eef2ff;color:#4338ca;padding:6px 10px;font-weight:900;font-size:13px}.rsg-status-pill--payment{background:#ecfdf5;color:#047857}.rsg-status-pill small{color:inherit;opacity:.72;font-size:10px;text-transform:uppercase;letter-spacing:.04em}
         @media (max-width:640px){.rsg-shell{padding-inline:12px}.rsg-hero h1,.rsg-card h1{font-size:30px}.rsg-vendor,.rsg-actions,.rsg-loc{align-items:stretch;flex-direction:column}.rsg-icon-btn{width:100%}}
         .rsg-checkout-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.rsg-checkout-head h1{margin:0}
