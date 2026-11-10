@@ -283,7 +283,7 @@ function Choices({ label, options, value, onChange }) {
 }
 
 // Stars first; the rest appear once there's a rating, and are all optional. With no level
-// known for the player, their level is asked too and saved first, so it's kept with the rating.
+// known for the player, their level is asked last and saved first, so it's kept with the rating.
 function RatingForm({ row, consented, profile, onSave, onSaveProfile, onDone }) {
   const [answers, setAnswers] = useState(() => startingAnswers(row));
   const [askLevel] = useState(() => needsLevel(profile) && Boolean(onSaveProfile));
@@ -309,16 +309,9 @@ function RatingForm({ row, consented, profile, onSave, onSaveProfile, onDone }) 
   return (
     <div className="mo-rate-form">
       <Stars value={answers.overall} onChange={set("overall")} />
+      {!answers.overall ? <p className="mo-muted">Tap a star to rate it.</p> : null}
       {answers.overall ? (
         <>
-          {askLevel && LEVEL_QUESTION ? (
-            <Choices
-              label={LEVEL_QUESTION.label}
-              options={LEVEL_QUESTION.options.map((option) => ({ value: option.value, label: option.hint ? `${option.label} · ${option.hint}` : option.label }))}
-              value={level}
-              onChange={setLevel}
-            />
-          ) : null}
           <Choices label="Would you get it again?" options={AGAIN_OPTIONS} value={answers.again} onChange={set("again")} />
           <Choices label="How does it feel?" options={FEEL_OPTIONS} value={answers.feel} onChange={set("feel")} />
           <div className="mo-traits">
@@ -338,6 +331,17 @@ function RatingForm({ row, consented, profile, onSave, onSaveProfile, onDone }) 
               placeholder="Great on serves, lost tension fast…"
             />
           </label>
+          {askLevel && LEVEL_QUESTION ? (
+            <div className="mo-choice">
+              <Choices
+                label="Last one: what’s your level?"
+                options={LEVEL_QUESTION.options.map((option) => ({ value: option.value, label: option.hint ? `${option.label} · ${option.hint}` : option.label }))}
+                value={level}
+                onChange={setLevel}
+              />
+              <span className="mo-muted">It helps us match strings to players like you.</span>
+            </div>
+          ) : null}
           {error ? <p className="mo-rate-error" role="alert">{error}</p> : null}
           <button type="button" className="mo-btn mo-btn--primary" disabled={saving} onClick={save}>
             {saving ? "Saving…" : "Save rating"}
@@ -371,7 +375,9 @@ function GameQuestion({ profile, onSaveProfile }) {
   );
 }
 
-function RateStringCard({ row, consented, profile, onRate, onSaveProfile }) {
+// onFinish: on the page for rating one string, where the card is the page. After saving it
+// offers a way on, to My orders.
+function RateStringCard({ row, consented, profile, onRate, onSaveProfile, onFinish }) {
   const [done, setDone] = useState(false);
   const line = setupLine(row);
   const textRating = row.feedback?.answered_via === "sms" ? row.feedback.overall : null;
@@ -382,10 +388,19 @@ function RateStringCard({ row, consented, profile, onRate, onSaveProfile }) {
         <span className="mo-meta">{[line.title, line.when].filter(Boolean).join(" · ")}</span>
       </div>
       {done ? (
-        <GameQuestion profile={profile} onSaveProfile={onSaveProfile} />
+        <>
+          <GameQuestion profile={profile} onSaveProfile={onSaveProfile} />
+          {onFinish ? (
+            <button type="button" className="mo-btn" onClick={onFinish}>See my strings and orders</button>
+          ) : null}
+        </>
       ) : (
         <>
-          {textRating ? <p className="mo-muted">You gave it {starsLabel(textRating)} by text. A few more taps?</p> : null}
+          {textRating ? (
+            <p className="mo-rate-intro">
+              Your {textRating}/5 is saved. Want to tell us more? Each question is one tap, and all of them are optional. Then tap Save.
+            </p>
+          ) : null}
           <RatingForm
             row={row}
             consented={consented}
@@ -397,6 +412,46 @@ function RateStringCard({ row, consented, profile, onRate, onSaveProfile }) {
         </>
       )}
     </section>
+  );
+}
+
+/**
+ * The page a rating text links to: just the one racket's rating, nothing else to work out.
+ * myStrings is null while loading (or when it can't be read).
+ */
+export function RateStringScreen({ itemId, myStrings, loading, signedIn, onSignIn, onRate, onSaveProfile, onOrders }) {
+  const row = myStrings?.strings?.find((item) => Number(item.order_item_id) === Number(itemId));
+  if (!signedIn && !loading) {
+    return (
+      <section className="mo-card mo-rate">
+        <div className="mo-rate-head"><h2>Rate your string</h2></div>
+        <p className="mo-rate-intro">Log in to rate the string in your racket. It takes a few taps.</p>
+        <button type="button" className="mo-btn mo-btn--primary" onClick={onSignIn}>Log in</button>
+      </section>
+    );
+  }
+  if (!row) {
+    return (
+      <section className="mo-card mo-rate">
+        <div className="mo-rate-head"><h2>Rate your string</h2></div>
+        <p className="mo-rate-intro">
+          {loading ? "Loading your strings…" : "We couldn’t find that racket on your account. Your strings and orders are on My orders."}
+        </p>
+        {!loading ? <button type="button" className="mo-btn" onClick={onOrders}>See my strings and orders</button> : null}
+      </section>
+    );
+  }
+  return (
+    <div className="mo-rate-page">
+      <RateStringCard
+        row={row}
+        consented={Boolean(myStrings.consented)}
+        profile={myStrings.profile}
+        onRate={onRate}
+        onSaveProfile={onSaveProfile}
+        onFinish={onOrders}
+      />
+    </div>
   );
 }
 
