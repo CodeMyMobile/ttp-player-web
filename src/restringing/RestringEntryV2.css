@@ -163,7 +163,7 @@
 
 .rsx-shop {
   display: flex;
-  gap: 12px;
+  flex-direction: column;
   padding: 14px;
   border: 1px solid var(--coach-color-border);
   border-radius: 16px;
@@ -172,6 +172,43 @@
 
 .rsx-shop + .rsx-shop {
   margin-top: 10px;
+}
+
+.rsx-shop__pick {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rsx-shop__pick:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.rsx-shop__pick:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 4px;
+  border-radius: 12px;
+}
+
+.rsx-shop__cta {
+  color: var(--color-primary-dark);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.rsx-shop__chev {
+  flex-shrink: 0;
+  margin-left: auto;
+  color: var(--coach-color-subtle);
 }
 
 .rsx-shop__img {
@@ -239,6 +276,7 @@
 .rsx-shop__dir {
   display: inline-flex;
   align-self: flex-start;
+  margin-left: 68px;
   align-items: center;
   gap: 5px;
   min-height: 44px;
