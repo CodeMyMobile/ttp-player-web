@@ -11,7 +11,7 @@ const sameTier = (left, right) => Number(left) === Number(right);
  * Bring my own string, and a sticky bar with the pick, its price and Continue. `catalog` is
  * the shop's whole in-stock list; `initialPick` restores a pick when coming back.
  */
-export default function RestringStringPicker({ tiers, catalog, vendor, initialPick = null, onContinue }) {
+export default function RestringStringPicker({ tiers, catalog, vendor, initialPick = null, racketLabel = "", onContinue }) {
   const [filter, setFilter] = useState("all");
   const [pick, setPick] = useState(initialPick);
   const groups = stringGroups(tiers, catalog);
@@ -28,6 +28,7 @@ export default function RestringStringPicker({ tiers, catalog, vendor, initialPi
   return (
     <div className="rsp">
       <header className="rsp-title">
+        {racketLabel ? <span className="rsp-racket">{racketLabel}</span> : null}
         <h1>Pick your string</h1>
         <p>{vendor?.name ? `In stock at ${vendor.name}. Price includes stringing.` : "Price includes stringing."}</p>
       </header>

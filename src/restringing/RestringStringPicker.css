@@ -217,3 +217,15 @@
   background: var(--coach-color-border-strong);
   cursor: default;
 }
+
+/* Which racket this list is for, when each racket has its own string. */
+.rsp-racket {
+  display: inline-flex;
+  margin-bottom: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  background: var(--color-primary-tint);
+  color: var(--color-primary-dark);
+  font-size: 12px;
+  font-weight: 700;
+}

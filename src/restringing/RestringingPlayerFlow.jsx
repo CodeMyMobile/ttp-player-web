@@ -55,6 +55,14 @@ import {
 import { listAllStrings } from "./allStringsService.js";
 import { matchOwnString, ownStringHint, ownStringResults } from "./ownString.js";
 import {
+  racketSetupsComplete,
+  racketSetupsItems,
+  racketSetupsStringLabel,
+  sameSetupForAll,
+  withRacketDetails,
+  withRacketSetup,
+} from "./racketSetups.js";
+import {
   cancelOrder,
   captureVendorLead,
   createCheckoutOrder,
@@ -341,6 +349,19 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   // with it (as on coach packages and private-lesson booking).
   const [applePayRequest, setApplePayRequest] = useState(null);
   const restringV2 = isRestringV2Enabled();
+  // String first (restring v2): how many rackets comes before the string, and with two or more
+  // each racket can have its own setup. The string setup screen edits one racket at a time
+  // (racketIndex) and saves it to racketSetups; editingRacket is a change from the rackets
+  // screen, which goes back there. afterCount is where the racket count goes next: the
+  // string list, or the setup when the string was picked first (Help me choose).
+  const racketsFirst = restringV2 && !checkoutHandoff;
+  const [racketSetups, setRacketSetups] = useState([]);
+  const [racketIndex, setRacketIndex] = useState(0);
+  const [editingRacket, setEditingRacket] = useState(false);
+  const [afterCount, setAfterCount] = useState("strings");
+  const [countDone, setCountDone] = useState(false);
+  // A saved racket's hybrid crosses, kept through the reset when its string loads back.
+  const restoreCrossesRef = useRef(null);
   // Reorder: the string (and gauge) to keep when the shop's catalog for the tier loads, instead
   // of the first in the list. Read once by the catalog effect.
   const preferredStringRef = useRef(null);
@@ -380,8 +401,10 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   );
   const canHybrid = Boolean(tier?.string_category && selectedString?.string_price_cents != null && !adviceRequested && stringId !== "other");
   const crossesString = canHybrid ? hybridStrings.find((row) => String(row.id) === String(crossesId)) || null : null;
+  // Two or more rackets, string first: each racket's own setup, once they're all set up.
+  const multiRacket = racketsFirst && quantity >= 2 && racketSetups.length === quantity && racketSetups.every((setup) => setup.input);
   // Each racket's string: a shop-priced string sets that racket's price (labor + string).
-  const racketPrices = (setupMode === "different" && quantity >= 2 && perRacketItems.length
+  const racketPrices = multiRacket ? racketSetups.map((setup) => setup.price) : (!racketsFirst && setupMode === "different" && quantity >= 2 && perRacketItems.length
     ? perRacketItems.map((item) => catalog.find((row) => String(row.id) === String(item.stringId)) || null)
     : Array.from({ length: quantity }, () => selectedString)
   ).map((string) => restringUnitPrice(tier, string, crossesString && string === selectedString ? crossesString : null));
@@ -401,7 +424,8 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     setError("");
   }, [screen]);
 
-  const back = useCallback(() => {
+  // A handler, not a callback: it loads a saved racket with loadSetup, defined further down.
+  const back = () => {
     if (checkoutHandoff && screen === "checkout") {
       checkoutHandoff.onBack?.();
       return;
@@ -414,13 +438,19 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
       setQuizIndex((index) => index - 1);
       return;
     }
-    setHistory((items) => {
-      const next = [...items];
-      const previous = next.pop() || "home";
-      setScreen(previous);
-      return next;
-    });
-  }, [checkoutHandoff, quizIndex, screen, wizardIndex]);
+    const previous = history[history.length - 1] || "home";
+    if (racketsFirst && screen === "strings" && editingRacket) {
+      // A change from the rackets screen, dropped: the rackets as they were.
+      setEditingRacket(false);
+    } else if (racketsFirst && screen === "strings" && racketIndex > 0 && (previous === "config" || previous === "strings")) {
+      // Back from a racket's string list to the racket before it, as it was saved.
+      setRacketIndex(racketIndex - 1);
+      loadSetup(racketSetups[racketIndex - 1]);
+    }
+    setHistory((items) => items.slice(0, -1));
+    setScreen(previous);
+    setError("");
+  };
 
   const refreshOrders = useCallback(async () => {
     if (!isAuthenticated) {
@@ -578,10 +608,13 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   }, [selectedVendor]);
 
   useEffect(() => {
-    setCrossesId("");
-    setCrossesGauge("");
+    const keep = restoreCrossesRef.current;
+    restoreCrossesRef.current = null;
+    const restoring = keep && String(keep.stringId) === String(stringId);
+    setCrossesId(restoring ? keep.crossesId : "");
+    setCrossesGauge(restoring ? keep.crossesGauge : "");
     setEditingString(false);
-    setHybridOpen(false);
+    setHybridOpen(Boolean(restoring && keep.crossesId));
   }, [tierId, stringId]);
 
   useEffect(() => {
@@ -803,6 +836,13 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
       if (pickerShop && Number(pickerShop.id) !== Number(shop.id)) setStringPick(null);
       setPickerShop(shop);
       setPickerCatalog(data?.catalog || []);
+      if (racketsFirst) {
+        // How many rackets first; the string list follows.
+        setCountDone(false);
+        setAfterCount("strings");
+        go("count");
+        return;
+      }
       go("strings");
     } finally {
       setBusy(false);
@@ -834,7 +874,73 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     setCrosses(nextTier.string_category?.includes("poly") ? 48 : 52);
     setSplitTension(false);
     setTierId(nextTier.id);
+    if (racketsFirst && !countDone) {
+      // Picked before saying how many rackets (Help me choose): that first, then this setup.
+      setAfterCount("config");
+      go("count");
+      return;
+    }
     go("config");
+  };
+
+  // The racket count is in: no racket's string set up yet; the string list or, with a string already
+  // picked, its setup for racket 1.
+  const continueFromCount = () => {
+    setCountDone(true);
+    setRacketIndex(0);
+    // Strings start over; each racket's make, model and note stay.
+    setRacketSetups((current) => current.slice(0, quantity).map(({ racketMakeModel: model, note }) => ({ racketMakeModel: model, note })));
+    setEditingRacket(false);
+    go(afterCount);
+  };
+
+  // Continue on the string setup. One racket: its details. Same string on all: every racket
+  // gets it. Different strings: this racket's saved, then the next racket's string, or the
+  // rackets once they're all set up (or this one was changed from there).
+  const saveRacketSetup = () => {
+    if (!racketsFirst || quantity < 2) {
+      go("rackets");
+      return;
+    }
+    const setup = currentSetup();
+    if (setupMode !== "different") {
+      setRacketSetups((current) => sameSetupForAll(setup, quantity, current));
+      go("rackets");
+      return;
+    }
+    setRacketSetups((current) => withRacketSetup(current, racketIndex, setup));
+    if (editingRacket || racketIndex + 1 >= quantity) {
+      setEditingRacket(false);
+      go("rackets");
+      return;
+    }
+    setRacketIndex(racketIndex + 1);
+    setStringPick(null);
+    go("strings");
+  };
+
+  // "Same as racket N": the previous racket's setup on this one, then on to the next.
+  const sameAsPreviousRacket = () => {
+    const previous = racketSetups[racketIndex - 1];
+    if (!previous) return;
+    setRacketSetups((current) => withRacketSetup(current, racketIndex, previous));
+    if (editingRacket || racketIndex + 1 >= quantity) {
+      setEditingRacket(false);
+      loadSetup(previous);
+      go("rackets");
+      return;
+    }
+    setRacketIndex(racketIndex + 1);
+    setStringPick(null);
+    go("strings");
+  };
+
+  // Change one racket's string from the rackets screen: its string list, then back there.
+  const changeRacket = (index) => {
+    setRacketIndex(index);
+    setEditingRacket(true);
+    loadSetup(racketSetups[index]);
+    go("strings");
   };
 
   // Help me choose: the nearest shop's strings (what the result can pick from) and the
@@ -855,6 +961,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
         setPickerShop(shop);
         setPickerCatalog(data?.catalog || []);
       }
+      setCountDone(false);
       setQuizLevel(levelFromNtrp(ntrp));
       setQuizAnswers({});
       setQuizIndex(0);
@@ -931,6 +1038,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   };
 
   const validateRackets = () => {
+    if (racketsFirst) return quantity >= 2 ? racketSetupsComplete(racketSetups, quantity) : Boolean(clean(racketMakeModel));
     if (quantity >= 2 && !setupMode) return false;
     if (setupMode === "different" && !adviceRequested) {
       return perRacketItems.length === quantity && perRacketItems.every((item) =>
@@ -943,7 +1051,8 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     return Boolean(clean(racketMakeModel));
   };
 
-  const buildItems = () => checkoutHandoff ? [checkoutHandoff.item] : buildCheckoutItems({
+  // The string setup on screen, as one racket's order item takes it.
+  const setupInput = () => ({
     serviceTierId: tier.id,
     // An own string names its catalog string when the player picked or typed one.
     selectedStringId: isOwnTier(tier) ? ownStringId || null : adviceRequested || isPresetCompositionTier(tier) ? null : needsOtherString ? null : stringId || catalog[0]?.id || null,
@@ -953,6 +1062,57 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     tensionMains: tension,
     tensionCrosses: splitTension ? crosses : tension,
     adviceRequested,
+    crossesStringId: crossesString ? crossesString.id : null,
+    crossesGauge: crossesString ? crossesGauge : null,
+  });
+
+  // The string setup on screen saved as one racket's: what loads it back, its order item, its
+  // price and how it reads.
+  const currentSetup = () => ({
+    tierId,
+    stringId,
+    gauge,
+    tension,
+    splitTension,
+    crosses,
+    adviceRequested,
+    ownString,
+    ownStringId,
+    otherString,
+    crossesId: crossesString ? String(crossesString.id) : "",
+    crossesGauge: crossesString ? crossesGauge : "",
+    stringPick,
+    input: setupInput(),
+    price: restringUnitPrice(tier, selectedString, crossesString),
+    tierName: tier.name,
+    label: setupSummary,
+    stringLabel: singleStringLineLabel,
+  });
+
+  // A saved racket back on the string setup screen. Its string loads with the service's list
+  // when the service changes (preferredStringRef); its hybrid crosses survive the reset.
+  const loadSetup = (setup) => {
+    if (!setup?.input) return;
+    if (Number(setup.tierId) !== Number(tierId)) preferredStringRef.current = { id: setup.stringId, gauge: setup.gauge };
+    restoreCrossesRef.current = { stringId: setup.stringId, crossesId: setup.crossesId, crossesGauge: setup.crossesGauge };
+    setTierId(setup.tierId);
+    setStringId(setup.stringId);
+    setGauge(setup.gauge);
+    setTension(setup.tension);
+    setSplitTension(setup.splitTension);
+    setCrosses(setup.crosses);
+    setAdviceRequested(setup.adviceRequested);
+    setOwnString(setup.ownString);
+    setOwnStringId(setup.ownStringId);
+    setOtherString(setup.otherString);
+    setCrossesId(setup.crossesId);
+    setCrossesGauge(setup.crossesGauge);
+    setHybridOpen(Boolean(setup.crossesId));
+    setStringPick(setup.stringPick);
+  };
+
+  const buildItems = () => checkoutHandoff ? [checkoutHandoff.item] : multiRacket ? racketSetupsItems(racketSetups, orderNotes) : buildCheckoutItems({
+    ...setupInput(),
     racketMakeModel,
     orderNotes,
     quantity,
@@ -963,8 +1123,6 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
       : isOwnTier(tier)
         ? perRacketItems.map((item) => ({ ...item, stringId: ownStringId || null, ownStringText: ownString }))
         : perRacketItems,
-    crossesStringId: crossesString ? crossesString.id : null,
-    crossesGauge: crossesString ? crossesGauge : null,
   });
 
   // The string jobs plus any add-ons chosen at checkout.
@@ -1249,14 +1407,19 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     }
   };
 
-  const selectedStringName = selectedString
+  // An own-string service has no shop list, so its string is "other"; the name is what they bring.
+  const selectedStringName = tier && isOwnTier(tier)
+    ? clean(ownString)
+    : selectedString
     ? `${selectedString.brand || ""} ${selectedString.name || ""}`.trim()
     : stringId === "other"
       ? otherString
       : ownString;
+  // The string setup in a line: the string, gauge and tension.
+  const setupSummary = tier ? (adviceRequested ? "Specs decided at drop-off" : `${isPresetCompositionTier(tier) ? serviceCompositionLabel(tier.string_composition) : crossesString ? `${selectedStringName} ${gauge} mains / ${crossesString.brand} ${crossesString.name} ${crossesGauge} crosses` : `${selectedStringName || "String"} · gauge ${gauge}`} · ${splitTension ? `${tension}/${crosses}` : tension} lbs`) : "";
   // Checkout's line items: what the rackets' price is for labor and for string.
   const costSplit = restringCostSplit({ quoteItems: quote?.items || null, localPrices: racketPrices });
-  const stringLineLabel = crossesString
+  const singleStringLineLabel = crossesString
     ? `${selectedStringName} / ${crossesString.brand} ${crossesString.name} (hybrid)`
     : checkoutHandoff
       ? "String"
@@ -1265,6 +1428,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
         : needsOtherString
           ? clean(otherString) || "String"
           : selectedStringName || "String";
+  const stringLineLabel = multiRacket ? racketSetupsStringLabel(racketSetups) : singleStringLineLabel;
 
   // ----- Phone chrome: FeatureNavBar in place of AppNav, bottom nav outside task flows -----
   const goHome = () => {
@@ -1282,6 +1446,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     quizResult: "Your string",
     vendor: "Choose a stringer",
     profile: selectedVendor?.name || "Stringer",
+    count: "Rackets",
     config: "String setup",
     rackets: checkoutHandoff ? "Your racket" : `Your racket${quantity > 1 ? "s" : ""}`,
     checkout: "Checkout",
@@ -1415,13 +1580,57 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
         ) : null}
 
         {screen === "strings" && restringV2 ? (
-          <RestringStringPicker
-            tiers={tiers}
-            catalog={pickerCatalog}
-            vendor={pickerShop}
-            initialPick={stringPick}
-            onContinue={continueFromPicker}
-          />
+          <>
+            {racketsFirst && setupMode === "different" && quantity >= 2 && racketIndex > 0 && racketSetups[racketIndex - 1]?.input ? (
+              <section className="rsg-card rsg-same-as">
+                <span>
+                  <b>Same as racket {racketIndex}?</b>
+                  <small>{racketSetups[racketIndex - 1].label}</small>
+                </span>
+                <button type="button" className="rsg-secondary" onClick={sameAsPreviousRacket}>Use the same</button>
+              </section>
+            ) : null}
+            <RestringStringPicker
+              // A new list for each racket, with that racket's pick.
+              key={racketsFirst ? `racket-${racketIndex}` : "picker"}
+              tiers={tiers}
+              catalog={pickerCatalog}
+              vendor={pickerShop}
+              initialPick={stringPick}
+              racketLabel={racketsFirst && setupMode === "different" && quantity >= 2 ? `Racket ${racketIndex + 1} of ${quantity}` : ""}
+              onContinue={continueFromPicker}
+            />
+          </>
+        ) : null}
+
+        {screen === "count" ? (
+          <section className="rsg-card">
+            <h1>How many rackets?</h1>
+            <p>{pickerShop?.name ? `Restringing at ${pickerShop.name}.` : "Restringing at your stringer."}</p>
+            <div className="rsg-tiles">
+              {[1, 2, 3, 4].map((count) => <TileButton key={count} active={quantity === count} onClick={() => setQuantity(count)}><small>rackets</small><b>{count}</b></TileButton>)}
+              <TileButton active={quantity > 4} onClick={() => setQuantity((current) => (current > 4 ? current : 5))}><small>rackets</small><b>5+</b></TileButton>
+            </div>
+            {quantity > 4 ? (
+              <div className="rsg-count">
+                <button type="button" aria-label="One racket fewer" onClick={() => setQuantity((current) => Math.max(1, current - 1))}><Minus size={18} /></button>
+                <b aria-live="polite">{quantity} rackets</b>
+                <button type="button" aria-label="One racket more" disabled={quantity >= MAX_RACKETS} onClick={() => setQuantity((current) => Math.min(MAX_RACKETS, current + 1))}><Plus size={18} /></button>
+              </div>
+            ) : null}
+            {quantity >= MAX_RACKETS ? <p className="rsg-fine">Up to {MAX_RACKETS} rackets in one order. Place another order for more.</p> : null}
+            {quantity >= 2 ? (
+              <>
+                <span className="rsg-label">Strings</span>
+                <div className="rsg-chips">
+                  <button type="button" className={setupMode === "same" ? "is-active" : ""} onClick={() => setSetupMode("same")}>Same string on all</button>
+                  <button type="button" className={setupMode === "different" ? "is-active" : ""} onClick={() => setSetupMode("different")}>Different strings</button>
+                </div>
+                {setupMode === "different" ? <small className="rsg-hint">You'll pick each racket's string, gauge and tension in turn.</small> : null}
+              </>
+            ) : null}
+            <button type="button" className="rsg-primary" disabled={quantity >= 2 && !setupMode} onClick={continueFromCount}>Continue</button>
+          </section>
         ) : null}
 
         {screen === "quiz" && restringV2 ? (
@@ -1550,6 +1759,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
 
         {screen === "config" && tier ? (
           <section className="rsg-card">
+            {racketsFirst && quantity >= 2 ? <span className="rsg-pill">{setupMode === "different" ? `Racket ${racketIndex + 1} of ${quantity}` : `All ${quantity} rackets`}</span> : null}
             <h1>Your string setup</h1>
             <p>{tier.name} at {selectedVendor?.name}</p>
             {reorderNotice ? <div className="rsg-alert" role="status">{reorderNotice}</div> : null}
@@ -1705,11 +1915,48 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
             ) : null}
             <label className="rsg-check"><input type="checkbox" checked={splitTension} disabled={adviceRequested} onChange={(event) => { setSplitTension(event.target.checked); if (event.target.checked) setCrosses(Math.max(40, tension - 2)); }} /> Different mains / crosses tension</label>
             <label className="rsg-check"><input type="checkbox" checked={adviceRequested} onChange={(event) => setAdviceRequested(event.target.checked)} /> Not sure? Ask your stringer's advice at drop-off</label>
-            <button type="button" className="rsg-primary" disabled={!validateConfig()} onClick={() => go("rackets")}>Continue</button>
+            <button type="button" className="rsg-primary" disabled={!validateConfig()} onClick={saveRacketSetup}>Continue</button>
           </section>
         ) : null}
 
-        {screen === "rackets" && tier ? (
+        {screen === "rackets" && tier && racketsFirst ? (
+          <section className="rsg-card">
+            <h1>Your racket{quantity > 1 ? "s" : ""}</h1>
+            <p className="rsg-racket-count">
+              {quantity} racket{quantity > 1 ? "s" : ""}
+              <button type="button" className="rsg-link-btn" onClick={() => { setAfterCount("strings"); go("count"); }}>Change</button>
+            </p>
+            {quantity >= 2 ? (
+              <div className="rsg-stack">
+                {setupMode !== "different" && racketSetups[0]?.input ? (
+                  <div className="rsg-picked">
+                    <span><b>{racketSetups[0].label}</b><small>{racketSetups[0].tierName} · on all {quantity}</small></span>
+                    <button type="button" className="rsg-link-btn" onClick={() => go("config")}>Change</button>
+                  </div>
+                ) : null}
+                {racketSetups.map((setup, index) => (
+                  <div className="rsg-racket" key={index}>
+                    <h3>Racket {index + 1}</h3>
+                    {setupMode === "different" && setup.input ? (
+                      <div className="rsg-picked">
+                        <span><b>{setup.label}</b><small>{setup.tierName} · {formatMoneyCents(setup.price.unitCents)}</small></span>
+                        <button type="button" className="rsg-link-btn" onClick={() => changeRacket(index)}>Change</button>
+                      </div>
+                    ) : null}
+                    <Field label="Make & model"><input value={setup.racketMakeModel || ""} onChange={(event) => setRacketSetups((rows) => withRacketDetails(rows, index, { racketMakeModel: event.target.value }))} placeholder="Babolat Pure Aero 2023" /></Field>
+                    <Field label="Tell them apart"><input value={setup.note || ""} onChange={(event) => setRacketSetups((rows) => withRacketDetails(rows, index, { note: event.target.value }))} placeholder="Red grip, older one..." /></Field>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <Field label="Make & model"><input value={racketMakeModel} onChange={(event) => setRacketMakeModel(event.target.value)} placeholder="Babolat Pure Aero 2023" /></Field>
+            )}
+            <Field label="Notes for your stringer"><input value={orderNotes} onChange={(event) => setOrderNotes(event.target.value)} placeholder="Logo stencil, loose grip..." /></Field>
+            <button type="button" className="rsg-primary" disabled={!validateRackets()} onClick={() => go("checkout")}>Review & pay</button>
+          </section>
+        ) : null}
+
+        {screen === "rackets" && tier && !racketsFirst ? (
           <section className="rsg-card">
             <h1>Your racket{quantity > 1 ? "s" : ""}</h1>
             <span className="rsg-label">How many rackets?</span>
@@ -1764,7 +2011,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
                       <button type="button" onClick={() => editOrder()}><Pencil size={14} aria-hidden="true" /> Edit</button>
                     ) : (
                       <>
-                        <button type="button" onClick={() => editOrder("config")}><Pencil size={14} aria-hidden="true" /> String</button>
+                        <button type="button" onClick={() => editOrder(multiRacket && setupMode === "different" ? "rackets" : "config")}><Pencil size={14} aria-hidden="true" /> String{multiRacket && setupMode === "different" ? "s" : ""}</button>
                         <button type="button" onClick={() => editOrder("rackets")}><Plus size={14} aria-hidden="true" /> Rackets</button>
                       </>
                     )}
@@ -1772,8 +2019,19 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
                 ) : null}
               </div>
               <div className="rsg-summary">
-                <b>{tier.name} · x{quantity}</b>
-                <span>{checkoutHandoff ? checkoutHandoff.summary : adviceRequested ? "Specs decided at drop-off" : `${isPresetCompositionTier(tier) ? serviceCompositionLabel(tier.string_composition) : crossesString ? `${selectedStringName} ${gauge} mains / ${crossesString.brand} ${crossesString.name} ${crossesGauge} crosses` : `${selectedStringName || "String"} · gauge ${gauge}`} · ${splitTension ? `${tension}/${crosses}` : tension} lbs`}</span>
+                {multiRacket ? (
+                  <>
+                    <b>{quantity} rackets</b>
+                    {racketSetups.map((setup, index) => (
+                      <span key={index}>Racket {index + 1}{clean(setup.racketMakeModel) ? ` (${clean(setup.racketMakeModel)})` : ""}: {setup.label}</span>
+                    ))}
+                  </>
+                ) : (
+                  <>
+                    <b>{tier.name} · x{quantity}</b>
+                    <span>{checkoutHandoff ? checkoutHandoff.summary : setupSummary}</span>
+                  </>
+                )}
                 <span>{selectedVendor?.name} · {selectedVendor?.address}</span>
                 {orderNotes ? <span>{orderNotes}</span> : null}
                 {/* Line items: stringing labor, the string, add-ons, any discount, then sales tax. */}
@@ -2031,6 +2289,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
         .rsg-stepper{display:flex;align-items:center;justify-content:center;gap:12px;margin:8px 0}.rsg-stepper button{width:42px;height:42px;border-radius:999px;border:1px solid #e5e7eb;background:white}.rsg-stepper div{min-width:92px;text-align:center;border:1px solid #e5e7eb;border-radius:16px;padding:8px}.rsg-stepper b{display:block;font-size:24px}.rsg-stepper small{display:block;color:#6b7280}
         .rsg-check{display:flex;gap:9px;align-items:center;margin-top:12px;font-weight:800}.rsg-actions,.rsg-loc{display:flex;gap:8px;align-items:center}.rsg-actions .rsg-primary{margin-top:0;flex:1}.rsg-link{border:0;background:transparent;color:#6d28d9;font-weight:900;margin-top:10px}.rsg-vendor{display:flex;justify-content:space-between;gap:12px}.rsg-vendor-details{display:flex;align-items:flex-start;gap:12px;min-width:0}.rsg-vendor-img{width:64px;height:64px;flex:0 0 64px;border-radius:14px;background:linear-gradient(135deg,#ede9fe,#dcfce7);display:flex;align-items:center;justify-content:center;font-size:26px;overflow:hidden}.rsg-vendor-img img{width:100%;height:100%;object-fit:cover}.rsg-vendor p{display:flex;align-items:center;gap:5px}
         .rsg-profile-img{height:170px;border-radius:18px;background:linear-gradient(135deg,#ede9fe,#dcfce7);display:flex;align-items:center;justify-content:center;font-size:56px;overflow:hidden}.rsg-profile-img img{width:100%;height:100%;object-fit:cover}.rsg-rating-link{display:inline-flex;align-items:baseline;gap:8px;border:0;background:none;padding:0;margin:4px 0;color:#6d28d9;font-weight:800;text-decoration:underline}.rsg-rating-stars{font-weight:900;color:#b8860b}.rsg-reviews-card h2{margin:0}.rsg-reviews-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px}.rsg-reviews-score{display:flex;align-items:baseline;gap:8px;color:#6b7280;font-size:13px;font-weight:700}.rsg-reviews-list{display:flex;flex-direction:column}.rsg-google-review{display:flex;gap:12px;padding:14px 0;border-bottom:1px solid #f1f2f4}.rsg-google-review:last-child{border-bottom:none}.rsg-review-avatar{width:36px;height:36px;border-radius:999px;background:#ede9fe;color:#6d28d9;font-weight:900;font-size:15px;display:flex;align-items:center;justify-content:center;object-fit:cover;flex-shrink:0}.rsg-review-body{flex:1;min-width:0}.rsg-review-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px}.rsg-review-top strong{font-size:14px}.rsg-review-top span{color:#6b7280;font-size:12.5px}.rsg-review-stars{color:#e0a800;font-size:13px;letter-spacing:1px;margin:1px 0 4px}.rsg-review-stars span{color:#e1e3e8}.rsg-review-body p{font-size:13.5px;color:#374151}.rsg-google-link{font-size:12.5px;font-weight:800;color:#6d28d9;text-decoration:none;margin-top:4px;display:inline-block}.rsg-reviews-foot{display:flex;align-items:center;gap:8px;border-top:1px solid #f1f2f4;padding-top:12px;margin-top:2px;color:#6b7280;font-size:12.5px}.rsg-reviews-foot .rsg-google-link{margin-left:auto;margin-top:0}.rsg-google-logo{font-weight:900;font-size:14px;letter-spacing:0}.rsg-google-logo b{color:#4285f4}.rsg-google-logo i{color:#ea4335;font-style:normal}.rsg-google-logo u{color:#fbbc05;text-decoration:none}.rsg-google-logo i:nth-of-type(2){color:#34a853}.rsg-google-logo s{color:#ea4335;text-decoration:none}
+        .rsg-same-as{display:flex;align-items:center;justify-content:space-between;gap:12px}.rsg-same-as span{display:grid;gap:2px;min-width:0}.rsg-same-as small{color:var(--coach-color-subtle);font-size:13px;overflow-wrap:anywhere}.rsg-same-as .rsg-secondary{flex-shrink:0;min-height:44px}.rsg-racket-count{display:flex;align-items:center;gap:6px;color:var(--coach-color-body)}.rsg-racket .rsg-picked{margin-top:4px}
         .rsg-own-box{position:relative}.rsg-own-results{position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:20;max-height:260px;overflow-y:auto;margin:0;padding:4px;list-style:none;background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 12px 28px rgba(16,24,40,.14);font-weight:500}.rsg-own-results li{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px;padding:8px 10px;border-radius:10px;cursor:pointer}.rsg-own-results li[aria-selected="true"],.rsg-own-results li:hover{background:#f5f0ff}.rsg-own-results em{color:#6d28d9;font-size:12px;font-style:normal;font-weight:700;white-space:nowrap}
         .rsg-racket{border:1px solid #eef2f7;border-radius:16px;padding:12px}.rsg-summary{display:grid;gap:6px}.rsg-summary span{color:#6b7280}.rsg-summary strong{font-size:24px}.rsg-payment{display:grid;gap:12px}.rsg-pay-methods{display:grid;gap:9px;margin-top:8px}.rsg-pay-method{width:100%;display:flex;align-items:center;gap:10px;text-align:left;border:1px solid #e5e7eb;background:#fff;border-radius:15px;padding:12px}.rsg-pay-method.is-active{border-color:#7c3aed;background:#f5f0ff}.rsg-pay-method span{display:grid;gap:2px}.rsg-pay-method small{color:#6b7280}.rsg-fine{font-size:12px!important;text-align:center}.rsg-alert,.rsg-error{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:14px;padding:12px;margin-bottom:12px}.rsg-done{text-align:center}.rsg-done svg{color:#059669;margin:auto}.rsg-steps p{display:flex;gap:10px}.rsg-steps b{display:inline-flex;width:26px;height:26px;border-radius:999px;align-items:center;justify-content:center;background:#ede9fe;color:#6d28d9}.rsg-order-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}.rsg-status-pill{display:inline-grid;gap:1px;border-radius:12px;background:#eef2ff;color:#4338ca;padding:6px 10px;font-weight:900;font-size:13px}.rsg-status-pill--payment{background:#ecfdf5;color:#047857}.rsg-status-pill small{color:inherit;opacity:.72;font-size:10px;text-transform:uppercase;letter-spacing:.04em}
         @media (max-width:640px){.rsg-shell{padding-inline:12px}.rsg-hero h1,.rsg-card h1{font-size:30px}.rsg-vendor,.rsg-actions,.rsg-loc{align-items:stretch;flex-direction:column}.rsg-icon-btn{width:100%}}
