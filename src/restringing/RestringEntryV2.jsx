@@ -76,7 +76,7 @@ function useShopStrings(entry) {
  * The redesigned restring entry (VITE_RESTRING_V2): Order again, the two ways in, Stringers
  * near you, and My orders. Choosing and paying stay in RestringingPlayerFlow.
  */
-export default function RestringEntryV2({ tiers, orders, isAuthenticated, ordersLine, busy, onKnow, onHelp, onOrders, onReorder }) {
+export default function RestringEntryV2({ tiers, orders, isAuthenticated, ordersLine, busy, onKnow, onHelp, onShop, onOrders, onReorder }) {
   const entry = lastRestring(orders);
   const againCatalog = useShopStrings(entry);
   const card = orderAgainCard(entry, tiers, againCatalog.catalog);
@@ -135,26 +135,31 @@ export default function RestringEntryV2({ tiers, orders, isAuthenticated, orders
             const distance = distanceLabel(vendor);
             return (
               <article key={vendor.id} className="rsx-shop">
-                <div className="rsx-shop__img">
-                  {vendorImageSrc(vendor) ? <img src={vendorImageSrc(vendor)} alt="" /> : <span aria-hidden="true">🎾</span>}
-                </div>
-                <div className="rsx-shop__body">
-                  <b>{vendor.name}</b>
-                  <span className="rsx-shop__addr">
-                    <MapPin size={13} aria-hidden="true" />
-                    {[displayAddress(vendor.address) || "Address pending", distance].filter(Boolean).join(" · ")}
+                {/* The card orders from this shop: its strings, then the rest of the flow. */}
+                <button type="button" className="rsx-shop__pick" disabled={busy} onClick={() => onShop(vendor)}>
+                  <span className="rsx-shop__img">
+                    {vendorImageSrc(vendor) ? <img src={vendorImageSrc(vendor)} alt="" /> : <span aria-hidden="true">🎾</span>}
                   </span>
-                  {tags.length ? (
-                    <span className="rsx-shop__tags">
-                      {tags.map((tag) => <span key={tag} className="rsx-tag">{tag}</span>)}
+                  <span className="rsx-shop__body">
+                    <b>{vendor.name}</b>
+                    <span className="rsx-shop__addr">
+                      <MapPin size={13} aria-hidden="true" />
+                      {[displayAddress(vendor.address) || "Address pending", distance].filter(Boolean).join(" · ")}
                     </span>
-                  ) : null}
-                  {directions ? (
-                    <a className="rsx-shop__dir" href={directions} target="_blank" rel="noopener noreferrer">
-                      <Navigation size={14} aria-hidden="true" /> Directions
-                    </a>
-                  ) : null}
-                </div>
+                    {tags.length ? (
+                      <span className="rsx-shop__tags">
+                        {tags.map((tag) => <span key={tag} className="rsx-tag">{tag}</span>)}
+                      </span>
+                    ) : null}
+                    <span className="rsx-shop__cta">See strings and order</span>
+                  </span>
+                  <ChevronRight className="rsx-shop__chev" size={18} aria-hidden="true" />
+                </button>
+                {directions ? (
+                  <a className="rsx-shop__dir" href={directions} target="_blank" rel="noopener noreferrer">
+                    <Navigation size={14} aria-hidden="true" /> Directions
+                  </a>
+                ) : null}
               </article>
             );
           })

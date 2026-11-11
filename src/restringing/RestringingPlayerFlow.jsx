@@ -788,16 +788,19 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     return nearbyStringers(rows, getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES)[0] || (allVendors.length ? allVendors : vendors)[0] || null;
   };
 
-  const openStringPicker = async () => {
+  // From a stringer card, that shop; otherwise the shop picked before, or the nearest.
+  const openStringPicker = async (chosenShop = null) => {
     setBusy(true);
     setError("");
     try {
-      const shop = pickerShop || await nearestShop();
+      const shop = chosenShop || pickerShop || await nearestShop();
       if (!shop) {
         go("vendor");
         return;
       }
       const data = await listVendorStrings({ vendorId: shop.id }).catch(() => ({ catalog: [] }));
+      // A pick made at another shop doesn't carry over.
+      if (pickerShop && Number(pickerShop.id) !== Number(shop.id)) setStringPick(null);
       setPickerShop(shop);
       setPickerCatalog(data?.catalog || []);
       go("strings");
@@ -1339,6 +1342,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
             ordersLine={ordersSummaryLine(orders)}
             busy={busy}
             onKnow={() => void openStringPicker()}
+            onShop={(shop) => void openStringPicker(shop)}
             onHelp={() => void openQuiz()}
             onOrders={() => { void refreshOrders(); go("orders"); }}
             onReorder={(entry) => void reorder(entry)}
