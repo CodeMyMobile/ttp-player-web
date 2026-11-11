@@ -121,6 +121,27 @@ test("different per racket produces one order item per racket", () => {
   assert.equal(items[1].notes, "blue grip");
 });
 
+test("an own string sends the catalog string it names, or none when it isn't in the list", () => {
+  const named = buildCheckoutItems({ serviceTierId: 1, selectedStringId: "43", ownStringText: "Luxilon ALU Power Rough", racketMakeModel: "Head Speed MP" });
+  assert.equal(named[0].string_id, 43);
+  assert.equal(named[0].own_string_text, "Luxilon ALU Power Rough");
+
+  const typed = buildCheckoutItems({ serviceTierId: 1, selectedStringId: null, ownStringText: "Some Reel 17", racketMakeModel: "Head Speed MP" });
+  assert.equal(typed[0].string_id, null);
+  assert.equal(typed[0].own_string_text, "Some Reel 17");
+
+  const perRacket = buildCheckoutItems({
+    serviceTierId: 1,
+    quantity: 2,
+    setupMode: "different",
+    perRacketItems: [
+      { racketMakeModel: "Head Speed MP", stringId: "43", ownStringText: "Luxilon ALU Power Rough", tensionMains: 50 },
+      { racketMakeModel: "Babolat Pure Aero", stringId: "43", ownStringText: "Luxilon ALU Power Rough", tensionMains: 48 },
+    ],
+  });
+  assert.deepEqual(perRacket.map((item) => item.string_id), [43, 43]);
+});
+
 test("uses selected catalog string gauges for ordering", () => {
   const lynx = { gauges: ["16", "17"], gauges_stocked: ["16", "18"] };
   const velocity = { gauges: ["17", "18"], gauges_stocked: ["18", "17"] };
