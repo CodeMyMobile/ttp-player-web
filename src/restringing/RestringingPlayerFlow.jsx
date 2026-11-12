@@ -376,6 +376,11 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   const [quizAnswers, setQuizAnswers] = useState({});
   const [quizLevel, setQuizLevel] = useState(null);
   const [quizResult, setQuizResult] = useState(null);
+  // A finished quiz's answers, sent with the order so the shop sees what the pick was based on;
+  // cleared when an order starts from the string list instead. And answers given signed out,
+  // saved to the player's profile once they sign in.
+  const [orderQuizAnswers, setOrderQuizAnswers] = useState(null);
+  const unsavedQuizRef = useRef(null);
   // Checkout extras: the shop's add-ons ({ offerId: quantity }), an applied discount code, and
   // the API's price for the order as it stands (null until quoted, or signed out).
   const [addOnQty, setAddOnQty] = useState({});
@@ -509,6 +514,14 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     } finally {
       setPaymentMethodsLoading(false);
     }
+  }, [isAuthenticated]);
+
+  // Quiz answers given signed out go on the profile once the player signs in. Best effort.
+  useEffect(() => {
+    if (!isAuthenticated || !unsavedQuizRef.current) return;
+    const answers = unsavedQuizRef.current;
+    unsavedQuizRef.current = null;
+    saveGameProfile(answers).catch(() => {});
   }, [isAuthenticated]);
 
   useEffect(() => {
@@ -792,6 +805,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
       setCrosses(plan.tensionCrosses);
       setSplitTension(plan.splitTension);
       setAdviceRequested(plan.adviceRequested);
+      setOrderQuizAnswers(null);
       setRacketMakeModel(plan.racketMakeModel);
       setQuantity(1);
       setSetupMode("");
@@ -834,6 +848,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
       const data = await listVendorStrings({ vendorId: shop.id }).catch(() => ({ catalog: [] }));
       // A pick made at another shop doesn't carry over.
       if (pickerShop && Number(pickerShop.id) !== Number(shop.id)) setStringPick(null);
+      setOrderQuizAnswers(null);
       setPickerShop(shop);
       setPickerCatalog(data?.catalog || []);
       if (racketsFirst) {
@@ -980,8 +995,11 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
       setQuizIndex((index) => index + 1);
       return;
     }
-    // The answers also go on the player's profile, for string feedback. Best effort.
+    // The answers also go on the player's profile, for string feedback (best effort): now, or
+    // once they sign in at checkout.
+    setOrderQuizAnswers(next);
     if (isAuthenticated) saveGameProfile(next).catch(() => {});
+    else unsavedQuizRef.current = next;
     if (!pickerShop) {
       setQuizResult(null);
       go("quizResult");
@@ -1051,12 +1069,15 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     return Boolean(clean(racketMakeModel));
   };
 
-  // The string setup on screen, as one racket's order item takes it.
+  // The string setup on screen, as one racket's order item takes it. Asking the stringer's
+  // advice keeps the string the player picked (restring v2 always has one picked), so the shop
+  // sees it; gauge and tension are left to drop-off.
+  const dropsStringForAdvice = adviceRequested && !restringV2;
   const setupInput = () => ({
     serviceTierId: tier.id,
     // An own string names its catalog string when the player picked or typed one.
-    selectedStringId: isOwnTier(tier) ? ownStringId || null : adviceRequested || isPresetCompositionTier(tier) ? null : needsOtherString ? null : stringId || catalog[0]?.id || null,
-    customStringText: adviceRequested || isPresetCompositionTier(tier) ? null : needsOtherString ? otherString : null,
+    selectedStringId: isOwnTier(tier) ? ownStringId || null : dropsStringForAdvice || isPresetCompositionTier(tier) ? null : needsOtherString ? null : stringId || (adviceRequested ? null : catalog[0]?.id) || null,
+    customStringText: dropsStringForAdvice || isPresetCompositionTier(tier) ? null : needsOtherString ? otherString : null,
     ownStringText: isPresetCompositionTier(tier) ? null : isOwnTier(tier) ? ownString : null,
     gauge: isPresetCompositionTier(tier) ? null : gauge,
     tensionMains: tension,
@@ -1218,6 +1239,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
         items: orderItems(),
         paymentMethodId,
         discountCode: discountCode || null,
+        quizAnswers: checkoutHandoff ? null : orderQuizAnswers,
       });
       setCheckoutResult(result);
       setConfirmedOrder(result.order);
@@ -1416,13 +1438,16 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
       ? otherString
       : ownString;
   // The string setup in a line: the string, gauge and tension.
-  const setupSummary = tier ? (adviceRequested ? "Specs decided at drop-off" : `${isPresetCompositionTier(tier) ? serviceCompositionLabel(tier.string_composition) : crossesString ? `${selectedStringName} ${gauge} mains / ${crossesString.brand} ${crossesString.name} ${crossesGauge} crosses` : `${selectedStringName || "String"} · gauge ${gauge}`} · ${splitTension ? `${tension}/${crosses}` : tension} lbs`) : "";
+  const adviceString = adviceRequested && !dropsStringForAdvice && !isPresetCompositionTier(tier) && clean(selectedStringName) ? clean(selectedStringName) : "";
+  const setupSummary = tier ? (adviceRequested ? (adviceString ? `${adviceString} · gauge and tension at drop-off` : "Specs decided at drop-off") : `${isPresetCompositionTier(tier) ? serviceCompositionLabel(tier.string_composition) : crossesString ? `${selectedStringName} ${gauge} mains / ${crossesString.brand} ${crossesString.name} ${crossesGauge} crosses` : `${selectedStringName || "String"} · gauge ${gauge}`} · ${splitTension ? `${tension}/${crosses}` : tension} lbs`) : "";
   // Checkout's line items: what the rackets' price is for labor and for string.
   const costSplit = restringCostSplit({ quoteItems: quote?.items || null, localPrices: racketPrices });
   const singleStringLineLabel = crossesString
     ? `${selectedStringName} / ${crossesString.brand} ${crossesString.name} (hybrid)`
     : checkoutHandoff
       ? "String"
+      : adviceString
+        ? adviceString
       : adviceRequested || isPresetCompositionTier(tier) || (!selectedString && !needsOtherString)
         ? `${tier?.string_composition ? serviceCompositionLabel(tier.string_composition) : categoryLabel(tier?.string_category)} (stringer’s pick)`
         : needsOtherString
@@ -1914,7 +1939,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
               </>
             ) : null}
             <label className="rsg-check"><input type="checkbox" checked={splitTension} disabled={adviceRequested} onChange={(event) => { setSplitTension(event.target.checked); if (event.target.checked) setCrosses(Math.max(40, tension - 2)); }} /> Different mains / crosses tension</label>
-            <label className="rsg-check"><input type="checkbox" checked={adviceRequested} onChange={(event) => setAdviceRequested(event.target.checked)} /> Not sure? Ask your stringer's advice at drop-off</label>
+            <label className="rsg-check"><input type="checkbox" checked={adviceRequested} onChange={(event) => setAdviceRequested(event.target.checked)} /> {restringV2 ? "Not sure about gauge or tension? Your stringer will set them with you at drop-off" : "Not sure? Ask your stringer's advice at drop-off"}</label>
             <button type="button" className="rsg-primary" disabled={!validateConfig()} onClick={saveRacketSetup}>Continue</button>
           </section>
         ) : null}

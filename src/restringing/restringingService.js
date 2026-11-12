@@ -44,8 +44,9 @@ export const listSavedPaymentMethods = () =>
   unwrap(api("/player/stripe/payment_method_list"));
 
 // comp in the response: a discount code made the order free, so it is already paid and
-// there is no client_secret.
-export const createCheckoutOrder = ({ vendorId, items, paymentMethodId = null, discountCode = null }) =>
+// there is no client_secret. quizAnswers: the player's "Help me choose" answers when they
+// ordered after it, for the shop.
+export const createCheckoutOrder = ({ vendorId, items, paymentMethodId = null, discountCode = null, quizAnswers = null }) =>
   unwrap(api("/player/restringing/checkout", {
     method: "POST",
     json: {
@@ -53,6 +54,7 @@ export const createCheckoutOrder = ({ vendorId, items, paymentMethodId = null, d
       items,
       ...(paymentMethodId ? { payment_method_id: paymentMethodId } : {}),
       ...(discountCode ? { discount_code: discountCode } : {}),
+      ...(quizAnswers ? { quiz_answers: quizAnswers } : {}),
     },
   }));
 
