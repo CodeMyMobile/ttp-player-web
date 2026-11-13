@@ -93,8 +93,7 @@
 
 .mbn__fab {
   position: absolute;
-  /* Clears the "Plan" label beneath it. */
-  bottom: 18px;
+  bottom: 6px;
   left: 50%;
   transform: translateX(-50%) translateY(-14px);
   display: inline-flex;
@@ -109,6 +108,11 @@
   cursor: pointer;
   box-shadow: 0 10px 22px rgba(124, 58, 237, 0.38);
   -webkit-tap-highlight-color: transparent;
+}
+
+/* With its "Plan" label (home v2 off), the + sits higher to clear it. */
+.mbn__fab-slot--labeled .mbn__fab {
+  bottom: 18px;
 }
 
 .mbn__fab-label {
@@ -207,6 +211,86 @@
   background: linear-gradient(135deg, var(--color-primary, #8b5cf6), var(--color-primary-dark, #7c3aed));
   color: #fff;
   flex: none;
+}
+
+/* ===== Plan sheet (home v2) =====
+   Only things the player starts, as list rows: a 48px icon tile, a bold title and a subtitle,
+   divided by a hairline rather than boxed. */
+.mbn-sheet--plan {
+  padding: 8px 20px calc(16px + env(safe-area-inset-bottom));
+}
+
+.mbn-sheet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 0 4px;
+}
+
+.mbn-sheet__heading {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.mbn-sheet__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-right: -10px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #475569;
+  cursor: pointer;
+}
+
+.mbn-sheet__close:active {
+  background: #f1f5f9;
+}
+
+.mbn-sheet--plan .mbn-sheet__action {
+  min-height: 68px;
+  padding: 10px 0;
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid #eef0f5;
+  border-radius: 0;
+  background: transparent;
+  color: #0f172a;
+}
+
+.mbn-sheet--plan .mbn-sheet__action:last-child {
+  border-bottom: 0;
+}
+
+.mbn-sheet--plan .mbn-sheet__action-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+
+.mbn-sheet__action-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mbn-sheet__action-label {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.mbn-sheet__action-sub {
+  font-size: 14px;
+  font-weight: 400;
+  color: #475569;
 }
 
 @keyframes mbn-fade-in {

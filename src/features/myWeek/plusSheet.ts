@@ -14,14 +14,40 @@ export type PlusActionKey =
   | "addWorkout"
   | "createMatch"
   | "logScore"
-  | "findMatch";
+  | "findMatch"
+  | "bookRestring"
+  | "ladderChallenge";
 
 export interface PlusAction {
   key: PlusActionKey;
   label: string;
   /** The My Week item type whose colour the icon chip takes; null keeps the sheet's default. */
   type: WeekItemType | null;
+  /** The Plan sheet's second line (home v2); the older sheets have none. */
+  subtitle?: string;
 }
+
+/**
+ * The Plan sheet (home v2): only things the player starts. Joining or browsing (open matches,
+ * group lessons, leagues, players) lives in the Play tab, so Find players is gone. The ladder
+ * challenge is offered only to a player on the ladder.
+ *
+ * Log a score always reads "Enter a result": nothing yet says which played match is missing
+ * its score (recreational results aren't linked to matches, league fixtures carry no time).
+ */
+export const planSheetActions = ({ onLadder }: { onLadder: boolean }): PlusAction[] => [
+  { key: "newMatch", label: "New match", subtitle: "Post a time and invite players", type: null },
+  { key: "bookLesson", label: "Book a lesson", subtitle: "Private or group, with a coach", type: null },
+  { key: "bookRestring", label: "Book a restring", subtitle: "String, tension and drop-off time", type: null },
+  { key: "logScore", label: "Log a score", subtitle: "Enter a result", type: null },
+  { key: "addWorkout", label: "Add a workout", subtitle: "From your 7-day plan", type: null },
+  ...(onLadder
+    ? [{ key: "ladderChallenge" as const, label: "Challenge on the ladder", subtitle: "Pick a player to challenge", type: null }]
+    : []),
+];
+
+/** The + button's name for screen readers once its visible label is gone (home v2). */
+export const PLAN_BUTTON_LABEL = "Plan: new match, book a lesson, book a restring, log a score, add a workout";
 
 export const plusSheetActions = (myWeek: boolean): PlusAction[] =>
   myWeek
@@ -44,6 +70,9 @@ export const PLUS_ACTION_PATHS: Partial<Record<PlusActionKey, string>> = {
   findPlayers: "/find-players",
   logScore: "/log-result",
   findMatch: "/matches",
+  bookRestring: "/restring",
+  // The ladder lists everyone with a Challenge button; picking who is the first step.
+  ladderChallenge: "/ladder",
 };
 
 type CoachEntry = Record<string, unknown>;
