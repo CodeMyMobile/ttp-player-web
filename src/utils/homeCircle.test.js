@@ -89,6 +89,13 @@ test("a class from my coach shows the coach, price and spots, and only claims my
   assert.equal(rows[0].detail, "With Sam Monroe · $35 · 3 spots left");
   assert.equal(rows[0].chip, "At your level");
   assert.equal(rows[0].href, "/group-lessons/30");
+  assert.equal(rows[0].cta, "Book");
+  assert.deepEqual(rows[0].classCard, {
+    whenLabel: "Mon, Nov 2 · 11:00 AM",
+    venueCoach: "Penmar Park · Sam Monroe",
+    price: "$35",
+    spotsChip: "3 spots left",
+  });
   assert.equal(rows[0].initials, "SM");
 
   // No price is not "free", and no level is not "at your level".

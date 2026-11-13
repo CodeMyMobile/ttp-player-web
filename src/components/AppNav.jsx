@@ -1,4 +1,4 @@
-import { createElement, useEffect, useRef, useState } from "react";
+import { createElement, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Autocomplete from "react-google-autocomplete";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -33,6 +33,7 @@ import { getMyPublicLink } from "../api/publicProfile";
 import ShareProfileSheet from "./profileShare/ShareProfileSheet";
 import ProfileQrScreen from "./profileShare/ProfileQrScreen";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
+import { greetingFor, homeAreaLabel } from "../utils/homeHeader";
 import { getStoredAuthToken } from "../services/authToken";
 import { usableAvatar } from "../utils/avatar";
 import {
@@ -118,6 +119,9 @@ const AppNav = ({
   onBack,
   hideLocation = false,
   mobileCenter = null,
+  // Home's header (home v2): a greeting in place of the wordmark, and a short area name on
+  // the location pill.
+  homeHeader = false,
 }) => {
   const { isAuthenticated, logout, user } = useAuth();
   const myWeekOn = isMyWeekEnabled();
@@ -167,6 +171,27 @@ const AppNav = ({
   const locationRequestVersionRef = useRef(0);
   const openLocationPickerRef = useRef(null);
   const firstName = displayName?.split(" ")?.[0] || "Player";
+
+  // Home's pill shows the short area only when it fits untruncated; otherwise the pin alone.
+  // Re-measured when the name or the window changes.
+  const homeArea = homeHeader
+    ? homeAreaLabel({ area: locationArea, label: locationLabel === "Set location" ? null : locationLabel })
+    : null;
+  const homeAreaRef = useRef(null);
+  const [homeAreaFits, setHomeAreaFits] = useState(true);
+  useLayoutEffect(() => {
+    if (!homeHeader) return undefined;
+    const measure = () => {
+      setHomeAreaFits(true);
+      requestAnimationFrame(() => {
+        const node = homeAreaRef.current;
+        setHomeAreaFits(!node || node.scrollWidth <= node.clientWidth);
+      });
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [homeHeader, homeArea]);
   const ownUserId = user?.user_id ?? user?.id ?? null;
   const canShareProfile = Boolean(publicLink && publicLink.enabled && publicLink.slug);
   // The platform's computed NTRP first. calculated_ntrp is derived per request
@@ -467,7 +492,7 @@ const AppNav = ({
         />
       ) : null}
       <header
-        className={`app-nav${mobileCenter ? " app-nav--has-mobile-center" : ""}${
+        className={`app-nav${homeHeader ? " app-nav--home" : ""}${mobileCenter ? " app-nav--has-mobile-center" : ""}${
           isUserMenuOpen || isNotificationsOpen ? " app-nav--menu-open" : ""
         }`}
       >
@@ -482,12 +507,24 @@ const AppNav = ({
               <ChevronLeft size={22} />
             </button>
           ) : null}
-          <Link className="app-nav__brand" to="/">
-            <span className="app-nav__brand-mark">🎾</span>
-            <strong>
-              The Tennis <em>Plan</em>
-            </strong>
-          </Link>
+          {homeHeader ? (
+            <div className="app-nav__greeting">
+              <Link className="app-nav__logo-tile" to="/" aria-label="The Tennis Plan home">
+                <span aria-hidden="true">🎾</span>
+              </Link>
+              <span className="app-nav__greeting-copy">
+                <span className="app-nav__greeting-hello">{greetingFor()}</span>
+                <strong className="app-nav__greeting-name">{firstName}</strong>
+              </span>
+            </div>
+          ) : (
+            <Link className="app-nav__brand" to="/">
+              <span className="app-nav__brand-mark">🎾</span>
+              <strong>
+                The Tennis <em>Plan</em>
+              </strong>
+            </Link>
+          )}
 
           {mobileCenter ? <div className="app-nav__mobile-center">{mobileCenter}</div> : null}
 
@@ -512,21 +549,39 @@ const AppNav = ({
 
         <div className="app-nav__right">
           <div className={`app-nav__location-wrap${hideLocation ? " app-nav__location-wrap--mobile-hidden" : ""}`}>
-            <button
-              type="button"
-              className="app-nav__location"
-              title={locationLabel}
-              onClick={() => openLocationPickerRef.current?.()}
-            >
-              <MapPin size={14} />
-              <span>{formatLocationPill({
-                location: getStoredLocation(),
-                label: locationLabel === "Set location" ? null : locationLabel,
-                area: locationArea,
-                radiusMiles: committedRadius,
-              })}</span>
-              <ChevronDown size={14} />
-            </button>
+            {homeHeader ? (
+              <button
+                type="button"
+                className="app-nav__location app-nav__location--home"
+                title={locationLabel}
+                aria-label={homeArea ? `Location: ${homeArea}. Change location` : "Set location"}
+                onClick={() => openLocationPickerRef.current?.()}
+              >
+                <MapPin size={16} aria-hidden="true" />
+                {homeArea && homeAreaFits ? (
+                  <span ref={homeAreaRef} className="app-nav__location-area">
+                    {homeArea}
+                  </span>
+                ) : null}
+                <ChevronDown size={14} aria-hidden="true" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="app-nav__location"
+                title={locationLabel}
+                onClick={() => openLocationPickerRef.current?.()}
+              >
+                <MapPin size={14} />
+                <span>{formatLocationPill({
+                  location: getStoredLocation(),
+                  label: locationLabel === "Set location" ? null : locationLabel,
+                  area: locationArea,
+                  radiusMiles: committedRadius,
+                })}</span>
+                <ChevronDown size={14} />
+              </button>
+            )}
           </div>
 
           {authNavState.isAuthenticated ? (

@@ -7,7 +7,7 @@ interface OffCourtProps {
 }
 
 /**
- * "Off court" — the day's coaching video, and the 7-day training plan.
+ * "Get better" — the day's coaching video, and the 7-day training plan, in one card.
  *
  * The training plan row is unconditional; the video comes and goes with the
  * playlist. That is exactly the degraded state video-unavailable.html draws: no
@@ -16,10 +16,14 @@ interface OffCourtProps {
  */
 export function OffCourt({ tip }: OffCourtProps) {
   return (
-    <section className="home-offcourt">
-      <h2 className="home-offcourt__heading">Off court</h2>
+    <section className="home-sec home-offcourt" aria-labelledby="home-offcourt-title">
+      <div className="home-sec__head">
+        <h2 id="home-offcourt-title" className="home-sec__title">
+          Get better
+        </h2>
+      </div>
 
-      <div className="home-offcourt__card">
+      <div className="home-card home-offcourt__card">
         {tip ? (
         <a
           className="home-offcourt__row"
@@ -38,7 +42,7 @@ export function OffCourt({ tip }: OffCourtProps) {
           </span>
 
           <span className="home-offcourt__copy">
-            <span className="home-offcourt__eyebrow">Tip of the day</span>
+            <span className="home-tag home-tag--tip">Tip of the day</span>
             <span className="home-offcourt__title">{tip.title}</span>
             {tip.channel ? <span className="home-offcourt__channel">{tip.channel}</span> : null}
           </span>

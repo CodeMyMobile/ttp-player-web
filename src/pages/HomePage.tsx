@@ -1,19 +1,14 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import AppNav from "../components/AppNav";
 import MobileHomeBottomNav from "../components/MobileHomeBottomNav";
 import { ActionGrid } from "../components/home/ActionGrid";
-import { ActivityFeed } from "../components/home/ActivityFeed";
-import { AlertStack } from "../components/home/AlertStack";
-import { FindPlayersTile } from "../components/home/FindPlayersTile";
-import { InviteCard } from "../components/home/InviteCard";
-import { MyWeekCard } from "../components/home/MyWeekCard";
+import { ActionNeeded } from "../components/home/ActionNeeded";
+import { ActivityFeed, PLAY_THIS_WEEK_ID } from "../components/home/ActivityFeed";
 import { OffCourt } from "../components/home/OffCourt";
 import { PlayersToHitWith } from "../components/home/PlayersToHitWith";
-import { SeasonModule } from "../components/home/SeasonModule";
-import { StatusTiles } from "../components/home/StatusTiles";
 import { TennisCircle } from "../components/home/TennisCircle";
-import { TodayRow } from "../components/home/TodayRow";
+import { UpNext } from "../components/home/UpNext";
 import { useAuth } from "../context/AuthContext";
 import useHomePlayers from "../hooks/useHomePlayers";
 import usePlayerConnect from "../hooks/usePlayerConnect";
@@ -27,73 +22,44 @@ import {
   useDeclaredLevel,
   useLadderStanding,
   usePlayerCircle,
-  useWeekBookings,
 } from "../hooks/useHomeStatus";
-import { acceptInvite, rejectInvite } from "../services/invites";
 import { isHomeFindPlayersEnabled, isMyWeekEnabled } from "../utils/featureFlags";
-import { bookedCount } from "../features/myWeek/homeWeekCard";
-import { notifyMyWeekChanged, useMyWeek } from "../features/myWeek/useMyWeek";
-import type { HomeInviteItem } from "../utils/homeInvite";
-import { findPlayersTilePlacement } from "../utils/homeTiles";
-import { bookedKeysFromBookings, bookedKeysFromWeekItems } from "../utils/homeBookingState";
+import { useMyWeek } from "../features/myWeek/useMyWeek";
+import { buildActionRows } from "../utils/homeActionNeeded";
+import { bookedKeysFromWeekItems } from "../utils/homeBookingState";
 import "./HomePage.css";
 
 /**
- * The redesigned home page, built to the state mockups in docs/home-states/.
+ * The redesigned home page (VITE_HOME_V2; otherwise App.jsx renders DashboardPage untouched).
  *
- * Reached only when VITE_HOME_V2 is on; otherwise App.jsx renders the existing
- * DashboardPage untouched. Sections land one PR at a time, so the page stays
- * shorter than the mockups until the sequence finishes; what has shipped is
- * whatever this component renders below.
+ * Order: Up next, Action needed, Your tennis circle, Players to hit with, Play this week,
+ * Quick actions, Get better. Each section shows a skeleton while it loads and renders nothing
+ * when it comes back empty, except Up next, which has an empty state.
  */
 export default function HomePage() {
   const { user } = useAuth();
   const viewerId = readViewerId(user);
+  const navigate = useNavigate();
 
-  const { rating, ratingState, positionLabel, ntrpLabel } = useLadderStanding(viewerId);
+  const { ratingState } = useLadderStanding(viewerId);
   // Only consulted while unranked, so it is not fetched for a rated player.
   const { declaredLevel } = useDeclaredLevel(ratingState === "rated");
-  // My Week on: the week comes from My Week's shared load, shown in MyWeekCard, and the older
-  // week tile and today row (useWeekBookings) aren't fetched.
+
+  // The week, from My Week's shared load whether or not the My Week tab is on: Up next, the
+  // "You're in" pills and the tab all read the same list.
   const myWeekOn = isMyWeekEnabled();
-  const week = useMyWeek({ enabled: myWeekOn });
-  // Always fetched, never gated on the rating: an unrated player with a
-  // standing weekly lesson has real bookings and needs to see them.
-  const { count: weekBookingsCount, nextLabel, today, bookings } = useWeekBookings(myWeekOn);
-  const count = myWeekOn ? bookedCount(week.days) : weekBookingsCount;
-  // What the player is already in, from the same source as the week above, so a list on
-  // home never offers Join or Book on it.
+  const week = useMyWeek({ enabled: true });
   const bookedKeys = useMemo(
-    () =>
-      myWeekOn
-        ? bookedKeysFromWeekItems([...week.days.flatMap((day) => day.items), ...week.later])
-        : bookedKeysFromBookings(bookings),
-    [myWeekOn, week.days, week.later, bookings],
+    () => bookedKeysFromWeekItems([...week.days.flatMap((day) => day.items), ...week.later]),
+    [week.days, week.later],
   );
-  const { alerts } = useHomeAlerts();
-  const { invite, remaining, refetch: refetchInvites } = useHomeInvites();
 
-  const [inviteBusy, setInviteBusy] = useState(false);
+  const { alerts, loading: alertsLoading } = useHomeAlerts();
+  const { items: invites, loading: invitesLoading } = useHomeInvites();
+  const { seasons, loading: seasonsLoading } = useActiveSeasons(user);
+  const actionRows = useMemo(() => buildActionRows({ invites, alerts }), [invites, alerts]);
 
-  // Both actions refetch rather than removing the card locally: the next invite
-  // has to slide into the slot, and the count behind it has to be right. An
-  // optimistic removal would have to guess both.
-  const respond = async (
-    action: (token: string) => Promise<unknown>,
-    item: HomeInviteItem,
-  ) => {
-    if (!item.token || inviteBusy) return;
-    setInviteBusy(true);
-    try {
-      await action(item.token);
-      await refetchInvites();
-      // The same invite is on My Week and counted in its badge.
-      notifyMyWeekChanged();
-    } finally {
-      setInviteBusy(false);
-    }
-  };
-
+  const { rows: circleRows, loading: circleLoading } = usePlayerCircle(viewerId);
   const {
     items: feedItems,
     windowStart,
@@ -101,15 +67,11 @@ export default function HomePage() {
     myCoachIds,
     loading: feedLoading,
   } = useActivityFeed();
-  const { rows: circleRows } = usePlayerCircle(viewerId);
-  const { seasons } = useActiveSeasons(user);
   const { tip } = useTipOfDay();
 
-  // "Players to hit with" and the compact Find players tile (VITE_HOME_FIND_PLAYERS).
-  // Connect is Find Players' own, through the shared hook; it also loads the viewer's
-  // match profile, which is where the suggestions read their level from.
+  // "Players to hit with" (VITE_HOME_FIND_PLAYERS). Connect is Find Players' own, through the
+  // shared hook; it also loads the viewer's match profile, which the suggestions read.
   const findPlayersOn = isHomeFindPlayersEnabled();
-  const navigate = useNavigate();
   const connect = usePlayerConnect({ enabled: findPlayersOn, source: "home" });
   const homePlayers = useHomePlayers({
     enabled: findPlayersOn,
@@ -117,60 +79,33 @@ export default function HomePage() {
     viewer: connect.matchProfile,
     viewerLoaded: connect.matchProfileCheckLoaded,
   });
-  const tilePlacement = findPlayersOn ? findPlayersTilePlacement({ ratingState, bookingsCount: count }) : null;
+
+  const scrollToPlay = () =>
+    document.getElementById(PLAY_THIS_WEEK_ID)?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   return (
     <div className="player-home home-v2">
-      <AppNav hideMobileNewMatch hideMobileNotifications />
+      <AppNav homeHeader hideMobileNewMatch hideMobileNotifications />
 
       <main className="home-v2__main">
-        <StatusTiles
-          rating={rating}
+        <UpNext
+          days={week.days}
+          loading={week.loading}
+          weekHref={myWeekOn ? "/my-week" : "/player/calendar"}
+          weekLabel={myWeekOn ? "My week" : "Schedule"}
+          onFindSomething={scrollToPlay}
+        />
+
+        <ActionNeeded
+          seasons={seasons}
+          rows={actionRows}
           ratingState={ratingState}
-          positionLabel={positionLabel}
-          ntrpLabel={ntrpLabel}
-          bookingsCount={count}
-          nextBookingLabel={nextLabel}
           declaredLevel={declaredLevel}
-          hideBookingsTile={myWeekOn}
-          findPlayersTile={
-            tilePlacement === "row" ? <FindPlayersTile state={homePlayers} placement="row" /> : null
-          }
+          loading={seasonsLoading || invitesLoading || alertsLoading}
         />
 
-        {/* The mockups' order: tiles, today row, invite card, alerts, grid.
-            Each section renders nothing when it has nothing, so the grid moves
-            up rather than a gap opening. */}
-        {myWeekOn ? (
-          <MyWeekCard
-            days={week.days}
-            waiting={[...week.days.flatMap((day) => day.items.filter((item) => item.needsResponse)), ...week.later]}
-            inviteCardToken={invite?.token ?? null}
-            loading={week.loading}
-          />
-        ) : (
-          <TodayRow booking={today} />
-        )}
-
-        <InviteCard
-          invite={invite}
-          remaining={remaining}
-          busy={inviteBusy}
-          onAccept={(item) => respond(acceptInvite, item)}
-          onDecline={(item) => respond(rejectInvite, item)}
-        />
-
-        <AlertStack alerts={alerts} />
-
-        <ActionGrid
-          ratingState={ratingState}
-          lockedLadderReplacement={
-            tilePlacement === "grid" ? <FindPlayersTile state={homePlayers} placement="grid" /> : null
-          }
-        />
-
-        {/* People the player already knows come before strangers. */}
-        <TennisCircle rows={circleRows} />
+        {/* Friends' games first, then classes from your coaches. */}
+        <TennisCircle rows={circleRows} loading={circleLoading} />
 
         {findPlayersOn ? (
           <PlayersToHitWith
@@ -179,12 +114,6 @@ export default function HomePage() {
             onViewProfile={(player) => navigate(`/players/${player.id}`, { state: { player } })}
           />
         ) : null}
-
-        {/* Season, then the feed. Every mockup puts "Play this week" last;
-            off court (PR 8) will sit between these two when it lands. */}
-        <SeasonModule seasons={seasons} />
-
-        <OffCourt tip={tip} />
 
         <ActivityFeed
           items={feedItems}
@@ -196,7 +125,9 @@ export default function HomePage() {
           viewerId={viewerId}
         />
 
+        <ActionGrid />
 
+        <OffCourt tip={tip} />
       </main>
 
       {findPlayersOn ? connect.modals : null}

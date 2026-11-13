@@ -90,6 +90,15 @@ test("reverse geocoding supplies the navbar's city and full location label", () 
   );
 });
 
+test("reverse geocoding keeps the neighbourhood as the short area, and the city in the label", () => {
+  assert.deepEqual(
+    locationNameFromReverseGeocode({
+      address: { neighbourhood: "Mar Vista", city: "Los Angeles", state: "California", country_code: "us" },
+    }),
+    { area: "Mar Vista", label: "Los Angeles, California, US" },
+  );
+});
+
 test("login prompts for location whenever no location is saved, including already-granted permission", () => {
   assert.equal(shouldPromptForLocationAfterLogin({ hasSavedLocation: true, permission: "denied" }), false);
   assert.equal(shouldPromptForLocationAfterLogin({ hasSavedLocation: false, permission: "granted" }), true);

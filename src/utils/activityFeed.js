@@ -512,6 +512,8 @@ export const buildActivityItems = (lessons = []) =>
         coachId: lessonCoachId,
         rating,
         price: parseNumber(lesson.price_per_person, lesson.group_price_per_person, lesson.price, lesson.lesson_price),
+        // The level the coach set ("Intermediate (NTRP 3.5)"), for home's level chip.
+        levelLabel: pickString(lesson.level, lesson?.metadata?.level) || null,
         status: formatStatusLabel(lesson.payment_status ?? lesson.paymentStatus ?? lesson.status ?? lesson.booking_status ?? lesson.lesson_status),
         remainingSpots,
         avatar: type === "private" ? initials : typeConfig.badge,
@@ -590,6 +592,10 @@ export const buildExternalLessonActivities = (lessons = []) =>
         sortAt: localSortKey(zonedStart, startAt),
         location,
         secondaryMeta: providerName,
+        provider: providerName,
+        // The provider's own booking page: home's "Book ↗" opens it.
+        externalUrl,
+        levelLabel: pickString(metadata.level) || null,
         rating: null,
         price: null,
         status: "External booking",
@@ -660,6 +666,7 @@ export const buildMatchActivities = (records = []) =>
         sortAt: localSortKey(zonedStart, startAt),
         location: formatDisplayLocation(normalizedMatch.location || "Location TBD"),
         secondaryMeta: normalizedMatch.level?.summary || normalizedMatch.distance || null,
+        levelLabel: normalizedMatch.level?.summary || null,
         rating: null,
         price: null,
         status: availabilityLabel,

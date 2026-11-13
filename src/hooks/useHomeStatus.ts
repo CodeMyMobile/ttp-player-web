@@ -53,7 +53,7 @@ import {
   getApiDayKey,
 } from "../utils/activityFeed";
 import { buildHomeAlerts, type HomeAlert } from "../utils/homeAlertStack";
-import { selectHomeInvite, type HomeInviteItem } from "../utils/homeInvite";
+import { selectHomeInvite, sortInvitesBySoonest, type HomeInviteItem } from "../utils/homeInvite";
 import { buildCircleRows, type CircleRow } from "../utils/homeCircle";
 import { useApiRequest } from "./useApiRequest";
 import { ntrpEquivalentLabel, type RatingState } from "../utils/homeTiles";
@@ -316,8 +316,9 @@ const invitesFetcher = async () => {
 export function useHomeInvites(skip = false) {
   const { data, loading, error, refetch } = useApiRequest(invitesFetcher, NO_PARAMS, { skip });
   const selection = useMemo(() => selectHomeInvite((data ?? []) as HomeInviteItem[]), [data]);
+  const items = useMemo(() => sortInvitesBySoonest((data ?? []) as HomeInviteItem[]), [data]);
 
-  return { loading, error, refetch, ...selection };
+  return { loading, error, refetch, items, ...selection };
 }
 
 const FEED_WINDOW_DAYS = 7;
