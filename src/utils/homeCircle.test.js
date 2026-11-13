@@ -65,6 +65,9 @@ test("a class from my coach shows the coach, price and spots, and only claims my
         when_label: "Mon, Nov 2 · 11:00 AM",
         price_per_person: 35,
         spots_left: 3,
+        level_min: 3.5,
+        level_max: 4,
+        viewer_level: 4,
         at_your_level: true,
       },
       {
@@ -93,6 +96,30 @@ test("a class from my coach shows the coach, price and spots, and only claims my
   assert.equal(rows[1].when, null);
   assert.equal(rows[1].detail, "With Sam Monroe");
   assert.equal(rows[1].chip, null);
+});
+
+test("a class half a level from mine is near my level, and an older API's bare flag claims nothing", () => {
+  const rows = buildCircleRows({
+    group_lessons: [
+      { lesson_id: 1, title: "4.0 Culver Liveball", level_min: 4, level_max: 4, viewer_level: 4.5, at_your_level: true },
+      { lesson_id: 2, title: "4.0 Drills", at_your_level: true },
+    ],
+  });
+  assert.equal(rows[0].chip, "Near your level");
+  assert.equal(rows[1].chip, null);
+});
+
+test("a coach who also plays isn't offered their own classes", () => {
+  const rows = buildCircleRows(
+    {
+      group_lessons: [
+        { lesson_id: 1, coach_id: 1716, title: "Mine" },
+        { lesson_id: 2, coach_id: 42, title: "Theirs" },
+      ],
+    },
+    { viewerId: 1716 },
+  );
+  assert.deepEqual(rows.map((row) => row.key), ["class-2"]);
 });
 
 test("matches come before classes", () => {

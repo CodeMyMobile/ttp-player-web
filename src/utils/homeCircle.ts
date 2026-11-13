@@ -5,6 +5,8 @@
 // All the wording lives here rather than in the component, so it is tested: there is no
 // React test harness in this repo.
 
+import { levelMatch, levelMatchLabel } from "./levelMatch";
+
 export interface CirclePerson {
   id: number;
   full_name: string | null;
@@ -24,6 +26,7 @@ export interface CircleMatch {
 
 export interface CircleClass {
   lesson_id: number;
+  coach_id?: number | null;
   title: string | null;
   coach_name: string | null;
   coach_picture: string | null;
@@ -31,7 +34,12 @@ export interface CircleClass {
   when_label: string | null;
   price_per_person: number | null;
   spots_left: number | null;
-  at_your_level: boolean;
+  /** Superseded by the band below, which older API builds don't send. */
+  at_your_level?: boolean;
+  /** The class's level band ("3.5-4.0"; max null for "3.5+"), and the player's shown level. */
+  level_min?: number | null;
+  level_max?: number | null;
+  viewer_level?: number | null;
 }
 
 export interface CircleResponse {
@@ -132,8 +140,14 @@ const classRow = (lesson: CircleClass): CircleRow => {
     title: clean(lesson.title) || "Group lesson",
     when: whenWhere(lesson.when_label, lesson.location),
     detail: detail.length ? detail.join(" · ") : null,
-    // Only claimed when the API knew both levels, not just because nothing ruled it out.
-    chip: lesson.at_your_level ? "At your level" : null,
+    // Only claimed when both levels are known (utils/levelMatch). An older API sends just
+    // at_your_level, which also said it for a class half a level below: no claim then.
+    chip: levelMatchLabel(
+      levelMatch(
+        lesson.level_min == null ? null : { min: lesson.level_min, max: lesson.level_max ?? null },
+        lesson.viewer_level,
+      ),
+    ),
     avatarUrl: lesson.coach_picture || null,
     initials: initialsOf(lesson.coach_name),
     href: `/group-lessons/${lesson.lesson_id}`,
@@ -145,7 +159,16 @@ const classRow = (lesson: CircleClass): CircleRow => {
  * Matches first, then classes, each soonest first as the API sends them. People come
  * before classes because finding someone to play with is what the section is for.
  */
-export const buildCircleRows = (response: CircleResponse | null | undefined): CircleRow[] => [
+export const buildCircleRows = (
+  response: CircleResponse | null | undefined,
+  { viewerId = null }: { viewerId?: number | null } = {},
+): CircleRow[] => [
   ...(Array.isArray(response?.matches) ? response!.matches.filter(Boolean).map(matchRow) : []),
-  ...(Array.isArray(response?.group_lessons) ? response!.group_lessons.filter(Boolean).map(classRow) : []),
+  ...(Array.isArray(response?.group_lessons)
+    ? response!.group_lessons
+        .filter(Boolean)
+        // A coach who also plays isn't offered their own classes.
+        .filter((lesson) => viewerId === null || lesson.coach_id == null || Number(lesson.coach_id) !== viewerId)
+        .map(classRow)
+    : []),
 ];
