@@ -1,7 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { bookLessonDestination, plusSheetActions, PLUS_ACTION_PATHS, workoutDestination } from "./plusSheet";
+import {
+  bookLessonDestination,
+  PLAN_BUTTON_LABEL,
+  planSheetActions,
+  plusSheetActions,
+  PLUS_ACTION_PATHS,
+  workoutDestination,
+} from "./plusSheet";
 
 test("with My Week on: New match, Find players, Book a lesson, Add a workout", () => {
   assert.deepEqual(
@@ -19,6 +26,34 @@ test("with My Week on: New match, Find players, Book a lesson, Add a workout", (
 
 test("with it off, the sheet is today's", () => {
   assert.deepEqual(plusSheetActions(false).map((action) => action.label), ["Create a Match", "Log a Score", "Find a Match"]);
+});
+
+test("the Plan sheet (home v2) holds only things you start, in order, with subtitles", () => {
+  assert.deepEqual(
+    planSheetActions({ onLadder: false }).map((action) => [action.label, action.subtitle]),
+    [
+      ["New match", "Post a time and invite players"],
+      ["Book a lesson", "Private or group, with a coach"],
+      ["Book a restring", "String, tension and drop-off time"],
+      ["Log a score", "Enter a result"],
+      ["Add a workout", "From your 7-day plan"],
+    ],
+  );
+  // Browsing lives in the Play tab.
+  assert.ok(!planSheetActions({ onLadder: true }).some((action) => action.key === "findPlayers"));
+  assert.equal(PLUS_ACTION_PATHS.bookRestring, "/restring");
+  assert.equal(PLUS_ACTION_PATHS.logScore, "/log-result");
+});
+
+test("the ladder challenge is offered only to a player on the ladder, last", () => {
+  const onLadder = planSheetActions({ onLadder: true });
+  assert.equal(onLadder.at(-1)?.label, "Challenge on the ladder");
+  assert.equal(PLUS_ACTION_PATHS.ladderChallenge, "/ladder");
+  assert.equal(planSheetActions({ onLadder: false }).length, onLadder.length - 1);
+});
+
+test("the unlabeled + says what the sheet holds", () => {
+  assert.equal(PLAN_BUTTON_LABEL, "Plan: new match, book a lesson, book a restring, log a score, add a workout");
 });
 
 test("Book a lesson: one coach books with them, several open My Coaches, none finds a coach", () => {

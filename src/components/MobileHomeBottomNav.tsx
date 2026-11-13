@@ -11,6 +11,9 @@ import {
   Trophy,
   UserSearch,
   Users,
+  Wrench,
+  X,
+  Swords,
   type LucideIcon,
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -18,11 +21,13 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { listMyLeagues } from "../api/leagues";
 import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
-import { isMyWeekEnabled } from "../utils/featureFlags";
+import { isHomeV2Enabled, isMyWeekEnabled } from "../utils/featureFlags";
 import { isTabActive, leaguesDestination, primaryNavTabs, type NavTabKey } from "../utils/navTabs";
 import { badgeLabel, useMyWeekBadge } from "../features/myWeek/useMyWeek";
 import {
   bookLessonDestination,
+  PLAN_BUTTON_LABEL,
+  planSheetActions,
   plusSheetActions,
   PLUS_ACTION_PATHS,
   workoutDestination,
@@ -34,6 +39,7 @@ import { WEEK_TYPE_COLORS } from "../features/myWeek/typeColors";
 import { getPlayerCoaches } from "../api/playerCalendar";
 import { ANALYTICS_EVENTS, track } from "../utils/analytics";
 import { todayYmd } from "../utils/dateTime";
+import { readViewerId, useLadderStanding } from "../hooks/useHomeStatus";
 
 import "./MobileHomeBottomNav.css";
 
@@ -63,16 +69,21 @@ const ACTION_ICONS: Record<PlusActionKey, LucideIcon> = {
   createMatch: CalendarPlus,
   logScore: ClipboardList,
   findMatch: Search,
+  bookRestring: Wrench,
+  ladderChallenge: Swords,
 };
 
 const QuickActionSheet = ({
   actions,
   onClose,
   onAction,
+  plan = false,
 }: {
   actions: PlusAction[];
   onClose: () => void;
   onAction: (key: PlusActionKey) => void;
+  /** Home v2's Plan sheet: a "Plan" title with a close button, and list rows with subtitles. */
+  plan?: boolean;
 }) => {
   const sheetRef = useRef<HTMLDivElement>(null);
   const touchStartY = useRef<number | null>(null);
@@ -132,16 +143,25 @@ const QuickActionSheet = ({
     >
       <div
         ref={sheetRef}
-        className="mbn-sheet"
+        className={`mbn-sheet${plan ? " mbn-sheet--plan" : ""}`}
         role="dialog"
         aria-modal="true"
-        aria-label="Quick actions"
+        aria-label={plan ? "Plan" : "Quick actions"}
         onKeyDown={onKeyDown}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
         <div className="mbn-sheet__handle" aria-hidden="true" />
-        <p className="mbn-sheet__title">Quick actions</p>
+        {plan ? (
+          <div className="mbn-sheet__head">
+            <h2 className="mbn-sheet__heading">Plan</h2>
+            <button type="button" className="mbn-sheet__close" aria-label="Close" onClick={onClose}>
+              <X size={20} aria-hidden="true" />
+            </button>
+          </div>
+        ) : (
+          <p className="mbn-sheet__title">Quick actions</p>
+        )}
         {actions.map((action) => {
           const Icon = ACTION_ICONS[action.key];
           const color = action.type ? WEEK_TYPE_COLORS[action.type] : null;
@@ -151,14 +171,45 @@ const QuickActionSheet = ({
                 className="mbn-sheet__action-icon"
                 style={color ? { background: color.soft, color: color.solid } : undefined}
               >
-                <Icon size={20} />
+                <Icon size={plan ? 22 : 20} />
               </span>
-              {action.label}
+              {plan ? (
+                <span className="mbn-sheet__action-text">
+                  <span className="mbn-sheet__action-label">{action.label}</span>
+                  {action.subtitle ? <span className="mbn-sheet__action-sub">{action.subtitle}</span> : null}
+                </span>
+              ) : (
+                action.label
+              )}
             </button>
           );
         })}
       </div>
     </div>
+  );
+};
+
+/**
+ * The Plan sheet with its items. Mounted only while open, so the ladder standing behind the
+ * challenge item is asked for when the sheet opens, not on every page that shows the tab bar.
+ */
+const PlanSheet = ({
+  viewerId,
+  onClose,
+  onAction,
+}: {
+  viewerId: number | null;
+  onClose: () => void;
+  onAction: (key: PlusActionKey) => void;
+}) => {
+  const { ratingState } = useLadderStanding(viewerId);
+  return (
+    <QuickActionSheet
+      plan
+      actions={planSheetActions({ onLadder: ratingState === "rated" })}
+      onClose={onClose}
+      onAction={onAction}
+    />
   );
 };
 
@@ -209,7 +260,7 @@ const MobileHomeBottomNav = () => {
   const onPlusAction = useCallback(
     async (key: PlusActionKey) => {
       setSheetOpen(false);
-      track(ANALYTICS_EVENTS.plusSheetAction, { action: key, myWeekVersion: isMyWeekEnabled() ? "v1" : "off" });
+      track(ANALYTICS_EVENTS.planSheetTap, { item: key });
       if (key === "bookLesson") {
         const coaches = await getPlayerCoaches({ perPage: 25, page: 1 }).catch(() => []);
         navigate(bookLessonDestination(coaches));
@@ -226,6 +277,13 @@ const MobileHomeBottomNav = () => {
   );
 
   const isActive = (prefixes: string[]) => isTabActive(location.pathname, prefixes);
+
+  // Home v2: the + has no visible label and opens the Plan sheet.
+  const planOn = isHomeV2Enabled();
+  const openSheet = () => {
+    setSheetOpen(true);
+    track(ANALYTICS_EVENTS.planSheetOpen);
+  };
 
   // Play and My Week replace Leagues and Schedule while My Week is on (utils/navTabs).
   const myWeekOn = isMyWeekEnabled();
@@ -268,28 +326,35 @@ const MobileHomeBottomNav = () => {
       <nav className="mbn" role="tablist" aria-label="Mobile navigation">
         {renderTab(tabs[0])}
         {renderTab(tabs[1])}
-        <div className="mbn__fab-slot">
+        <div className={`mbn__fab-slot${planOn ? "" : " mbn__fab-slot--labeled"}`}>
           <button
             type="button"
             className="mbn__fab"
-            aria-label="Plan"
+            aria-label={planOn ? PLAN_BUTTON_LABEL : "Plan"}
             aria-haspopup="dialog"
             aria-expanded={sheetOpen}
-            onClick={() => setSheetOpen(true)}
+            onClick={openSheet}
           >
             <Plus size={28} />
           </button>
-          {/* Visible name for the + so it reads as a tab like the others; the button carries
-              the same name for screen readers. */}
-          <span className="mbn__label mbn__fab-label" aria-hidden="true">
-            Plan
-          </span>
+          {/* Home v2 drops the visible name; the button's label says what's inside. */}
+          {planOn ? null : (
+            <span className="mbn__label mbn__fab-label" aria-hidden="true">
+              Plan
+            </span>
+          )}
         </div>
         {renderTab(tabs[2])}
         {renderTab(tabs[3])}
       </nav>
 
-      {sheetOpen ? (
+      {sheetOpen && planOn ? (
+        <PlanSheet
+          viewerId={readViewerId(user)}
+          onClose={() => setSheetOpen(false)}
+          onAction={(key) => void onPlusAction(key)}
+        />
+      ) : sheetOpen ? (
         <QuickActionSheet
           actions={plusSheetActions(myWeekOn)}
           onClose={() => setSheetOpen(false)}

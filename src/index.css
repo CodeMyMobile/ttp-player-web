@@ -13,7 +13,7 @@
      the bar pads its scrolling content by --tab-bar-clearance, so the last card is never
      under the bar or the +. Change the numbers here if the bar changes. */
   --tab-bar-height: 69px;
-  --tab-bar-plus-rise: 29px; /* measured: the + top sits 29px above the bar */
+  --tab-bar-plus-rise: 17px; /* measured: the + top sits 17px above the bar (29px when it has its "Plan" label, home v2 off) */
   --tab-bar-clearance: calc(var(--tab-bar-height) + var(--tab-bar-plus-rise) + 16px + var(--safe-bottom));
 
   /* Brand primary — single source of truth for app purple. See CLAUDE.md. */
