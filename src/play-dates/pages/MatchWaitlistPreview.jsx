@@ -11,11 +11,11 @@ const HOST_ID = "host-1";
 const VIEWER_ID = "player-42";
 
 const PEOPLE = {
-  [HOST_ID]: { full_name: "Avery Morgan", usta_rating: "4.0" },
-  "player-2": { full_name: "Sam Whitfield", usta_rating: "3.5" },
-  "player-3": { full_name: "Priya Nair", usta_rating: "4.0" },
-  "player-4": { full_name: "Marcus Bell", usta_rating: "3.5" },
-  [VIEWER_ID]: { full_name: "Jordan Lee", usta_rating: "3.5" },
+  [HOST_ID]: { full_name: "Avery Morgan", phone: "3105550101", usta_rating: "4.0" },
+  "player-2": { full_name: "Sam Whitfield", phone: "3105550102", usta_rating: "3.5" },
+  "player-3": { full_name: "Priya Nair", phone: "3105550103", usta_rating: "4.0" },
+  "player-4": { full_name: "Marcus Bell", phone: "3105550104", usta_rating: "3.5" },
+  [VIEWER_ID]: { full_name: "Jordan Lee", phone: "3105550142", usta_rating: "3.5" },
   "player-7": { full_name: "Dana Okafor", usta_rating: "3.5" },
   "player-8": { full_name: "Theo Lindqvist", usta_rating: "4.0" },
 };
@@ -144,6 +144,8 @@ const handleRequest = (state, viewer, method, path) => {
 const MatchWaitlistPreview = () => {
   const location = useLocation();
   const scenarioKey = new URLSearchParams(location.search).get("as") || "player";
+  // &layout=page renders the full match page (as /matches/:id does) instead of the modal.
+  const layout = new URLSearchParams(location.search).get("layout") === "page" ? "page" : undefined;
   const scenario = SCENARIOS[scenarioKey] || SCENARIOS.player;
 
   const stateRef = useRef(null);
@@ -245,11 +247,13 @@ const MatchWaitlistPreview = () => {
         <MatchDetailsModal
           key={scenarioKey}
           isOpen
+          layout={layout}
           matchData={matchData}
           currentUser={currentUser}
           onClose={() => {}}
           onToast={(message) => setToast(message)}
           onRequireSignIn={() => setToast("(would redirect to sign in)")}
+          onManageInvites={() => setToast("(would open the invite screen)")}
           onReloadMatch={async () => buildMatchData(stateRef.current, scenario)}
           onUpdateMatch={setMatchData}
           formatDateTime={(date) => dateFormatter.format(date)}
