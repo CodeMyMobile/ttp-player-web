@@ -8,6 +8,14 @@
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 
+  /* Room the mobile tab bar (MobileHomeBottomNav) takes at the bottom of a page: the bar,
+     the + button's rise above it, 16px, and the home indicator. Every screen that shows
+     the bar pads its scrolling content by --tab-bar-clearance, so the last card is never
+     under the bar or the +. Change the numbers here if the bar changes. */
+  --tab-bar-height: 69px;
+  --tab-bar-plus-rise: 29px; /* measured: the + top sits 29px above the bar */
+  --tab-bar-clearance: calc(var(--tab-bar-height) + var(--tab-bar-plus-rise) + 16px + var(--safe-bottom));
+
   /* Brand primary — single source of truth for app purple. See CLAUDE.md. */
   --color-primary: #8b5cf6;
   --color-primary-dark: #7c3aed;

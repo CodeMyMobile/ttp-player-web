@@ -61,6 +61,9 @@ export interface CircleRow {
   initials: string;
   href: string;
   cta: string;
+  /** The row's key as a booking ("match:12", "group:7"), matched against what the player is
+   *  in (utils/homeBookingState) so a row they've already joined reads "You're in". */
+  bookedKey: string;
   /** A coach's class only: the card's parts, drawn separately. */
   classCard?: {
     /** "Tue, Nov 24 · 6:30 PM" */
@@ -136,6 +139,7 @@ const matchRow = (match: CircleMatch): CircleRow => {
     initials: initialsOf(lead?.full_name),
     href: `/matches/${match.match_id}`,
     cta: "View",
+    bookedKey: `match:${match.match_id}`,
   };
 };
 
@@ -166,6 +170,7 @@ const classRow = (lesson: CircleClass): CircleRow => {
     initials: initialsOf(lesson.coach_name),
     href: `/group-lessons/${lesson.lesson_id}`,
     cta: "Book",
+    bookedKey: `group:${lesson.lesson_id}`,
     classCard: {
       whenLabel: clean(lesson.when_label) || null,
       venueCoach:

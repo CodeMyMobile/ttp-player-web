@@ -2,6 +2,7 @@ import { TRAINING_PLAN_DAYS } from "../../data/trainingPlan";
 import type { LevelMatchedLesson } from "../leagueDashboard/levelMatchedLessons";
 import { pickTipOfDay, type TipVideo } from "../../utils/tipOfDay";
 import { matchesViewer } from "../../utils/leagueSeason";
+import { levelMatch, levelMatchLabel } from "../../utils/levelMatch";
 import { isInWeek, readStart, type WeekDay } from "../../utils/weekDays";
 import { toLocalYmd } from "../../utils/dateTime";
 import { planDayFor, REST_DAY, type TrainingPlanProgress } from "./trainingPlanProgress";
@@ -117,8 +118,9 @@ export const openMatchSuggestions = (
     const min = Number(match.skill_level_min);
     const max = Number(match.skill_level_max);
     const ranged = match.skill_level_min != null && match.skill_level_max != null && Number.isFinite(min) && Number.isFinite(max);
-    const atLevel = ranged && playerLevel !== null && playerLevel >= min && playerLevel <= max;
-    const levelText = atLevel ? `At your level · ${min}–${max}` : ranged ? `${min}–${max}` : "Open to all levels";
+    // The app's one level rule (utils/levelMatch): at, near, or no claim.
+    const fit = ranged ? levelMatchLabel(levelMatch({ min, max }, playerLevel)) : null;
+    const levelText = fit ? `${fit} · ${min}–${max}` : ranged ? `${min}–${max}` : "Open to all levels";
     const location = text(match.location_text) ?? text(match.location);
     return [
       {
@@ -152,7 +154,14 @@ export const coachClassSuggestions = (rows: unknown, days: WeekDay[], slots: str
     const spots = Number(row.spots_left);
     const parts = [
       "From your coach",
-      row.at_your_level === true ? "At your level" : null,
+      // From the class's band and the player's shown level, as the circle on home reads it.
+      // An older API sends only at_your_level, which also said it half a level away: no claim.
+      levelMatchLabel(
+        levelMatch(
+          row.level_min == null ? null : { min: Number(row.level_min), max: row.level_max == null ? null : Number(row.level_max) },
+          row.viewer_level,
+        ),
+      ),
       Number.isFinite(spots) && spots > 0 ? `${spots} spot${spots === 1 ? "" : "s"}` : null,
     ].filter(Boolean);
     const coach = text(row.coach_name);
@@ -178,7 +187,12 @@ export const coachClassSuggestions = (rows: unknown, days: WeekDay[], slots: str
   });
 
 /** Other classes nearby that fit the player's level (matchLessonsToLevel decided which). */
-export const nearbyClassSuggestions = (lessons: LevelMatchedLesson[], days: WeekDay[], slots: string[]): WeekItem[] =>
+export const nearbyClassSuggestions = (
+  lessons: LevelMatchedLesson[],
+  days: WeekDay[],
+  slots: string[],
+  playerLevel: number | null = null,
+): WeekItem[] =>
   lessons.flatMap((lesson): WeekItem[] => {
     if (lesson.external) return [];
     const startsAt = lesson.startsAt.getTime();
@@ -196,7 +210,13 @@ export const nearbyClassSuggestions = (lessons: LevelMatchedLesson[], days: Week
         title: lesson.title,
         subtitle: lesson.venue || null,
         people: lesson.coachName ? [{ id: null, name: lesson.coachName, photoUrl: null }] : [],
-        reason: withFit(["At your level", lesson.spotsLabel].filter(Boolean).join(" · "), startsAt, slots),
+        // Every class here fits (it may be a little above or below); only a class whose band
+        // holds the player's level is "At your level".
+        reason: withFit(
+          [levelMatchLabel(levelMatch(lesson.band, playerLevel)), lesson.spotsLabel].filter(Boolean).join(" · "),
+          startsAt,
+          slots,
+        ),
         actions: ["book", "skip"],
         href: lesson.path,
         raw: lesson,

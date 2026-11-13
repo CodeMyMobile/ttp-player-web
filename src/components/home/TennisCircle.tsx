@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Check } from "lucide-react";
 import { Link } from "react-router-dom";
 import { ANALYTICS_EVENTS, track } from "../../utils/analytics";
 import { usableAvatar } from "../../utils/avatar";
@@ -9,6 +10,18 @@ const PREVIEW_COUNT = 3;
 interface TennisCircleProps {
   rows: CircleRow[];
   loading?: boolean;
+  /** What the player is already in, from My Week (utils/homeBookingState). */
+  bookedKeys?: Set<string>;
+}
+
+/** In place of Book or View on a row the player has already joined; opens their booking. */
+function YoureIn({ href, className = "" }: { href: string; className?: string }) {
+  return (
+    <Link className={`home-btn home-btn--in home-btn--small ${className}`.trim()} to={href}>
+      <Check size={14} strokeWidth={2.5} aria-hidden="true" />
+      You're in
+    </Link>
+  );
 }
 
 function CircleAvatar({ row }: { row: CircleRow }) {
@@ -27,7 +40,7 @@ function CircleAvatar({ row }: { row: CircleRow }) {
  * their coaches (their own classes left out, for a coach who also plays). Rows and wording come from utils/homeCircle; this only draws them.
  * Hidden when there's nothing, so a player with no history sees no empty box.
  */
-export function TennisCircle({ rows, loading = false }: TennisCircleProps) {
+export function TennisCircle({ rows, loading = false, bookedKeys }: TennisCircleProps) {
   const [expanded, setExpanded] = useState(false);
   const viewed = useRef(false);
 
@@ -75,6 +88,7 @@ export function TennisCircle({ rows, loading = false }: TennisCircleProps) {
         {shown.map((row, index) => {
           const onClick = () => track(ANALYTICS_EVENTS.homeCircleClick, { kind: row.kind, position: index });
           const card = row.classCard;
+          const isIn = Boolean(bookedKeys?.has(row.bookedKey));
           if (card) {
             // A coach's class: what it is and how well it fits, then the price and Book.
             return (
@@ -94,9 +108,13 @@ export function TennisCircle({ rows, loading = false }: TennisCircleProps) {
                 <div className="home-circle__class-foot">
                   {card.price ? <span className="home-circle__price">{card.price}</span> : null}
                   {card.spotsChip ? <span className="home-chip home-chip--urgent">{card.spotsChip}</span> : null}
-                  <Link className="home-btn home-btn--fill home-circle__book" to={row.href} onClick={onClick}>
-                    {row.cta}
-                  </Link>
+                  {isIn ? (
+                    <YoureIn href={row.href} className="home-circle__book" />
+                  ) : (
+                    <Link className="home-btn home-btn--fill home-circle__book" to={row.href} onClick={onClick}>
+                      {row.cta}
+                    </Link>
+                  )}
                 </div>
               </article>
             );
@@ -110,9 +128,13 @@ export function TennisCircle({ rows, loading = false }: TennisCircleProps) {
                 {row.when ? <span className="home-circle__when">{row.when}</span> : null}
                 {row.detail ? <span className="home-circle__when">{row.detail}</span> : null}
               </span>
-              <Link className="home-btn home-btn--outline home-btn--small" to={row.href} onClick={onClick}>
-                {row.cta}
-              </Link>
+              {isIn ? (
+                <YoureIn href={row.href} />
+              ) : (
+                <Link className="home-btn home-btn--outline home-btn--small" to={row.href} onClick={onClick}>
+                  {row.cta}
+                </Link>
+              )}
             </article>
           );
         })}

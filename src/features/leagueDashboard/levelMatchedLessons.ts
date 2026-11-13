@@ -56,6 +56,9 @@ export interface LevelMatchedLesson {
   title: string;
   /** The class's own level, as its pill: "4.0–4.5", "4.0+", "4.0". */
   levelPill: string;
+  /** The band behind the pill, for claims about fit (utils/levelMatch). Optional so
+   *  hand-built lessons in tests can omit it; then no fit is claimed. */
+  band?: LevelBand;
   /** True for an outside provider's class, booked on their site. */
   external: boolean;
   /** "3 spots left". Null for an outside class: we don't know its spots. */
@@ -102,6 +105,7 @@ export const matchLessonsToLevel = (
         id: lesson.id,
         title: lesson.title,
         levelPill: bandLabel(band),
+        band,
         external,
         spotsLabel: external
           ? null

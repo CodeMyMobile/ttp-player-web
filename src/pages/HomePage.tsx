@@ -105,7 +105,7 @@ export default function HomePage() {
         />
 
         {/* Friends' games first, then classes from your coaches. */}
-        <TennisCircle rows={circleRows} loading={circleLoading} />
+        <TennisCircle rows={circleRows} loading={circleLoading} bookedKeys={bookedKeys} />
 
         {findPlayersOn ? (
           <PlayersToHitWith

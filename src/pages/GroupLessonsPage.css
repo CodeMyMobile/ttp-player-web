@@ -816,6 +816,32 @@
   text-align: center;
 }
 
+/* In place of Book: the player is already in this lesson, or coaches it. */
+.lesson-card__state {
+  display: inline-flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 0;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.lesson-card__state--in {
+  border: 1.5px solid #abefc6;
+  background: #ecfdf3;
+  color: #15803d;
+}
+
+.lesson-card__state--coaching {
+  border: 1.5px solid var(--fc-color-border);
+  background: #f2f4f7;
+  color: #475467;
+}
+
 .primary-button {
   border: none;
   background: var(--fc-color-accent);

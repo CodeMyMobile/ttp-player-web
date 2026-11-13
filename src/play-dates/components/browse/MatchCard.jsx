@@ -2,14 +2,13 @@ import { User, Users, MapPin, Lock } from "lucide-react";
 
 import { getAvatarInitials } from "../../utils/avatar";
 import { uniqueActiveParticipants } from "../../utils/participants";
+import { levelBandFromText } from "../../../utils/groupLessonLevelFit";
+import { levelMatch, levelMatchLabel } from "../../../utils/levelMatch";
 
 // The "✓ you've played" host-trust signal needs the /player/played-with
 // endpoint, which isn't live yet. Render the row but keep the checkmark dark
 // (always "new to you") until the data lands — flip this flag then.
 const HAS_PLAYED_WITH_ENABLED = false;
-
-const normalizeNtrp = (value) =>
-  value === null || value === undefined ? "" : String(value).replace(/[^\d.]/g, "");
 
 const MatchCard = ({ match, handleViewDetails, userNtrp, formatMatchTimeLabel, formatDistanceLabel }) => {
   const isHosted = match.type === "hosted";
@@ -24,9 +23,11 @@ const MatchCard = ({ match, handleViewDetails, userNtrp, formatMatchTimeLabel, f
   const isDoubles = /doubles|dingles|round\s*robin|mixed/i.test(formatLabel);
 
   const levelLabel = match.skillLevel || "All levels";
-  const matchNtrp = normalizeNtrp(match.skillLevel);
-  const fitsYou = Boolean(matchNtrp && normalizeNtrp(userNtrp) && normalizeNtrp(userNtrp) === matchNtrp);
-  const levelChipText = fitsYou ? `${levelLabel} · fits you` : levelLabel;
+  // The app's one level rule (utils/levelMatch): "At your level" inside the match's band,
+  // "Near your level" within half a level, nothing otherwise.
+  const levelFit = levelMatchLabel(levelMatch(levelBandFromText(match.skillLevel), userNtrp));
+  const fitsYou = Boolean(levelFit);
+  const levelChipText = levelFit ? `${levelLabel} · ${levelFit}` : levelLabel;
 
   const timeLabel = formatMatchTimeLabel(match);
   const distanceLabel = formatDistanceLabel(match.distanceMiles);
@@ -126,8 +127,9 @@ const MatchCard = ({ match, handleViewDetails, userNtrp, formatMatchTimeLabel, f
                 Hosting
               </span>
             ) : isJoined ? (
-              <span className="rounded-full bg-amber-100 px-[7px] py-[2px] text-[9.5px] font-extrabold uppercase tracking-wide text-amber-700">
-                Joined
+              // The same words and colour as everywhere else a player is already in something.
+              <span className="rounded-full bg-emerald-50 px-[7px] py-[2px] text-[9.5px] font-extrabold uppercase tracking-wide text-emerald-700">
+                You're in ✓
               </span>
             ) : null}
           </div>

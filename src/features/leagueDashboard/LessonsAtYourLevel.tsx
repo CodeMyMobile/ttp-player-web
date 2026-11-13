@@ -1,4 +1,4 @@
-// "Group lessons at your level" — up to three upcoming classes that fit the viewer's
+// "Group lessons for your level" (not "at": they may sit a little above or below) — up to three upcoming classes that fit the viewer's
 // level, ours and outside providers', styled as a sibling of "Players looking for
 // matches". Hidden when none fit. Behind VITE_LEAGUE_COACHING_PROMPTS.
 
@@ -30,11 +30,11 @@ const LessonsAtYourLevel = ({ leagueId, matched }: LessonsAtYourLevelProps) => {
   const clicked = (target: string) => track("league_lessons_card_click", { leagueId, levelBand: band, target });
 
   return (
-    <section className="card looking lessons-at-level" aria-label="Group lessons at your level">
+    <section className="card looking lessons-at-level" aria-label="Group lessons for your level">
       <div className="lh">
         <h3>
           <Icon name="users" style={{ color: "var(--violet)" }} />
-          Group lessons at your level
+          Group lessons for your level
         </h3>
         <span className="cnt">Your level · {level}</span>
       </div>

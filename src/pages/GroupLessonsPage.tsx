@@ -4,7 +4,7 @@ import Autocomplete from "react-google-autocomplete";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { CalendarDays, ChevronRight, Clock, ExternalLink, MapPin, Search, Target, Users } from "lucide-react";
+import { CalendarDays, Check, ChevronRight, Clock, ExternalLink, MapPin, Search, Target, Users } from "lucide-react";
 
 import ResultsHeader from "../components/coaches/ResultsHeader";
 import MainLayout from "../components/MainLayout";
@@ -1466,6 +1466,12 @@ const GroupLessonsPage = () => {
                   const spotTone = getSpotsTone(lesson.availableSpots);
                   const isBooked = isLessonBooked(lesson);
                   const isExternal = Boolean(lesson.isExternal && lesson.externalUrl);
+                  // A coach browsing as a player is never offered a spot in their own lesson.
+                  const isCoaching =
+                    !isExternal &&
+                    Boolean(currentUserIdentity.id) &&
+                    lesson.coachId != null &&
+                    String(lesson.coachId) === currentUserIdentity.id;
                   const isCancelled = !isExternal && lesson.cancelled;
                   const isSoldOut = !isExternal && !isCancelled && lesson.availableSpots === 0;
                   const priceValue = parsePriceValue(lesson.pricePerPlayer);
@@ -1560,36 +1566,50 @@ const GroupLessonsPage = () => {
                           >
                             View details
                           </Link>
-                          <button
-                            type="button"
-                            className="primary-button"
-                            onClick={() => {
-                              if (!authToken) {
-                                requireSignIn();
-                                return;
-                              }
-                              if (isExternal) {
-                                openExternalLessonDialog(lesson);
-                                return;
-                              }
-                              navigate(`/group-lessons/${lesson.id}`, {
-                                state: {
-                                  groupLessonsState: groupLessonsStateSnapshot,
-                                },
-                              });
-                            }}
-                            disabled={isCancelled || isSoldOut || isBooked}
-                          >
-                            {isExternal
-                              ? "Continue"
-                              : isCancelled
-                                ? "Cancelled"
-                                : isBooked
-                                  ? "Booked"
+                          {/* Already in, or their own lesson: say so in place of Book, the same
+                              as on home (utils/homeBookingState). Booked comes from the lesson's
+                              own roster, so it holds for lessons beyond this week too. */}
+                          {isCoaching ? (
+                            <span className="lesson-card__state lesson-card__state--coaching">You're coaching</span>
+                          ) : isBooked && !isCancelled ? (
+                            <Link
+                              to={`/group-lessons/${lesson.id}`}
+                              state={{ groupLessonsState: groupLessonsStateSnapshot }}
+                              className="lesson-card__state lesson-card__state--in"
+                            >
+                              <Check size={14} strokeWidth={2.5} aria-hidden="true" />
+                              You're in
+                            </Link>
+                          ) : (
+                            <button
+                              type="button"
+                              className="primary-button"
+                              onClick={() => {
+                                if (!authToken) {
+                                  requireSignIn();
+                                  return;
+                                }
+                                if (isExternal) {
+                                  openExternalLessonDialog(lesson);
+                                  return;
+                                }
+                                navigate(`/group-lessons/${lesson.id}`, {
+                                  state: {
+                                    groupLessonsState: groupLessonsStateSnapshot,
+                                  },
+                                });
+                              }}
+                              disabled={isCancelled || isSoldOut}
+                            >
+                              {isExternal
+                                ? "Continue"
+                                : isCancelled
+                                  ? "Cancelled"
                                   : isSoldOut
-                                    ? "Join waitlist"
-                                    : "Book now"}
-                          </button>
+                                      ? "Join waitlist"
+                                      : "Book now"}
+                            </button>
+                          )}
                         </footer>
                       </div>
                     </article>

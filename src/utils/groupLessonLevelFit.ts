@@ -37,7 +37,8 @@ const SINGLE = new RegExp(String.raw`(?:^|[^\d.])${LEVEL}${NOT_TIME}(?!\s*(?:-|â
 
 const isLevel = (value: number) => value >= 2 && value <= 7;
 
-const fromText = (text: string | null | undefined): LevelBand | null => {
+/** A level band from text as written ("3.5 - 4.0", "4.5+", "NTRP 4.0"), or null. */
+export const levelBandFromText = (text: string | null | undefined): LevelBand | null => {
   if (!text) return null;
   const range = RANGE.exec(text);
   if (range) {
@@ -60,12 +61,12 @@ export const classLevelBand = (lesson: {
   level?: number | null;
   skillLabel?: string | null;
 }): LevelBand | null => {
-  const fromTitle = fromText(lesson.title);
+  const fromTitle = levelBandFromText(lesson.title);
   if (fromTitle) return fromTitle;
   if (lesson.level !== null && lesson.level !== undefined && Number.isFinite(lesson.level)) {
     return { min: lesson.level, max: lesson.level };
   }
-  return fromText(lesson.skillLabel);
+  return levelBandFromText(lesson.skillLabel);
 };
 
 /**

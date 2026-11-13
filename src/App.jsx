@@ -287,7 +287,9 @@ const PlayDatesAppRoute = () => {
   }, []);
 
   return (
-    <div className={`dashboard-page${isCreatingMatch ? " dashboard-page--playdates-create" : ""}`}>
+    <div
+      className={`dashboard-page${isCreatingMatch ? " dashboard-page--playdates-create" : " dashboard-page--tab-bar"}`}
+    >
       <AppNav
         onNewMatch={openNewMatch}
         hideMobileNewMatch
