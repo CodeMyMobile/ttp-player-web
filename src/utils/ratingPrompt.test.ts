@@ -16,7 +16,7 @@ test("a player with no declared level is asked to find one", () => {
 test("a player with a declared level is asked to confirm it, not find it", () => {
   const prompt = ratingPrompt(4.5);
   assert.equal(prompt.title, "Confirm your 4.5");
-  assert.equal(prompt.sub, "Play a rated match to join the ladder");
+  assert.equal(prompt.sub, "Play and log a match");
   assert.equal(prompt.href, "/matches");
   assert.doesNotMatch(prompt.title, /find/i);
 });

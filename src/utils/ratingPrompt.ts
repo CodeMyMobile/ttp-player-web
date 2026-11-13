@@ -60,7 +60,10 @@ export const ratingPrompt = (declaredLevel: number | null): RatingPrompt => {
 
   return {
     title: `Confirm your ${formatLevel(declaredLevel)}`,
-    sub: "Play a rated match to join the ladder",
+    // Every confirmed result updates the rating (ttp-api recomputeRatings replays them all),
+    // so there's no separate "rated" match to look for: any match, logged, does it.
+    sub: "Play and log a match",
+    // Play › Matches.
     href: "/matches",
   };
 };
