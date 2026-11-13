@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { ChevronLeft, ChevronRight, MapPin } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import type { HomePlayersState } from "../../hooks/useHomePlayers";
@@ -22,11 +22,8 @@ interface PlayersToHitWithProps {
 }
 
 const Header = ({ action }: { action?: ReactNode }) => (
-  <div className="home-players__head">
-    <div className="home-players__head-copy">
-      <h2 className="home-players__heading">Players to hit with</h2>
-      <p className="home-players__sub">Near your level and free when you are</p>
-    </div>
+  <div className="home-sec__head">
+    <h2 className="home-sec__title">Players to hit with</h2>
     {action}
   </div>
 );
@@ -59,19 +56,14 @@ export function PlayersToHitWith({ state, onConnect, onViewProfile }: PlayersToH
 
   if (state.status === "loading") {
     return (
-      <section className="home-players" aria-busy="true" aria-label="Players to hit with">
+      <section className="home-sec home-players" aria-busy="true" aria-label="Players to hit with">
         <Header />
         <div className="home-players__track">
           {Array.from({ length: SKELETON_CARDS }, (_, index) => (
-            <div className="home-players__card home-players__card--skeleton" key={index} aria-hidden="true">
-              <div className="home-players__band">
-                <span className="home-players__skeleton-photo" />
-                <span className="home-players__skeleton-line home-players__skeleton-line--chip" />
-              </div>
-              <div className="home-players__body">
-                <span className="home-players__skeleton-line" />
-                <span className="home-players__skeleton-line home-players__skeleton-line--short" />
-              </div>
+            <div className="home-card home-players__card home-skeleton" key={index} aria-hidden="true">
+              <span className="home-skeleton__circle" />
+              <span className="home-skeleton__line" />
+              <span className="home-skeleton__line home-skeleton__line--short" />
             </div>
           ))}
         </div>
@@ -85,7 +77,7 @@ export function PlayersToHitWith({ state, onConnect, onViewProfile }: PlayersToH
     const photos = state.nearby.slice(0, PROMPT_PHOTOS);
     const more = state.nearbyCount - photos.length;
     return (
-      <section className="home-players" aria-label="Players to hit with">
+      <section className="home-sec home-players" aria-label="Players to hit with">
         <Header />
         <div className="home-players__prompt">
           {photos.length ? (
@@ -171,12 +163,12 @@ function Carousel({
   });
 
   return (
-    <section className="home-players" aria-label="Players to hit with">
+    <section className="home-sec home-players" aria-label="Players to hit with">
       <Header
         action={
           <div className="home-players__actions">
             <Link
-              className="home-players__see-all"
+              className="home-sec__link"
               to={findPlayersHref(radiusMiles)}
               onClick={() => track(ANALYTICS_EVENTS.homePlayersSeeAll, { total, radiusMiles })}
             >
@@ -212,53 +204,40 @@ function Carousel({
             onViewProfile(player);
           };
           return (
-            <li className="home-players__card" key={player.id}>
-              <div className="home-players__band">
-                <button
-                  type="button"
-                  className="home-players__photo-button"
-                  onClick={viewProfile}
-                  aria-label={`View ${player.name}'s profile`}
-                >
-                  <PlayerPhoto player={player} size={84} className="home-players__photo" />
-                </button>
-                <span className="home-players__reason">{reason.label}</span>
-              </div>
-              <div className="home-players__body">
-                <button type="button" className="home-players__name" onClick={viewProfile}>
-                  {player.name}
-                </button>
-                <div className="home-players__badges">
-                  <span className="home-players__level">
-                    NTRP <strong>{player.level}</strong>
+            <li className="home-card home-players__card" key={player.id}>
+              <button
+                type="button"
+                className="home-players__photo-button"
+                onClick={viewProfile}
+                aria-label={`View ${player.name}'s profile`}
+              >
+                <PlayerPhoto player={player} size={64} className="home-players__photo" />
+              </button>
+              <button type="button" className="home-players__name" onClick={viewProfile}>
+                {player.name}
+              </button>
+              <div className="home-players__badges">
+                <span className="home-chip home-chip--level">{player.level}</span>
+                {levelEvidenceLabel(player) ? (
+                  <span
+                    className={`home-chip ${player.levelSource === "self" ? "home-chip--neutral" : "home-chip--success"}`}
+                  >
+                    {levelEvidenceLabel(player)}
                   </span>
-                  {levelEvidenceLabel(player) ? (
-                    <span
-                      className={
-                        player.levelSource === "self" ? "home-players__self-rated" : "home-players__verified"
-                      }
-                    >
-                      {levelEvidenceLabel(player)}
-                    </span>
-                  ) : null}
-                </div>
-                {court ? (
-                  <p className="home-players__court">
-                    <MapPin size={14} aria-hidden="true" />
-                    <span>{court}</span>
-                  </p>
                 ) : null}
-                <button
-                  type="button"
-                  className="home-players__connect"
-                  onClick={() => {
-                    track(ANALYTICS_EVENTS.homePlayersConnect, props(suggestion, index));
-                    onConnect(player);
-                  }}
-                >
-                  Connect
-                </button>
               </div>
+              {court ? <p className="home-players__court">{court}</p> : null}
+              <span className="home-players__reason">{reason.label}</span>
+              <button
+                type="button"
+                className="home-btn home-btn--outline home-players__connect"
+                onClick={() => {
+                  track(ANALYTICS_EVENTS.homePlayersConnect, props(suggestion, index));
+                  onConnect(player);
+                }}
+              >
+                Connect
+              </button>
             </li>
           );
         })}

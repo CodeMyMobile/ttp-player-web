@@ -8,6 +8,9 @@ export const colors = {
   icon: "#98A2B3",
   accentPurple: "#8B5CF6",
   accentPurpleDark: "#7C3AED",
+  /** Primary for the redesign: #8B5CF6 on white is under 4.5:1, this passes. Used by home v2
+   *  (--home-primary in HomePage.css) for now; the app-wide move to it is a follow-up. */
+  primary: "#6D28D9",
   accentPurpleLight: "#F4EBFF",
   accentPurpleBorder: "#D6BBFB",
   filterChipBg: "#F2F4F7",

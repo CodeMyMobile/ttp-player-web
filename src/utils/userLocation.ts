@@ -237,8 +237,15 @@ export const locationNameFromReverseGeocode = (
       ? fields.country_code.trim().toUpperCase()
       : null;
 
+  // The area is the short name the header shows: the neighbourhood when the address has one
+  // ("Mar Vista"), as readPlaceArea prefers for a searched place, else the city. The label
+  // stays city-level.
+  const neighbourhood = ["neighbourhood", "suburb", "quarter"]
+    .map((key) => fields[key])
+    .find((value): value is string => typeof value === "string" && value.trim() !== "");
+
   return {
-    area: locality.trim(),
+    area: (neighbourhood ?? locality).trim(),
     label: [locality.trim(), region?.trim(), countryCode].filter(Boolean).join(", "),
   };
 };

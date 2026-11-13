@@ -6,6 +6,7 @@
 // React test harness in this repo.
 
 import { levelMatch, levelMatchLabel } from "./levelMatch";
+import { normalizeVenueLabel } from "./venueLabel";
 
 export interface CirclePerson {
   id: number;
@@ -60,7 +61,20 @@ export interface CircleRow {
   initials: string;
   href: string;
   cta: string;
+  /** A coach's class only: the card's parts, drawn separately. */
+  classCard?: {
+    /** "Tue, Nov 24 · 6:30 PM" */
+    whenLabel: string | null;
+    /** "Culver City HS · Paul Cochrane": the venue's name, never the full address. */
+    venueCoach: string | null;
+    price: string | null;
+    /** "8 spots left", only once it's 10 or fewer. */
+    spotsChip: string | null;
+  };
 }
+
+/** Spots are worth flagging once they're running out. */
+const SPOTS_CHIP_AT = 10;
 
 const clean = (value: unknown): string => String(value ?? "").trim();
 
@@ -151,7 +165,17 @@ const classRow = (lesson: CircleClass): CircleRow => {
     avatarUrl: lesson.coach_picture || null,
     initials: initialsOf(lesson.coach_name),
     href: `/group-lessons/${lesson.lesson_id}`,
-    cta: "View",
+    cta: "Book",
+    classCard: {
+      whenLabel: clean(lesson.when_label) || null,
+      venueCoach:
+        [normalizeVenueLabel(lesson.location) || clean(lesson.location), clean(lesson.coach_name)]
+          .filter(Boolean)
+          .join(" · ") || null,
+      price: priceLabel(lesson.price_per_person),
+      spotsChip:
+        Number.isFinite(spots) && spots > 0 && spots <= SPOTS_CHIP_AT ? plural(spots, "spot left", "spots left") : null,
+    },
   };
 };
 

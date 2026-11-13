@@ -1,12 +1,39 @@
 /* Home redesign (VITE_HOME_V2). Scoped under .home-v2 so nothing here can
    affect the existing DashboardPage while both are in the tree. */
 
+.home-v2 {
+  --home-bg: #f5f6fa;
+  --home-surface: #ffffff;
+  --home-border: #e5e7ef;
+  --home-divider: #eef0f5;
+  --home-ink: #0f172a;
+  --home-ink-2: #475569;
+  --home-primary: #6d28d9;
+  --home-primary-border: #c4b5fd;
+  --home-primary-soft: #ede9fe;
+  --home-primary-soft-ink: #5b21b6;
+  --home-urgent: #c2410c;
+  --home-urgent-bg: #fff7ed;
+  --home-success: #15803d;
+  --home-success-bg: #ecfdf3;
+  --home-success-border: #bbf7d0;
+
+  min-height: 100vh;
+  background: var(--home-bg);
+  color: var(--home-ink);
+}
+
 .home-v2__main {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
   width: min(640px, 100%);
   margin: 0 auto;
-  /* Clears the mobile tab bar (MobileHomeBottomNav.css): its 68px bar, the + button's 26px
-     rise above it, then 16px, plus the home indicator, so the last card is never covered. */
-  padding: 16px 16px calc(68px + 26px + 16px + var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
+  /* Clears the mobile tab bar (MobileHomeBottomNav.css): its 68px bar, the + button's 38px
+     rise above it (it sits over its "Plan" label), then 16px, plus the home indicator, so the
+     last card is never covered. */
+  padding: 20px 16px calc(68px + 38px + 16px + var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
+  box-sizing: border-box;
 }
 
 /* The tab bar is mobile-only. */
@@ -16,660 +43,983 @@
   }
 }
 
-/* --- status tiles --------------------------------------------------------- */
+/* --- shared pieces: section header, card, tag, chip, button, skeleton ---------------- */
 
-.home-v2 .home-tiles {
+.home-v2 .home-sec__head {
   display: flex;
-  gap: 8px;
-  align-items: stretch;
-}
-
-.home-v2 .home-tile {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
-  border-radius: 12px;
-  padding: 12px;
-  text-decoration: none;
-  transition: box-shadow 160ms ease, transform 160ms ease;
-}
-
-.home-v2 .home-tile:hover {
-  transform: translateY(-1px);
-}
-
-.home-v2 .home-tile--full {
-  flex-direction: row;
-  align-items: center;
+  align-items: baseline;
+  justify-content: space-between;
   gap: 12px;
+  margin: 0 0 12px;
 }
 
-/* Rating — the lime tile. */
-.home-v2 .home-tile--rating {
-  background: #f7fee7;
-  box-shadow: inset 0 0 0 1px #d9f99d;
-  color: #1a2e05;
+.home-v2 .home-sec__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--home-ink);
 }
 
-.home-v2 .home-tile--rating .home-tile__label {
-  color: #4d7c0f;
+.home-v2 .home-sec__link {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--home-primary);
+  text-decoration: none;
+  white-space: nowrap;
 }
 
-.home-v2 .home-tile--rating .home-tile__sub {
-  color: #65a30d;
+.home-v2 .home-sec__aside {
+  font-size: 14px;
+  color: var(--home-ink-2);
+  white-space: nowrap;
 }
 
-/* Rating, not yet known. The lime tile's shape with no number in it, so the row
-   keeps its height and nothing claims the player is unrated before we know. */
-.home-v2 .home-tile--pending {
-  cursor: default;
+.home-v2 .home-sec__more,
+.home-v2 .home-feed__more {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 12px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--home-primary-soft);
+  color: var(--home-primary-soft-ink);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
-/* .home-tile:hover lifts every tile; this one is not interactive, so it must not
-   invite a click that does nothing. */
-.home-v2 .home-tile--pending:hover {
-  transform: none;
+.home-v2 .home-card {
+  border: 1px solid var(--home-border);
+  border-radius: 18px;
+  background: var(--home-surface);
 }
 
-.home-v2 .home-tile__value--placeholder {
+.home-v2 .home-tag {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--home-ink-2);
+}
+
+.home-v2 .home-tag--group { color: #0369a1; }
+.home-v2 .home-tag--match { color: #b45309; }
+.home-v2 .home-tag--external { color: #475569; }
+.home-v2 .home-tag--tip,
+.home-v2 .home-tag--league,
+.home-v2 .home-tag--private,
+.home-v2 .home-tag--lesson { color: var(--home-primary); }
+
+.home-v2 .home-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.home-v2 .home-chip--success { background: var(--home-success-bg); color: var(--home-success); }
+.home-v2 .home-chip--urgent { background: var(--home-urgent-bg); color: var(--home-urgent); }
+.home-v2 .home-chip--level { background: var(--home-primary-soft); color: var(--home-primary-soft-ink); }
+.home-v2 .home-chip--neutral { background: #f1f5f9; color: #334155; }
+.home-v2 .home-chip--group { background: #e0f2fe; color: #075985; }
+
+.home-v2 .home-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 12px;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.home-v2 .home-btn--fill {
+  border: 0;
+  background: var(--home-primary);
+  color: #ffffff;
+}
+
+.home-v2 .home-btn--outline {
+  border: 1.5px solid var(--home-primary-border);
+  background: var(--home-surface);
+  color: var(--home-primary);
+}
+
+.home-v2 .home-btn--in {
+  border: 1.5px solid var(--home-success-border);
+  background: var(--home-success-bg);
+  color: var(--home-success);
+}
+
+.home-v2 .home-btn--small {
+  flex-shrink: 0;
+  padding: 0 14px;
+  font-size: 14px;
+}
+
+.home-v2 .home-btn:focus-visible,
+.home-v2 .home-sec__link:focus-visible {
+  outline: 2px solid var(--home-primary);
+  outline-offset: 2px;
+}
+
+/* Skeletons hold each section's place while it loads, so nothing jumps. */
+.home-v2 .home-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px;
+}
+
+.home-v2 .home-skeleton__row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.home-v2 .home-skeleton__line,
+.home-v2 .home-skeleton__circle {
   display: block;
-  width: 3.2ch;
+  height: 12px;
   border-radius: 6px;
-  background: #d9f99d;
+  background: #eef0f5;
+}
+
+.home-v2 .home-skeleton__line--short { width: 40%; }
+.home-v2 .home-skeleton__line--big { width: 70%; height: 24px; }
+
+.home-v2 .home-skeleton__circle {
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  align-self: center;
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .home-v2 .home-tile__value--placeholder {
-    animation: home-tile-pulse 1.4s ease-in-out infinite;
+  .home-v2 .home-skeleton__line,
+  .home-v2 .home-skeleton__circle {
+    animation: home-skeleton-pulse 1.4s ease-in-out infinite;
   }
 }
 
-@keyframes home-tile-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.45; }
+@keyframes home-skeleton-pulse {
+  50% { opacity: 0.5; }
 }
 
-.home-v2 .home-tile__sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-  border: 0;
-}
+/* --- Up next --------------------------------------------------------------------------- */
 
-/* Bookings and prompts — the white tile. */
-.home-v2 .home-tile--bookings {
-  background: #fff;
-  box-shadow: inset 0 0 0 1px #e2e8f0;
-  color: #0f172a;
-}
-
-.home-v2 .home-tile--prompt {
-  background: #f7fee7;
-  box-shadow: inset 0 0 0 1px #d9f99d;
-  color: #1a2e05;
-}
-
-.home-v2 .home-tile--prompt-compact {
-  justify-content: center;
-}
-
-.home-v2 .home-tile__label {
+.home-v2 .home-upnext__hero {
   display: flex;
-  gap: 4px;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border-color: #ddd6fe;
+  box-shadow: 0 4px 16px rgb(109 40 217 / 8%);
+}
+
+.home-v2 .home-upnext__top {
+  display: flex;
   align-items: center;
-  font-size: 12px;
-  color: #64748b;
-}
-
-.home-v2 .home-tile__label--spread {
   justify-content: space-between;
+  gap: 8px;
 }
 
-.home-v2 .home-tile__link-hint {
-  flex-shrink: 0;
-  color: #7c3aed;
-  font-size: 10px;
-  font-weight: 500;
-}
-
-.home-v2 .home-tile__value-row {
+.home-v2 .home-upnext__main {
   display: flex;
-  gap: 6px;
-  align-items: baseline;
+  flex-direction: column;
+  gap: 2px;
+  color: inherit;
+  text-decoration: none;
 }
 
-.home-v2 .home-tile__value {
-  font-size: 24px;
-  font-weight: 600;
-  line-height: 1.15;
+.home-v2 .home-upnext__when {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
-.home-v2 .home-tile__unit {
-  color: #64748b;
-  font-size: 12px;
-}
-
-.home-v2 .home-tile__sub {
-  display: block;
-  overflow: hidden;
+.home-v2 .home-upnext__title {
   margin-top: 2px;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.home-v2 .home-upnext__venue {
+  font-size: 15px;
+  color: var(--home-ink-2);
+}
+
+.home-v2 .home-upnext__actions {
+  display: flex;
+  gap: 10px;
+}
+
+.home-v2 .home-upnext__actions .home-btn {
+  flex: 1;
+}
+
+.home-v2 .home-upnext__list {
+  margin: 10px 0 0;
+  padding: 4px 16px;
+  list-style: none;
+}
+
+.home-v2 .home-upnext__list li + li {
+  border-top: 1px solid var(--home-divider);
+}
+
+.home-v2 .home-upnext__row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 56px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.home-v2 .home-upnext__date {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 44px;
+  flex-shrink: 0;
+}
+
+.home-v2 .home-upnext__dow {
   font-size: 12px;
+  font-weight: 700;
+  color: var(--home-primary);
+}
+
+.home-v2 .home-upnext__dom {
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.home-v2 .home-upnext__row-copy {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.home-v2 .home-upnext__row-title {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.home-v2 .home-tile__sub--muted {
-  color: #94a3b8;
+.home-v2 .home-upnext__row-when {
+  font-size: 13px;
+  color: var(--home-ink-2);
 }
 
-.home-v2 .home-tile__lead-icon {
+.home-v2 .home-upnext__chevron {
   flex-shrink: 0;
-  margin-bottom: 4px;
-  color: #65a30d;
-}
-
-.home-v2 .home-tile--bookings .home-tile__lead-icon {
   color: #94a3b8;
 }
 
-.home-v2 .home-tile__prompt-copy {
+.home-v2 .home-upnext__empty {
   display: flex;
-  flex: 1;
   flex-direction: column;
-  min-width: 0;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px;
 }
 
-.home-v2 .home-tile__prompt-title {
+.home-v2 .home-upnext__empty p {
+  margin: 0;
+  font-size: 15px;
+  color: var(--home-ink-2);
+}
+
+/* --- Action needed --------------------------------------------------------------------- */
+
+.home-v2 .home-action__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.home-v2 .home-league {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+}
+
+.home-v2 .home-league__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.home-v2 .home-league__name {
+  margin: 4px 0 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.home-v2 .home-league__counts {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
   font-size: 14px;
   font-weight: 600;
 }
 
-.home-v2 .home-tile__prompt-sub {
-  color: #64748b;
-  font-size: 12px;
+.home-v2 .home-league__to-go {
+  color: var(--home-ink-2);
 }
 
-.home-v2 .home-tile--prompt .home-tile__prompt-sub {
-  color: #4d7c0f;
+.home-v2 .home-league__bar {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--home-divider);
 }
 
-.home-v2 .home-tile__chevron {
+.home-v2 .home-league__bar-fill {
+  height: 100%;
+  background: var(--home-primary);
+}
+
+.home-v2 .home-league__meta {
+  margin: 0;
+  font-size: 14px;
+  color: var(--home-ink-2);
+}
+
+.home-v2 .home-rating {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border-color: #d9f99d;
+  background: #f7fee7;
+}
+
+.home-v2 .home-rating__icon {
+  display: flex;
   flex-shrink: 0;
-  color: #65a30d;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #ecfccb;
+  color: #3f6212;
 }
 
-/* --- today row ------------------------------------------------------------ */
-
-.home-v2 .home-today {
-  margin-top: 8px;
+.home-v2 .home-rating__copy {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
 }
 
-.home-v2 .home-today__row,
-.home-v2 .home-alerts__row {
+.home-v2 .home-rating__title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a2e05;
+}
+
+.home-v2 .home-rating__sub {
+  font-size: 14px;
+  color: #3f6212;
+}
+
+.home-v2 .home-rating__cta {
+  flex-shrink: 0;
+  padding: 0 12px;
+  border-color: #bef264;
+  color: #3f6212;
+}
+
+.home-v2 .home-action__rows {
+  margin: 0;
+  padding: 0 16px;
+  list-style: none;
+}
+
+.home-v2 .home-action__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 0;
+}
+
+.home-v2 .home-action__row + .home-action__row {
+  border-top: 1px solid var(--home-divider);
+}
+
+.home-v2 .home-action__copy {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.home-v2 .home-action__title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.home-v2 .home-action__detail {
+  font-size: 14px;
+  color: var(--home-ink-2);
+}
+
+/* --- Your tennis circle ---------------------------------------------------------------- */
+
+.home-v2 .home-circle__list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.home-v2 .home-circle__avatar {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #0369a1;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.home-v2 .home-circle__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.home-v2 .home-circle__class {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+}
+
+.home-v2 .home-circle__class-top,
+.home-v2 .home-circle__match {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.home-v2 .home-circle__match {
+  align-items: center;
+  padding: 16px 18px;
+}
+
+.home-v2 .home-circle__match .home-circle__avatar {
+  background: #b45309;
+}
+
+.home-v2 .home-circle__body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.home-v2 .home-circle__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.home-v2 .home-circle__title {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.home-v2 .home-circle__when {
+  font-size: 14px;
+  color: var(--home-ink-2);
+}
+
+.home-v2 .home-circle__class-foot {
   display: flex;
   align-items: center;
   gap: 10px;
-  width: 100%;
-  padding: 10px 12px;
-  color: inherit;
-  text-align: left;
-  text-decoration: none;
 }
 
-.home-v2 .home-today__row {
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: inset 0 0 0 1px #e2e8f0;
+.home-v2 .home-circle__price {
+  font-size: 18px;
+  font-weight: 800;
 }
 
-.home-v2 .home-today__chip,
-.home-v2 .home-alerts__chip {
-  display: flex;
+.home-v2 .home-circle__book {
+  margin-left: auto;
+}
+
+/* --- Players to hit with (VITE_HOME_FIND_PLAYERS) -------------------------------------- */
+
+/* A player photo, or their initials in Find Players' avatar colours. */
+.home-v2 .home-photo {
+  display: inline-flex;
   flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #e2e8f0;
+}
+
+.home-v2 .home-photo--initials {
+  background: linear-gradient(140deg, #6b21a8, #4f46e5);
+  color: #f5f3ff;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.home-v2 .home-players__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.home-v2 .home-players__arrow {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 32px;
   height: 32px;
-  border-radius: 8px;
-}
-
-/* Red is the today row's whole signal — it is the only red on the screen. */
-.home-v2 .home-today__chip {
-  background: #fef2f2;
-  color: #dc2626;
-}
-
-.home-v2 .home-today__copy,
-.home-v2 .home-alerts__copy {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  flex: 1;
-}
-
-.home-v2 .home-today__title,
-.home-v2 .home-alerts__title {
-  overflow: hidden;
-  font-size: 14px;
-  font-weight: 600;
-  color: #0f172a;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.home-v2 .home-today__meta,
-.home-v2 .home-alerts__meta {
-  overflow: hidden;
-  font-size: 12px;
-  color: #64748b;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.home-v2 .home-today__chevron,
-.home-v2 .home-alerts__chevron {
-  flex-shrink: 0;
-  color: #cbd5e1;
-}
-
-/* --- invite card ---------------------------------------------------------- */
-
-.home-v2 .home-invite {
-  margin-top: 12px;
-}
-
-/* The one saturated surface on the screen — it is the only thing here asking
-   for an answer rather than offering a destination. */
-.home-v2 .home-invite__card {
-  border-radius: 16px;
-  padding: 16px;
-  background: #8b5cf6;
-  box-shadow: 0 10px 15px -3px rgb(139 92 246 / 20%);
-}
-
-.home-v2 .home-invite__head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.home-v2 .home-invite__avatar {
-  flex-shrink: 0;
-  width: 44px;
-  height: 44px;
-  border-radius: 9999px;
-  object-fit: cover;
-}
-
-.home-v2 .home-invite__avatar--initials {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgb(255 255 255 / 25%);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.home-v2 .home-invite__copy {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  flex: 1;
-}
-
-.home-v2 .home-invite__title,
-.home-v2 .home-invite__meta {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.home-v2 .home-invite__title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #fff;
-}
-
-.home-v2 .home-invite__meta {
-  font-size: 12px;
-  color: #ede9fe;
-}
-
-/* When and where: a line each, allowed to wrap, so a phone never cuts them off. */
-.home-v2 .home-invite__details {
-  display: grid;
-  gap: 4px;
-  margin: 0 0 12px;
-  padding: 0;
-  list-style: none;
-}
-
-.home-v2 .home-invite__details li {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  color: #fff;
-  overflow-wrap: anywhere;
-}
-
-.home-v2 .home-invite__details svg {
-  flex-shrink: 0;
-  margin-top: 2px;
-  color: #ddd6fe;
-}
-
-.home-v2 .home-invite__details-link {
-  display: inline-flex;
-  align-items: center;
-  white-space: nowrap;
-  text-decoration: none;
-}
-
-/* Three buttons don't fit a 320px phone: Accept takes its own row, the others share one. */
-@media (max-width: 359px) {
-  .home-v2 .home-invite__actions--three {
-    flex-wrap: wrap;
-  }
-
-  .home-v2 .home-invite__actions--three .home-invite__btn--primary {
-    flex-basis: 100%;
-  }
-
-  .home-v2 .home-invite__actions--three .home-invite__details-link,
-  .home-v2 .home-invite__actions--three .home-invite__btn--ghost {
-    flex: 1;
-    justify-content: center;
-  }
-}
-
-.home-v2 .home-invite__actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.home-v2 .home-invite__btn {
-  border: 0;
-  border-radius: 8px;
-  padding: 10px 16px;
-  font-size: 14px;
+  border: 1px solid var(--home-border);
+  border-radius: 999px;
+  background: var(--home-surface);
+  color: var(--home-ink);
   cursor: pointer;
 }
 
-.home-v2 .home-invite__btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.home-v2 .home-players__arrow:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
-/* Filled = the safe choice. In the resting state that is Accept; inside the
-   confirm it becomes "Keep it", so the weight follows the safe answer rather
-   than staying put. */
-.home-v2 .home-invite__btn--primary {
-  flex: 1;
-  background: #fff;
-  color: #6d28d9;
+/* 168px cards: two show at 390px, with the third peeking. */
+.home-v2 .home-players__track {
+  display: flex;
+  gap: 12px;
+  margin: 0;
+  padding: 0 0 4px;
+  overflow-x: auto;
+  list-style: none;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.home-v2 .home-players__track::-webkit-scrollbar {
+  display: none;
+}
+
+.home-v2 .home-players__card {
+  display: flex;
+  flex: 0 0 168px;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 168px;
+  padding: 16px;
+  box-sizing: border-box;
+  text-align: center;
+  scroll-snap-align: start;
+}
+
+.home-v2 .home-players__photo-button,
+.home-v2 .home-players__name {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.home-v2 .home-players__name {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 16px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-v2 .home-players__badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+}
+
+.home-v2 .home-players__court {
+  max-width: 100%;
+  margin: 0;
+  overflow: hidden;
+  font-size: 13px;
+  color: var(--home-ink-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-v2 .home-players__reason {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--home-success);
+}
+
+.home-v2 .home-players__connect {
+  width: 100%;
+  margin-top: auto;
+}
+
+.home-v2 .home-players__prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 18px;
+  border: 1px solid var(--home-border);
+  border-radius: 18px;
+  background: var(--home-surface);
+}
+
+.home-v2 .home-players__stack {
+  display: flex;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.home-v2 .home-players__stack-photo {
+  box-shadow: 0 0 0 2px #fff;
+}
+
+.home-v2 .home-players__stack-photo + .home-players__stack-photo {
+  margin-left: -10px;
+}
+
+.home-v2 .home-players__stack-more {
+  margin-left: 8px;
+  color: var(--home-ink-2);
+  font-size: 13px;
   font-weight: 600;
 }
 
-.home-v2 .home-invite__btn--ghost {
-  background: transparent;
-  color: #ddd6fe;
-  font-weight: 500;
+.home-v2 .home-players__prompt-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
 }
 
-.home-v2 .home-invite__btn--ghost-outline {
-  background: transparent;
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 50%);
-  color: #fff;
-  font-weight: 500;
+.home-v2 .home-players__prompt-sub {
+  margin: 0 0 4px;
+  color: var(--home-ink-2);
+  font-size: 14px;
 }
 
-/* Recessed panel so the confirm reads as a step inside the card, not a new card. */
-.home-v2 .home-invite__confirm {
-  border-radius: 8px;
-  padding: 10px;
-  background: rgb(109 40 217 / 40%);
-}
-
-.home-v2 .home-invite__confirm-copy {
-  margin: 0 0 8px;
-  font-size: 12px;
-  color: #ede9fe;
-}
-
-.home-v2 .home-invite__expiry {
-  display: flex;
+.home-v2 .home-players__cta {
+  display: inline-flex;
   align-items: center;
-  gap: 4px;
-  margin: 10px 0 0;
-  font-size: 11px;
-  color: #ddd6fe;
-}
-
-.home-v2 .home-invite__more {
-  display: inline-block;
-  margin-top: 8px;
-  font-size: 12px;
-  font-weight: 500;
-  color: #7c3aed;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1.5px solid var(--home-primary-border);
+  border-radius: 12px;
+  color: var(--home-primary);
+  font-weight: 600;
   text-decoration: none;
 }
 
-/* --- alert stack ---------------------------------------------------------- */
+@media (max-width: 767px) {
+  .home-v2 .home-players__arrow {
+    display: none;
+  }
 
-/*
- * The stack collapses to nothing when it empties, and the grid below shifts up
- * by ~90px. Animating grid-template-rows from 1fr to 0fr transitions that
- * without hardcoding a height, so the grid slides rather than snapping under
- * someone's thumb mid-tap.
- */
-.home-v2 .home-alerts {
-  display: grid;
-  grid-template-rows: 1fr;
-  margin-top: 8px;
-  transition: grid-template-rows 220ms ease, margin-top 220ms ease;
-}
-
-.home-v2 .home-alerts--collapsed {
-  grid-template-rows: 0fr;
-  margin-top: 0;
-}
-
-.home-v2 .home-alerts__list {
-  overflow: hidden;
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: inset 0 0 0 1px #e2e8f0;
-}
-
-/* Divider between rows only, never above the first or below the last. */
-.home-v2 .home-alerts__row + .home-alerts__row {
-  border-top: 1px solid #f1f5f9;
-}
-
-.home-v2 .home-alerts__chip--violet {
-  background: #f5f3ff;
-  color: #8b5cf6;
-}
-
-.home-v2 .home-alerts__chip--amber {
-  background: #fffbeb;
-  color: #d97706;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .home-v2 .home-alerts {
-    transition: none;
+  .home-v2 .home-players__track {
+    margin-right: -16px;
+    padding-right: 16px;
   }
 }
 
-/* --- action grid ---------------------------------------------------------- */
+/* --- Play this week -------------------------------------------------------------------- */
+
+.home-v2 .home-feed__days,
+.home-v2 .home-feed__types {
+  display: flex;
+  gap: 8px;
+  margin: 0 -16px 12px 0;
+  padding-right: 16px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.home-v2 .home-feed__days::-webkit-scrollbar,
+.home-v2 .home-feed__types::-webkit-scrollbar {
+  display: none;
+}
+
+.home-v2 .home-feed__day {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 60px;
+  height: 60px;
+  padding: 0 8px;
+  border: 1px solid var(--home-border);
+  border-radius: 14px;
+  background: var(--home-surface);
+  color: var(--home-ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.home-v2 .home-feed__day-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--home-ink-2);
+  white-space: nowrap;
+}
+
+.home-v2 .home-feed__day-count {
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.home-v2 .home-feed__day--on {
+  border-color: var(--home-primary);
+  background: var(--home-primary);
+  color: #ffffff;
+}
+
+.home-v2 .home-feed__day--on .home-feed__day-label {
+  color: #ffffff;
+}
+
+.home-v2 .home-feed__type-chip {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--home-border);
+  border-radius: 999px;
+  background: var(--home-surface);
+  color: #334155;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.home-v2 .home-feed__type-count {
+  font-weight: 500;
+  color: var(--home-ink-2);
+}
+
+.home-v2 .home-feed__type-chip--on {
+  border-color: var(--home-ink);
+  background: var(--home-ink);
+  color: #ffffff;
+}
+
+.home-v2 .home-feed__type-chip--on .home-feed__type-count {
+  color: #cbd5e1;
+}
+
+.home-v2 .home-feed__mine {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 44px;
+  margin-bottom: 8px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: #334155;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.home-v2 .home-switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 24px;
+  border-radius: 999px;
+  background: #cbd5e1;
+  transition: background 160ms ease;
+}
+
+.home-v2 .home-switch__knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #ffffff;
+  transition: transform 160ms ease;
+}
+
+.home-v2 .home-switch--on {
+  background: var(--home-primary);
+}
+
+.home-v2 .home-switch--on .home-switch__knob {
+  transform: translateX(16px);
+}
+
+.home-v2 .home-feed__list {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  list-style: none;
+}
+
+.home-v2 .home-feed__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+}
+
+.home-v2 .home-feed__row + .home-feed__row {
+  border-top: 1px solid var(--home-divider);
+}
+
+.home-v2 .home-feed__body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.home-v2 .home-feed__title {
+  margin-top: 3px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.home-v2 .home-feed__meta {
+  margin-top: 2px;
+  font-size: 14px;
+  color: var(--home-ink-2);
+}
+
+.home-v2 .home-feed__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.home-v2 .home-feed__coaching {
+  flex-shrink: 0;
+}
+
+.home-v2 .home-feed__status {
+  margin: 8px 0;
+  font-size: 14px;
+  color: var(--home-ink-2);
+}
+
+.home-v2 .home-feed__prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px;
+}
+
+.home-v2 .home-feed__prompt-copy {
+  margin: 0;
+  font-size: 15px;
+  color: var(--home-ink-2);
+}
+
+/* --- Quick actions --------------------------------------------------------------------- */
 
 .home-v2 .home-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
-  margin-top: 16px;
 }
 
 .home-v2 .home-grid__tile {
   display: flex;
   flex-direction: column;
-  gap: 6px;
   align-items: center;
-  justify-content: center;
-  /* Keeps one- and two-line labels on the same baseline grid, so both rows
-     are equal height at every width. */
-  min-height: 84px;
-  border: 0;
-  border-radius: 12px;
-  padding: 16px 8px;
-  background: #fff;
-  box-shadow: inset 0 0 0 1px #e2e8f0;
-  color: #334155;
+  gap: 6px;
+  min-height: 44px;
+  padding: 12px 4px;
+  border: 1px solid var(--home-border);
+  border-radius: 14px;
+  background: var(--home-surface);
+  color: var(--home-ink);
+  text-align: center;
   text-decoration: none;
-  cursor: pointer;
-  transition: box-shadow 160ms ease, transform 160ms ease;
 }
 
-.home-v2 .home-grid__tile:hover {
-  transform: translateY(-1px);
-  box-shadow: inset 0 0 0 1px #cbd5e1;
-}
-
-.home-v2 .home-grid__icon {
-  flex-shrink: 0;
-  color: #475569;
+.home-v2 .home-grid__tile svg {
+  color: var(--home-primary);
 }
 
 .home-v2 .home-grid__label {
-  /* Two lines must fit at 360px without truncating — roughly 104px per tile. */
   font-size: 12px;
-  font-weight: 500;
-  line-height: 1.25;
-  text-align: center;
-  overflow-wrap: break-word;
-}
-
-.home-v2 .home-grid__tile--locked {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.home-v2 .home-grid__tile--locked:hover {
-  transform: none;
-  box-shadow: inset 0 0 0 1px #e2e8f0;
-}
-
-/* --- season module -------------------------------------------------------- */
-
-.home-v2 .home-season {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 24px;
-}
-
-.home-v2 .home-season__card {
-  padding: 12px;
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: inset 0 0 0 1px #e2e8f0;
-}
-
-.home-v2 .home-season__head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.home-v2 .home-season__name {
-  margin: 0;
-  overflow: hidden;
-  font-size: 14px;
   font-weight: 600;
-  color: #0f172a;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.2;
 }
 
-/* Amber, not red: a deadline approaching is worth noticing, not alarming. */
-.home-v2 .home-season__weeks {
-  flex-shrink: 0;
-  font-size: 12px;
-  font-weight: 500;
-  color: #b45309;
-}
-
-.home-v2 .home-season__bar {
-  overflow: hidden;
-  height: 6px;
-  margin-bottom: 6px;
-  border-radius: 9999px;
-  background: #f1f5f9;
-}
-
-.home-v2 .home-season__bar-fill {
-  height: 100%;
-  border-radius: 9999px;
-  background: #8b5cf6;
-}
-
-.home-v2 .home-season__meta {
-  margin: 0 0 10px;
-  font-size: 12px;
-  color: #64748b;
-}
-
-.home-v2 .home-season__cta {
-  display: block;
-  padding: 8px;
-  border-radius: 8px;
-  background: #8b5cf6;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 600;
-  text-align: center;
-  text-decoration: none;
-}
-
-/* --- off court ------------------------------------------------------------ */
-
-.home-v2 .home-offcourt {
-  margin-top: 24px;
-}
-
-.home-v2 .home-offcourt__heading {
-  margin: 0 0 10px;
-  font-size: 16px;
-  font-weight: 600;
-  color: #0f172a;
-}
+/* --- Get better ------------------------------------------------------------------------ */
 
 .home-v2 .home-offcourt__card {
   overflow: hidden;
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: inset 0 0 0 1px #e2e8f0;
 }
 
-.home-v2 .home-offcourt__row {
+.home-v2 .home-offcourt__row,
+.home-v2 .home-offcourt__plan {
   display: flex;
-  gap: 10px;
-  padding: 10px;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
   color: inherit;
   text-decoration: none;
+}
+
+/* Divider only when the video row is above it, never over the first row. */
+.home-v2 .home-offcourt__row + .home-offcourt__plan {
+  border-top: 1px solid var(--home-divider);
 }
 
 .home-v2 .home-offcourt__thumb {
@@ -678,12 +1028,11 @@
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  width: 96px;
-  height: 56px;
+  width: 104px;
+  height: 64px;
   overflow: hidden;
-  border-radius: 6px;
-  /* Dark ground so the play badge reads before the thumbnail loads, and if it
-     never does. */
+  border-radius: 10px;
+  /* Dark ground so the play badge reads before the thumbnail loads, and if it never does. */
   background: #1e293b;
 }
 
@@ -704,72 +1053,49 @@
   height: 28px;
   border-radius: 9999px;
   background: rgb(255 255 255 / 90%);
-  color: #0f172a;
+  color: var(--home-ink);
 }
 
 .home-v2 .home-offcourt__duration {
   position: absolute;
-  right: 4px;
-  bottom: 4px;
-  padding: 0 4px;
-  border-radius: 4px;
-  background: rgb(0 0 0 / 70%);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 500;
+  right: 6px;
+  bottom: 5px;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: rgb(0 0 0 / 60%);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
-.home-v2 .home-offcourt__copy {
+.home-v2 .home-offcourt__copy,
+.home-v2 .home-offcourt__plan-copy {
   display: flex;
   flex-direction: column;
-  min-width: 0;
   flex: 1;
+  min-width: 0;
 }
 
-.home-v2 .home-offcourt__eyebrow {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #7c3aed;
-}
-
-/* Two lines, then clamp — titles on this playlist run long and a third line
-   pushes the card taller than the thumbnail. */
+/* Two lines, then clamp: titles on this playlist run long. */
 .home-v2 .home-offcourt__title {
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-  margin-top: 1px;
-  font-size: 14px;
-  font-weight: 600;
+  margin-top: 2px;
+  font-size: 15px;
+  font-weight: 700;
   line-height: 1.25;
-  color: #0f172a;
 }
 
-.home-v2 .home-offcourt__channel {
+.home-v2 .home-offcourt__channel,
+.home-v2 .home-offcourt__plan-sub {
   overflow: hidden;
-  margin-top: 4px;
-  font-size: 11px;
-  color: #94a3b8;
+  font-size: 13px;
+  color: var(--home-ink-2);
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.home-v2 .home-offcourt__plan {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  color: inherit;
-  text-decoration: none;
-}
-
-/* Divider only when the video row is above it, never over the first row. */
-.home-v2 .home-offcourt__row + .home-offcourt__plan {
-  border-top: 1px solid #f1f5f9;
 }
 
 .home-v2 .home-offcourt__plan-icon {
@@ -777,1191 +1103,19 @@
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: #ecfdf5;
-  color: #059669;
-}
-
-.home-v2 .home-offcourt__plan-copy {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  flex: 1;
-}
-
-.home-v2 .home-offcourt__plan-title,
-.home-v2 .home-offcourt__plan-sub {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--home-success-bg);
+  color: var(--home-success);
 }
 
 .home-v2 .home-offcourt__plan-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #0f172a;
-}
-
-.home-v2 .home-offcourt__plan-sub {
-  font-size: 12px;
-  color: #64748b;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .home-v2 .home-offcourt__plan-chevron {
   flex-shrink: 0;
-  color: #cbd5e1;
-}
-
-/* --- activity feed -------------------------------------------------------- */
-
-.home-v2 .home-feed {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 24px;
-}
-
-.home-v2 .home-feed__head {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.home-v2 .home-feed__heading {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: #0f172a;
-}
-
-.home-v2 .home-feed__window {
-  margin: 0;
-  font-size: 14px;
-  color: #64748b;
-}
-
-.home-v2 .home-feed__status {
-  margin: 0;
-  padding: 20px 0;
-  font-size: 14px;
-  color: #64748b;
-  text-align: center;
-}
-
-/* Both chip rows scroll horizontally rather than wrapping — a week of days
-   never fits at 360px, and wrapping would push the cards off screen. */
-.home-v2 .home-feed__prompt {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  align-items: flex-start;
-  padding: 16px;
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: inset 0 0 0 1px #e2e8f0;
-}
-
-.home-v2 .home-feed__prompt-copy {
-  margin: 0;
-  font-size: 14px;
-  color: #475569;
-}
-
-.home-v2 .home-feed__prompt-cta {
-  padding: 8px 16px;
-  border: 0;
-  border-radius: 8px;
-  background: #8b5cf6;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.home-v2 .home-feed__days,
-.home-v2 .home-feed__types {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-}
-
-.home-v2 .home-feed__days::-webkit-scrollbar,
-.home-v2 .home-feed__types::-webkit-scrollbar {
-  display: none;
-}
-
-.home-v2 .home-feed__day {
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  align-items: center;
-  gap: 1px;
-  padding: 8px 14px;
-  border: 0;
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: inset 0 0 0 1px #e2e8f0;
-  color: #475569;
-  cursor: pointer;
-}
-
-.home-v2 .home-feed__day--on {
-  background: #8b5cf6;
-  box-shadow: inset 0 0 0 1px #8b5cf6;
-  color: #fff;
-}
-
-.home-v2 .home-feed__day-label {
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  opacity: 0.7;
-}
-
-.home-v2 .home-feed__day-date {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.home-v2 .home-feed__day-count {
-  margin-top: 2px;
-  padding: 0 6px;
-  border-radius: 9999px;
-  background: #f1f5f9;
-  color: #64748b;
-  font-size: 11px;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-}
-
-.home-v2 .home-feed__day--on .home-feed__day-count {
-  background: rgb(255 255 255 / 20%);
-  color: #fff;
-}
-
-/* The slot the mockups reserve to the left of the type chips, with the same
-   hairline divider. */
-.home-v2 .home-feed__filters {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.home-v2 .home-feed__filters .home-feed__types {
-  min-width: 0;
-  flex: 1;
-}
-
-.home-v2 .home-feed__filters-divider {
-  flex-shrink: 0;
-  width: 1px;
-  height: 16px;
-  background: #cbd5e1;
-}
-
-.home-v2 .home-feed__mine {
-  flex-shrink: 0;
-  padding: 6px 12px;
-  border: 0;
-  border-radius: 9999px;
-  background: #fff;
-  box-shadow: inset 0 0 0 1px #e2e8f0;
-  color: #475569;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.home-v2 .home-feed__mine--on {
-  background: #ede9fe;
-  box-shadow: inset 0 0 0 1px #8b5cf6;
-  color: #6d28d9;
-}
-
-.home-v2 .home-feed__type-chip {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 12px;
-  border: 0;
-  border-radius: 9999px;
-  background: #fff;
-  box-shadow: inset 0 0 0 1px #e2e8f0;
-  color: #475569;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.home-v2 .home-feed__type-chip--on {
-  background: #0f172a;
-  box-shadow: inset 0 0 0 1px #0f172a;
-  color: #fff;
-}
-
-.home-v2 .home-feed__type-count {
   color: #94a3b8;
-  font-variant-numeric: tabular-nums;
-}
-
-.home-v2 .home-feed__type-chip--on .home-feed__type-count {
-  color: rgb(255 255 255 / 60%);
-}
-
-.home-v2 .home-feed__list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-/* The stripe carries the type at a glance, so the row reads before the label
-   does. Colours match the type chips used elsewhere in the redesign. */
-.home-v2 .home-feed__card {
-  display: flex;
-  gap: 12px;
-  padding: 12px 12px 12px 8px;
-  border-radius: 12px;
-  border-left: 4px solid #cbd5e1;
-  background: #fff;
-  box-shadow: inset 0 0 0 1px #e2e8f0;
-}
-
-.home-v2 .home-feed__card--private { border-left-color: #8b5cf6; }
-.home-v2 .home-feed__card--group { border-left-color: #0ea5e9; }
-.home-v2 .home-feed__card--external { border-left-color: #64748b; }
-.home-v2 .home-feed__card--match { border-left-color: #f59e0b; }
-
-.home-v2 .home-feed__avatar {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  overflow: hidden;
-  border-radius: 9999px;
-  background: #f1f5f9;
-  color: #475569;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.home-v2 .home-feed__avatar svg {
-  color: #94a3b8;
-}
-
-.home-v2 .home-feed__avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.home-v2 .home-feed__body {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  flex: 1;
-  gap: 1px;
-}
-
-.home-v2 .home-feed__type {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #7c3aed;
-}
-
-.home-v2 .home-feed__card--group .home-feed__type { color: #0284c7; }
-.home-v2 .home-feed__card--external .home-feed__type { color: #475569; }
-.home-v2 .home-feed__card--match .home-feed__type { color: #b45309; }
-
-.home-v2 .home-feed__title,
-.home-v2 .home-feed__when,
-.home-v2 .home-feed__where {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.home-v2 .home-feed__title {
-  font-size: 15px;
-  font-weight: 600;
-  color: #0f172a;
-}
-
-.home-v2 .home-feed__when {
-  font-size: 13px;
-  color: #475569;
-}
-
-.home-v2 .home-feed__where {
-  font-size: 12px;
-  color: #94a3b8;
-}
-
-.home-v2 .home-feed__tail {
-  display: flex;
-  flex-shrink: 0;
-  flex-direction: column;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 6px;
-}
-
-.home-v2 .home-feed__price {
-  font-size: 14px;
-  font-weight: 600;
-  color: #0f172a;
-  font-variant-numeric: tabular-nums;
-}
-
-.home-v2 .home-feed__cta {
-  padding: 6px 14px;
-  border-radius: 8px;
-  background: #8b5cf6;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-/* Already in it: a green pill that opens the booking, in place of Join or Book. */
-.home-v2 .home-feed__in {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 12px;
-  border: 1.5px solid #bbf7d0;
-  border-radius: 999px;
-  background: #ecfdf3;
-  color: #15803d;
-  font-size: 13px;
-  font-weight: 600;
-  white-space: nowrap;
-  text-decoration: none;
-}
-
-/* The viewer's own class: a label, not an action. */
-.home-v2 .home-feed__coaching {
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: #f1f5f9;
-  color: #475569;
-  font-size: 13px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.home-v2 .home-feed__more {
-  width: 100%;
-  padding: 10px;
-  border: 0;
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: inset 0 0 0 1px #e2e8f0;
-  color: #7c3aed;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-/* --- your tennis circle ---------------------------------------------------- */
-
-/* Drawn like the feed's cards so the page reads as one family; its own classes so
-   either can change without moving the other. */
-.home-v2 .home-circle {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 24px;
-}
-
-.home-v2 .home-circle__head {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.home-v2 .home-circle__title-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-/* To the Circle tab on the profile, where the player picks who's in it. */
-.home-v2 .home-circle__manage {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #7c3aed;
-  text-decoration: none;
-}
-
-.home-v2 .home-circle__manage:hover {
-  text-decoration: underline;
-}
-
-.home-v2 .home-circle__heading {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: #0f172a;
-}
-
-.home-v2 .home-circle__sub {
-  margin: 0;
-  font-size: 14px;
-  color: #64748b;
-}
-
-.home-v2 .home-circle__list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.home-v2 .home-circle__card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 12px 12px 8px;
-  border-radius: 12px;
-  border-left: 4px solid #f59e0b;
-  background: #fff;
-  box-shadow: inset 0 0 0 1px #e2e8f0;
-}
-
-.home-v2 .home-circle__card--class { border-left-color: #0ea5e9; }
-
-.home-v2 .home-circle__avatar {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  overflow: hidden;
-  border-radius: 9999px;
-  background: #f3eeff;
-  color: #6d28d9;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.home-v2 .home-circle__card--class .home-circle__avatar {
-  background: #e0f2fe;
-  color: #075985;
-}
-
-.home-v2 .home-circle__avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.home-v2 .home-circle__body {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
-  gap: 1px;
-}
-
-.home-v2 .home-circle__eyebrow {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  color: #b45309;
-}
-
-.home-v2 .home-circle__card--class .home-circle__eyebrow { color: #0284c7; }
-
-.home-v2 .home-circle__chip {
-  padding: 1px 8px;
-  border-radius: 9999px;
-  background: #ecfdf3;
-  color: #067647;
-  letter-spacing: 0;
-  text-transform: none;
-}
-
-/* The name stays on one line; when and where wraps, because the court is the part a
-   phone would otherwise cut off. */
-.home-v2 .home-circle__title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.home-v2 .home-circle__title {
-  font-size: 15px;
-  font-weight: 600;
-  color: #0f172a;
-}
-
-.home-v2 .home-circle__when {
-  font-size: 13px;
-  color: #475569;
-}
-
-.home-v2 .home-circle__detail {
-  font-size: 12px;
-  color: #64748b;
-}
-
-.home-v2 .home-circle__cta {
-  flex-shrink: 0;
-  padding: 6px 14px;
-  border-radius: 8px;
-  background: #8b5cf6;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.home-v2 .home-circle__more {
-  width: 100%;
-  padding: 10px;
-  border: 0;
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: inset 0 0 0 1px #e2e8f0;
-  color: #7c3aed;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-/* --- players to hit with (VITE_HOME_FIND_PLAYERS) -------------------------- */
-
-/* A player photo, or their initials in Find Players' avatar colours. */
-.home-v2 .home-photo {
-  display: inline-flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  object-fit: cover;
-  background: #e2e8f0;
-}
-
-.home-v2 .home-photo--initials {
-  background: linear-gradient(140deg, #6b21a8, #4f46e5);
-  color: #f5f3ff;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.home-v2 .home-players {
-  margin-top: 24px;
-}
-
-.home-v2 .home-players__head {
-  display: flex;
-  gap: 12px;
-  align-items: flex-end;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
-
-.home-v2 .home-players__head-copy {
-  min-width: 0;
-}
-
-/* Same as the "Play this week" header. */
-.home-v2 .home-players__heading {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: #0f172a;
-}
-
-.home-v2 .home-players__sub {
-  margin: 2px 0 0;
-  font-size: 14px;
-  color: #64748b;
-}
-
-.home-v2 .home-players__actions {
-  display: flex;
-  flex-shrink: 0;
-  gap: 6px;
-  align-items: center;
-}
-
-.home-v2 .home-players__see-all {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding: 0 4px;
-  color: #7c3aed;
-  font-size: 14px;
-  font-weight: 600;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.home-v2 .home-players__arrow {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border: 0;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: inset 0 0 0 1px #e2e8f0;
-  color: #334155;
-  cursor: pointer;
-}
-
-.home-v2 .home-players__arrow:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-/* 236px cards in a 608px column: two and a half show, so the next one peeks. */
-.home-v2 .home-players__track {
-  display: flex;
-  gap: 12px;
-  margin: 0;
-  padding: 0 0 4px;
-  overflow-x: auto;
-  list-style: none;
-  scroll-snap-type: x mandatory;
-  scrollbar-width: none;
-  overscroll-behavior-x: contain;
-}
-
-.home-v2 .home-players__track::-webkit-scrollbar {
-  display: none;
-}
-
-.home-v2 .home-players__card {
-  display: flex;
-  flex: 0 0 236px;
-  flex-direction: column;
-  overflow: hidden;
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: inset 0 0 0 1px #e2e8f0;
-  scroll-snap-align: start;
-}
-
-.home-v2 .home-players__band {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  align-items: center;
-  padding: 16px 12px 12px;
-  background: #f5f3ff;
-}
-
-.home-v2 .home-players__photo-button {
-  display: inline-flex;
-  border: 0;
-  border-radius: 50%;
-  padding: 0;
-  background: none;
-  cursor: pointer;
-}
-
-.home-v2 .home-players__photo {
-  box-shadow: 0 0 0 3px #fff;
-}
-
-.home-v2 .home-players__reason {
-  max-width: 100%;
-  overflow: hidden;
-  border: 1px solid #bbf7d0;
-  border-radius: 9999px;
-  padding: 3px 10px;
-  background: #fff;
-  color: #15803d;
-  font-size: 12px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.home-v2 .home-players__body {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px;
-}
-
-.home-v2 .home-players__name {
-  overflow: hidden;
-  border: 0;
-  padding: 0;
-  background: none;
-  color: #0f172a;
-  font: inherit;
-  font-size: 15px;
-  font-weight: 600;
-  text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.home-v2 .home-players__badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-/* Find Players' NTRP pill and the chip saying how the level is known. */
-.home-v2 .home-players__level,
-.home-v2 .home-players__verified,
-.home-v2 .home-players__self-rated {
-  border-radius: 9999px;
-  padding: 2px 8px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.home-v2 .home-players__level {
-  background: #ede9fe;
-  color: var(--color-primary-dark, #7c3aed);
-}
-
-.home-v2 .home-players__verified {
-  border: 1px solid #bbf7d0;
-  background: #f0fdf4;
-  color: #15803d;
-}
-
-.home-v2 .home-players__self-rated {
-  background: #f2f4f7;
-  color: #475467;
-}
-
-.home-v2 .home-players__court {
-  display: flex;
-  gap: 4px;
-  align-items: center;
-  margin: 0;
-  color: #64748b;
-  font-size: 13px;
-}
-
-.home-v2 .home-players__court span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.home-v2 .home-players__court svg {
-  flex-shrink: 0;
-}
-
-.home-v2 .home-players__connect,
-.home-v2 .home-players__cta {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  margin-top: auto;
-  border: 0;
-  border-radius: 10px;
-  padding: 0 16px;
-  background: #8b5cf6;
-  color: #fff;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.home-v2 .home-players__connect:hover,
-.home-v2 .home-players__cta:hover {
-  background: #7c3aed;
-}
-
-/* Loading: the cards' shape with round photo placeholders. */
-.home-v2 .home-players__card--skeleton .home-players__band,
-.home-v2 .home-players__card--skeleton .home-players__body {
-  min-height: 0;
-}
-
-.home-v2 .home-players__skeleton-photo {
-  width: 84px;
-  height: 84px;
-  border-radius: 50%;
-  background: #e9e5f8;
-}
-
-.home-v2 .home-players__skeleton-line {
-  display: block;
-  width: 70%;
-  height: 12px;
-  border-radius: 6px;
-  background: #e2e8f0;
-}
-
-.home-v2 .home-players__skeleton-line--short {
-  width: 45%;
-}
-
-.home-v2 .home-players__skeleton-line--chip {
-  width: 96px;
-  height: 20px;
-  border-radius: 9999px;
-  background: #e9e5f8;
-}
-
-.home-v2 .home-players__card--skeleton .home-players__body {
-  gap: 10px;
-  min-height: 96px;
-}
-
-/* No level yet: one card the carousel's width, in its slot. */
-.home-v2 .home-players__prompt {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  align-items: flex-start;
-  border-radius: 12px;
-  padding: 16px;
-  background: #fff;
-  box-shadow: inset 0 0 0 1px #e2e8f0;
-}
-
-.home-v2 .home-players__stack {
-  display: flex;
-  align-items: center;
-  margin-bottom: 4px;
-}
-
-.home-v2 .home-players__stack-photo {
-  box-shadow: 0 0 0 2px #fff;
-}
-
-.home-v2 .home-players__stack-photo + .home-players__stack-photo {
-  margin-left: -10px;
-}
-
-.home-v2 .home-players__stack-more {
-  margin-left: 8px;
-  color: #64748b;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.home-v2 .home-players__prompt-title {
-  margin: 0;
-  color: #0f172a;
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.home-v2 .home-players__prompt-sub {
-  margin: 0 0 4px;
-  color: #64748b;
-  font-size: 14px;
-}
-
-.home-v2 .home-players__cta {
-  margin-top: 4px;
-}
-
-/* --- compact find players tile -------------------------------------------- */
-
-.home-v2 .home-findtile {
-  gap: 2px;
-}
-
-.home-v2 .home-findtile__top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 6px;
-}
-
-.home-v2 .home-findtile__stack {
-  display: flex;
-  align-items: center;
-}
-
-.home-v2 .home-findtile__photo {
-  border-radius: 50%;
-  box-shadow: 0 0 0 2px #fff;
-}
-
-.home-v2 .home-findtile__photo + .home-findtile__photo {
-  margin-left: -10px;
-}
-
-.home-v2 .home-findtile__photo--skeleton {
-  display: inline-block;
-  background: #e2e8f0;
-}
-
-.home-v2 .home-findtile__chevron {
-  flex-shrink: 0;
-  color: #94a3b8;
-}
-
-.home-v2 .home-findtile__icon {
-  color: #475569;
-}
-
-.home-v2 .home-findtile__sub-skeleton {
-  display: inline-block;
-  width: 80%;
-  height: 10px;
-  border-radius: 5px;
-  background: #e2e8f0;
-}
-
-/* In the Ladder tile's slot, the grid item is the tile itself. */
-.home-v2 .home-grid__slot {
-  display: contents;
-}
-
-.home-v2 .home-findtile--grid .home-findtile__photo + .home-findtile__photo {
-  margin-left: -8px;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .home-v2 .home-players__skeleton-photo,
-  .home-v2 .home-players__skeleton-line,
-  .home-v2 .home-findtile__photo--skeleton,
-  .home-v2 .home-findtile__sub-skeleton {
-    animation: home-tile-pulse 1.4s ease-in-out infinite;
-  }
-}
-
-/* Phones: swipe with a peek, no arrows; every tap target 44px. */
-@media (max-width: 767px) {
-  .home-v2 .home-players__arrow {
-    display: none;
-  }
-
-  .home-v2 .home-players__name {
-    min-height: 44px;
-    margin: -12px 0;
-  }
-
-  .home-v2 .home-players__track {
-    margin-right: -16px;
-    padding-right: 16px;
-    scroll-padding-left: 0;
-  }
-}
-
-/* My Week card (VITE_MY_WEEK): the week's strip and what's next. Type colours come from
-   features/myWeek/typeColors, set inline. */
-.home-v2 .home-week {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 12px;
-  border-radius: 12px;
-  background: #ffffff;
-  box-shadow: inset 0 0 0 1px #eaecf0;
-}
-
-.home-v2 .home-week__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  text-decoration: none;
-}
-
-.home-v2 .home-week__title {
-  font-size: 15px;
-  font-weight: 700;
-  color: #101828;
-}
-
-.home-v2 .home-week__count {
-  font-weight: 500;
-  color: #667085;
-}
-
-.home-v2 .home-week__all {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #7c3aed;
-}
-
-.home-v2 .home-week__strip {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 2px;
-}
-
-.home-v2 .home-week__day {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  padding: 6px 0;
-  border: none;
-  border-radius: 10px;
-  background: transparent;
-  cursor: pointer;
-}
-
-.home-v2 .home-week__day:hover {
-  background: #f4ebff;
-}
-
-.home-v2 .home-week__day-top {
-  font-size: 11px;
-  font-weight: 600;
-  color: #667085;
-}
-
-.home-v2 .home-week__day:first-child .home-week__day-top {
-  color: #7c3aed;
-}
-
-.home-v2 .home-week__day-date {
-  position: relative;
-  font-size: 16px;
-  font-weight: 700;
-  color: #101828;
-}
-
-.home-v2 .home-week__alert {
-  position: absolute;
-  top: 0;
-  right: -7px;
-  width: 6px;
-  height: 6px;
-  border-radius: 9999px;
-  background: #f04438;
-}
-
-.home-v2 .home-week__dots {
-  display: flex;
-  gap: 3px;
-  min-height: 6px;
-}
-
-.home-v2 .home-week__dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 9999px;
-}
-
-.home-v2 .home-week__next {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px;
-  border-radius: 10px;
-  background: #f9fafb;
-  text-decoration: none;
-}
-
-.home-v2 .home-week__next-bar {
-  align-self: stretch;
-  width: 4px;
-  flex: none;
-  border-radius: 9999px;
-}
-
-.home-v2 .home-week__next-copy {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  flex: 1;
-}
-
-.home-v2 .home-week__next-when {
-  font-size: 12px;
-  font-weight: 700;
-  color: #475467;
-}
-
-.home-v2 .home-week__next-title {
-  overflow: hidden;
-  font-size: 14px;
-  font-weight: 600;
-  color: #101828;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.home-v2 .home-week__people {
-  display: flex;
-  flex: none;
-}
-
-.home-v2 .home-week__avatar {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  overflow: hidden;
-  border: 2px solid #ffffff;
-  border-radius: 9999px;
-  background: #f4ebff;
-  color: #7c3aed;
-  font-size: 10px;
-  font-weight: 700;
-}
-
-.home-v2 .home-week__avatar + .home-week__avatar {
-  margin-left: -8px;
-}
-
-.home-v2 .home-week__avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.home-v2 .home-week__chevron {
-  flex: none;
-  color: #98a2b3;
-}
-
-.home-v2 .home-week__empty {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  color: #667085;
-}
-
-.home-v2 .home-week__empty a {
-  margin-left: auto;
-  color: #7c3aed;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.home-v2 .home-week__waiting {
-  font-size: 13px;
-  font-weight: 600;
-  color: #b42318;
-  text-decoration: none;
 }

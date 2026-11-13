@@ -1,27 +1,14 @@
-import { useState } from "react";
-import { Check, ExternalLink, Swords, UserRound, Users } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { ArrowUpRight, Check } from "lucide-react";
 import { Link } from "react-router-dom";
-import { usableAvatar } from "../../utils/avatar";
 import type { ViewerState } from "../../utils/homeBookingState";
+import { normalizeVenueLabel } from "../../utils/venueLabel";
 import {
   feedCtaLabel,
-  feedInitials,
-  feedMetaLabel,
   feedPriceLabel,
   feedTimeLabel,
   feedTypeLabel,
   type FeedItem,
 } from "../../utils/homeFeedLabels";
-
-/** Matches the mockups, which draw an icon rather than a glyph, and the action
- *  grid's lucide family. */
-const TYPE_ICONS: Record<string, LucideIcon> = {
-  private: UserRound,
-  group: Users,
-  external: ExternalLink,
-  match: Swords,
-};
 
 interface ActivityCardProps {
   item: FeedItem;
@@ -29,71 +16,67 @@ interface ActivityCardProps {
   viewerState?: ViewerState;
 }
 
+const text = (value: unknown): string | null =>
+  typeof value === "string" && value.trim() ? value.trim() : null;
+
 /**
- * One card in "Play this week".
+ * One row in "Play this week": a type tag, the title, "Today · 9:00 AM · venue", level and
+ * price as chips, and one outline action. Every part is omitted when its data is missing.
  *
- * The legacy dashboard renders the whole card as a button; the mockups make the
- * card an article with the CTA as the only control, so the markup is rebuilt
- * rather than restyled. Every line is omitted when its data is missing, which is
- * why a card can be as short as a title and a type.
+ * An external lesson is booked on the provider's own site, so its Book opens that site in
+ * a new tab and says so.
  */
 export function ActivityCard({ item, viewerState = null }: ActivityCardProps) {
-  const time = feedTimeLabel(item);
-  const meta = feedMetaLabel(item);
-  const price = feedPriceLabel(item.price, Boolean(item.priceFrom));
   const type = String(item.type ?? "");
-  const initials = feedInitials(item.avatar);
-  const Icon = TYPE_ICONS[type] ?? UserRound;
-
-  // Two ways an avatar fails here, and they need different guards.
-  //
-  // usableAvatar rejects a bucket root — "https://….amazonaws.com/" with no key
-  // — before it ever reaches an <img>, so nothing is requested and the icon
-  // shows immediately rather than after a failed load.
-  //
-  // onError covers the rest: a well-formed URL whose object is missing or
-  // expired, which only announces itself when the request comes back. Tracked
-  // per card so one bad URL cannot suppress a good one on another row.
-  const [imageFailed, setImageFailed] = useState(false);
-  const rawUrl = usableAvatar(item.avatarUrl);
-  const avatarUrl = imageFailed ? null : rawUrl;
+  const external = type === "external";
+  const provider = text(item.provider);
+  const externalUrl = external ? text(item.externalUrl) : null;
+  const location = text(item.location);
+  const venue = location && location !== "Location TBD" ? normalizeVenueLabel(location) || location : null;
+  const coach = type === "group" && text(item.coachName) ? `Coach ${text(item.coachName)}` : null;
+  const meta = [feedTimeLabel(item), venue, coach].filter(Boolean).join(" · ") || null;
+  // An unknown price is left out: an unpriced session must not read as free.
+  const price = viewerState ? null : feedPriceLabel(item.price, Boolean(item.priceFrom));
+  const level = text(item.levelLabel);
+  const tag = external ? ["Lesson", provider].filter(Boolean).join(" · ") : feedTypeLabel(item.type);
 
   return (
-    <article className={`home-feed__card home-feed__card--${type || "other"}`}>
-      <span className="home-feed__avatar" aria-hidden="true">
-        {avatarUrl ? (
-          <img src={avatarUrl} alt="" onError={() => setImageFailed(true)} />
-        ) : initials ? (
-          <span>{initials}</span>
-        ) : (
-          <Icon size={22} strokeWidth={1.75} />
-        )}
-      </span>
-
+    <li className="home-feed__row">
       <span className="home-feed__body">
-        <span className="home-feed__type">{feedTypeLabel(item.type)}</span>
+        <span className={`home-tag home-tag--${type || "other"}`}>{tag}</span>
         {item.title ? <span className="home-feed__title">{item.title}</span> : null}
-        {time ? <span className="home-feed__when">{time}</span> : null}
-        {meta ? <span className="home-feed__where">{meta}</span> : null}
-      </span>
-
-      <span className="home-feed__tail">
-        {/* Omitted when the price is unknown — an unpriced session must not
-            silently read as free. */}
-        {price && !viewerState ? <span className="home-feed__price">{price}</span> : null}
-        {viewerState === "coaching" ? (
-          <span className="home-feed__coaching">You're coaching</span>
-        ) : viewerState === "in" && item.destination ? (
-          <Link className="home-feed__in" to={item.destination}>
-            You're in
-            <Check size={14} strokeWidth={2.5} aria-hidden="true" />
-          </Link>
-        ) : item.destination ? (
-          <Link className="home-feed__cta" to={item.destination}>
-            {feedCtaLabel(item.type)}
-          </Link>
+        {meta ? <span className="home-feed__meta">{meta}</span> : null}
+        {level || price ? (
+          <span className="home-feed__chips">
+            {level ? <span className="home-chip home-chip--level">{level}</span> : null}
+            {price ? <span className="home-chip home-chip--neutral">{price}</span> : null}
+          </span>
         ) : null}
       </span>
-    </article>
+
+      {viewerState === "coaching" ? (
+        <span className="home-chip home-chip--neutral home-feed__coaching">You're coaching</span>
+      ) : viewerState === "in" && item.destination ? (
+        <Link className="home-btn home-btn--in home-btn--small" to={item.destination}>
+          <Check size={14} strokeWidth={2.5} aria-hidden="true" />
+          You're in
+        </Link>
+      ) : externalUrl ? (
+        <a
+          className="home-btn home-btn--outline home-btn--small"
+          href={externalUrl}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`Book on ${provider ?? "their site"} (opens their site)`}
+        >
+          Book
+          <ArrowUpRight size={14} aria-hidden="true" />
+        </a>
+      ) : item.destination ? (
+        <Link className="home-btn home-btn--outline home-btn--small" to={item.destination}>
+          {feedCtaLabel(item.type)}
+        </Link>
+      ) : null}
+    </li>
   );
 }

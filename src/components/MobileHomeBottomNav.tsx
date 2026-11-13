@@ -272,13 +272,18 @@ const MobileHomeBottomNav = () => {
           <button
             type="button"
             className="mbn__fab"
-            aria-label="Create / quick action"
+            aria-label="Plan"
             aria-haspopup="dialog"
             aria-expanded={sheetOpen}
             onClick={() => setSheetOpen(true)}
           >
             <Plus size={28} />
           </button>
+          {/* Visible name for the + so it reads as a tab like the others; the button carries
+              the same name for screen readers. */}
+          <span className="mbn__label mbn__fab-label" aria-hidden="true">
+            Plan
+          </span>
         </div>
         {renderTab(tabs[2])}
         {renderTab(tabs[3])}

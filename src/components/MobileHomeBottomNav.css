@@ -93,7 +93,8 @@
 
 .mbn__fab {
   position: absolute;
-  bottom: 6px;
+  /* Clears the "Plan" label beneath it. */
+  bottom: 18px;
   left: 50%;
   transform: translateX(-50%) translateY(-14px);
   display: inline-flex;
@@ -108,6 +109,14 @@
   cursor: pointer;
   box-shadow: 0 10px 22px rgba(124, 58, 237, 0.38);
   -webkit-tap-highlight-color: transparent;
+}
+
+.mbn__fab-label {
+  padding: 4px 0;
+  color: var(--ink-3, #8a8f9b);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .mbn__fab svg {

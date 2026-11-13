@@ -29,6 +29,10 @@ const NO_KEYS = new Set<string>();
 /** The mockups show three cards and then a button; the rest is one tap away. */
 const PREVIEW_COUNT = 3;
 
+/** Up next's empty state scrolls here. */
+export const PLAY_THIS_WEEK_ID = "home-play-this-week";
+const SECTION_ID = PLAY_THIS_WEEK_ID;
+
 const TYPE_CHIPS = [
   { key: "all", label: "All" },
   { key: "private", label: "Lessons" },
@@ -97,20 +101,23 @@ export function ActivityFeed({
   // is and have been searching a default. Only the second is worth interrupting
   // for, and it is the one a first-time player always hits.
   const locationUnknown = !hasStoredLocation();
+  // Empty before the coach toggle: "Only my coaches" emptying the list must not hide the
+  // section, toggle and all.
+  const nothingThisWeek = !itemsWithinWindow({ items, windowStart, windowEnd }).length;
 
-  if (!loading && !weekItems.length) {
+  if (!loading && nothingThisWeek) {
     if (!locationUnknown) return null;
 
     return (
-      <section className="home-feed">
-        <header className="home-feed__head">
-          <h2 className="home-feed__heading">Play this week</h2>
-        </header>
-        <div className="home-feed__prompt">
+      <section id={SECTION_ID} className="home-sec home-feed">
+        <div className="home-sec__head">
+          <h2 className="home-sec__title">Play this week</h2>
+        </div>
+        <div className="home-card home-feed__prompt">
           <p className="home-feed__prompt-copy">
             Set your location to see coaches, group lessons and matches near you.
           </p>
-          <button type="button" className="home-feed__prompt-cta" onClick={requestLocationPicker}>
+          <button type="button" className="home-btn home-btn--outline" onClick={requestLocationPicker}>
             Set location
           </button>
         </div>
@@ -118,15 +125,24 @@ export function ActivityFeed({
     );
   }
 
+  const resetExpanded = () => setExpanded(false);
+
   return (
-    <section className="home-feed">
-      <header className="home-feed__head">
-        <h2 className="home-feed__heading">Play this week</h2>
-        {windowLabel ? <p className="home-feed__window">{windowLabel}</p> : null}
-      </header>
+    <section id={SECTION_ID} className="home-sec home-feed" aria-busy={loading && !items.length}>
+      <div className="home-sec__head">
+        <h2 className="home-sec__title">Play this week</h2>
+        {windowLabel ? <span className="home-sec__aside">{windowLabel}</span> : null}
+      </div>
 
       {loading && !items.length ? (
-        <p className="home-feed__status">Loading nearby sessions…</p>
+        <div className="home-card home-skeleton" aria-hidden="true">
+          {Array.from({ length: PREVIEW_COUNT }, (_, index) => (
+            <span key={index} className="home-skeleton__row">
+              <span className="home-skeleton__line home-skeleton__line--short" />
+              <span className="home-skeleton__line" />
+            </span>
+          ))}
+        </div>
       ) : (
         <>
           <div className="home-feed__days" role="tablist" aria-label="Days">
@@ -139,35 +155,20 @@ export function ActivityFeed({
                 className={`home-feed__day${selectedDay === day.key ? " home-feed__day--on" : ""}`}
                 onClick={() => {
                   setSelectedDay(day.key);
-                  setExpanded(false);
+                  resetExpanded();
                 }}
               >
-                <span className="home-feed__day-label">{day.label}</span>
-                <span className="home-feed__day-date">{day.date}</span>
+                <span className="home-feed__day-label">
+                  {day.key === "all" ? "Week" : day.label === "Today" ? "Today" : `${day.label} ${day.date}`}
+                </span>
                 <span className="home-feed__day-count">{day.count}</span>
               </button>
             ))}
           </div>
 
-          <div className="home-feed__filters">
-            {canFilterByCoach ? (
-              <>
-                <button
-                  type="button"
-                  aria-pressed={mineOnly}
-                  className={`home-feed__mine${mineOnly ? " home-feed__mine--on" : ""}`}
-                  onClick={() => {
-                    setMineOnly((on) => !on);
-                    setExpanded(false);
-                  }}
-                >
-                  My coaches
-                </button>
-                <span className="home-feed__filters-divider" aria-hidden="true" />
-              </>
-            ) : null}
-
-            <div className="home-feed__types" role="tablist" aria-label="Session types">
+          {/* One type row. Lessons + Groups + Matches add up to All: external lessons
+              count with Groups (utils/activityFeed typeCounts). */}
+          <div className="home-feed__types" role="tablist" aria-label="Session types">
             {TYPE_CHIPS.map((chip) => (
               <button
                 key={chip.key}
@@ -177,18 +178,35 @@ export function ActivityFeed({
                 className={`home-feed__type-chip${selectedType === chip.key ? " home-feed__type-chip--on" : ""}`}
                 onClick={() => {
                   setSelectedType(chip.key);
-                  setExpanded(false);
+                  resetExpanded();
                 }}
               >
                 {chip.label}
                 <span className="home-feed__type-count">{counts[chip.key as keyof typeof counts]}</span>
               </button>
             ))}
-            </div>
           </div>
 
+          {canFilterByCoach ? (
+            <button
+              type="button"
+              role="switch"
+              aria-checked={mineOnly}
+              className="home-feed__mine"
+              onClick={() => {
+                setMineOnly((on) => !on);
+                resetExpanded();
+              }}
+            >
+              Only my coaches
+              <span className={`home-switch${mineOnly ? " home-switch--on" : ""}`} aria-hidden="true">
+                <span className="home-switch__knob" />
+              </span>
+            </button>
+          ) : null}
+
           {shown.length ? (
-            <div className="home-feed__list">
+            <ul className="home-card home-feed__list">
               {shown.map((item) => (
                 <ActivityCard
                   key={String(item.id)}
@@ -196,17 +214,14 @@ export function ActivityFeed({
                   viewerState={feedItemViewerState(item, { bookedKeys, viewerId })}
                 />
               ))}
-            </div>
+            </ul>
           ) : (
             <p className="home-feed__status">
-              {mineOnly
-                ? "Nothing with your coaches on this day."
-                : "Nothing on this day. Try another."}
+              {mineOnly ? "Nothing with your coaches on this day." : "Nothing on this day. Try another."}
             </p>
           )}
 
-          {/* Expands in place: the mockup's button has no destination, and no
-              route shows lessons, groups and matches together. */}
+          {/* Expands in place: no route shows lessons, groups and matches together. */}
           {hidden > 0 || expanded ? (
             <button type="button" className="home-feed__more" onClick={() => setExpanded((on) => !on)}>
               {expanded ? "Show fewer" : `See all ${visible.length} this week`}
