@@ -11,6 +11,8 @@
   --home-primary: #6d28d9;
   --home-primary-border: #c4b5fd;
   --home-primary-soft: #ede9fe;
+  /* Icon tiles (shortcut row, Plan sheet). */
+  --home-primary-tint: #f5f3ff;
   --home-primary-soft-ink: #5b21b6;
   --home-urgent: #c2410c;
   --home-urgent-bg: #fff7ed;
@@ -966,37 +968,53 @@
   color: var(--home-ink-2);
 }
 
-/* --- Quick actions --------------------------------------------------------------------- */
+/* --- Shortcut row (under the header) --------------------------------------------------- */
 
-.home-v2 .home-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
+.home-v2 .home-shortcuts {
+  background: var(--home-surface);
+  border-bottom: 1px solid var(--home-divider);
 }
 
-.home-v2 .home-grid__tile {
+.home-v2 .home-shortcuts__row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: min(640px, 100%);
+  margin: 0 auto;
+  padding: 10px 8px 12px;
+  box-sizing: border-box;
+}
+
+.home-v2 .home-shortcuts__item {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  min-height: 44px;
-  padding: 12px 4px;
-  border: 1px solid var(--home-border);
-  border-radius: 14px;
-  background: var(--home-surface);
   color: var(--home-ink);
-  text-align: center;
   text-decoration: none;
 }
 
-.home-v2 .home-grid__tile svg {
+.home-v2 .home-shortcuts__tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: var(--home-primary-tint);
   color: var(--home-primary);
 }
 
-.home-v2 .home-grid__label {
+.home-v2 .home-shortcuts__label {
   font-size: 12px;
   font-weight: 600;
   line-height: 1.2;
+  white-space: nowrap;
+}
+
+.home-v2 .home-shortcuts__item:focus-visible {
+  outline: 2px solid var(--home-primary);
+  outline-offset: 2px;
+  border-radius: 12px;
 }
 
 /* --- Get better ------------------------------------------------------------------------ */

@@ -49,3 +49,11 @@ test("Leagues opens the one league directly, otherwise the list", () => {
   assert.equal(leaguesDestination([]), "/leagues");
   assert.equal(leaguesDestination(null), "/leagues");
 });
+
+test("with home v2's Play sections, Group lessons and Find players light up Play", () => {
+  const play = primaryNavTabs(true, true).find((tab) => tab.key === "play");
+  assert.ok(play && isTabActive("/group-lessons", play.match));
+  assert.ok(play && isTabActive("/find-players", play.match));
+  const before = primaryNavTabs(true).find((tab) => tab.key === "play");
+  assert.ok(before && !isTabActive("/group-lessons", before.match));
+});

@@ -49,6 +49,7 @@ export const ANALYTICS_EVENTS = {
   // Home "Your tennis circle". Counts and row kind only, never who.
   homeCircleView: "home_circle_view",
   homeCircleClick: "home_circle_click",
+  homeShortcutTap: "home_shortcut_tap",
   // My Week actions. The item's source and type, its day (0 = today) and place in the day,
   // never which match, class or person: enough to tune the ranking.
   myWeekSkip: "my_week_skip",

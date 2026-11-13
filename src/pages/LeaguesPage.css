@@ -3220,3 +3220,52 @@
     display: none;
   }
 }
+
+/* Play › Leagues (home v2): the ladder, pinned above the seasons. */
+.leagues-ladder-pin {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border: 1px solid #e5e7ef;
+  border-radius: 18px;
+  background: #ffffff;
+  color: #0f172a;
+  text-decoration: none;
+}
+
+.leagues-ladder-pin__icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+
+.leagues-ladder-pin__copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.leagues-ladder-pin__title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.leagues-ladder-pin__line {
+  font-size: 14px;
+  color: #475569;
+}
+
+.leagues-ladder-pin__chevron {
+  flex: none;
+  color: #475569;
+}

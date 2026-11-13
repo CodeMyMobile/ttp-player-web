@@ -23,6 +23,7 @@ import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
 import { isHomeV2Enabled, isMyWeekEnabled } from "../utils/featureFlags";
 import { isTabActive, leaguesDestination, primaryNavTabs, type NavTabKey } from "../utils/navTabs";
+import { isPlaySectionsEnabled } from "../utils/playSections";
 import { badgeLabel, useMyWeekBadge } from "../features/myWeek/useMyWeek";
 import {
   bookLessonDestination,
@@ -289,7 +290,7 @@ const MobileHomeBottomNav = () => {
   const myWeekOn = isMyWeekEnabled();
   // Things only this player can answer: invites, stale invites they sent, league matches due.
   const waitingCount = useMyWeekBadge(myWeekOn && Boolean(token));
-  const tabs: TabDef[] = primaryNavTabs(myWeekOn).map((tab) => ({
+  const tabs: TabDef[] = primaryNavTabs(myWeekOn, isPlaySectionsEnabled()).map((tab) => ({
     ...tab,
     icon: TAB_ICONS[tab.key],
     onClick: tab.key === "leagues" ? goLeagues : undefined,

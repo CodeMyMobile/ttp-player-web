@@ -65,6 +65,8 @@ import RatingQuizPage from "./pages/RatingQuizPage";
 import SaveQuizLevelPage from "./pages/SaveQuizLevelPage";
 import PlayerCalendar from "./screens/Player/PlayerCalendar";
 import PlayPage from "./pages/PlayPage";
+import PlaySectionTabs from "./components/PlaySectionTabs";
+import { isPlaySectionsEnabled, playSectionDestination } from "./utils/playSections";
 import MyWeekPage from "./pages/MyWeekPage";
 import LogResultPage from "./pages/log-result";
 import ConfirmResultPage from "./pages/log-result/ConfirmResultPage";
@@ -264,6 +266,11 @@ const buildMatchesUser = (authUser) => {
   };
 };
 
+const PlaySectionRedirect = () => {
+  const { search } = useLocation();
+  return <Navigate to={playSectionDestination(search)} replace />;
+};
+
 const PlayDatesAppRoute = () => {
   const { isAuthenticated, user, logout } = useAuth();
   const location = useLocation();
@@ -296,6 +303,8 @@ const PlayDatesAppRoute = () => {
         hideMobileNotifications
       />
       <main className="main-layout__content">
+        {/* Play › Matches: the switcher on the match list only, not a match or invites. */}
+        {location.pathname === "/matches" && playDatesScreen === "browse" ? <PlaySectionTabs /> : null}
         <PlayDatesQueryClientProvider client={playDatesQueryClient}>
           <PlayDatesMatchesApp
             externalUser={isAuthenticated ? matchesUser : null}
@@ -765,7 +774,10 @@ const AppRoutes = () => (
     />
     <Route
       path={PLAY_PATH}
-      element={isMyWeekEnabled() ? (
+      element={isPlaySectionsEnabled() ? (
+        // Home v2: Play is four sections, each its own page; /play?section=… lands on one.
+        <PlaySectionRedirect />
+      ) : isMyWeekEnabled() ? (
         <ProtectedRoute>
           <PlayPage />
         </ProtectedRoute>

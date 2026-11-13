@@ -19,7 +19,8 @@ export interface NavTab {
   match: string[];
 }
 
-export const primaryNavTabs = (myWeek: boolean): NavTab[] =>
+/** `playSections`: home v2's Play tab also holds Group lessons and Find players (utils/playSections). */
+export const primaryNavTabs = (myWeek: boolean, playSections = false): NavTab[] =>
   myWeek
     ? [
         { key: "home", label: "Home", to: "/", match: ["/", "/restring"] },
@@ -28,7 +29,14 @@ export const primaryNavTabs = (myWeek: boolean): NavTab[] =>
           key: "play",
           label: "Play",
           to: PLAY_PATH,
-          match: [PLAY_PATH, "/matches", "/leagues", "/ladder", "/log-result"],
+          match: [
+            PLAY_PATH,
+            "/matches",
+            "/leagues",
+            "/ladder",
+            "/log-result",
+            ...(playSections ? ["/group-lessons", "/find-players"] : []),
+          ],
         },
         { key: "my-week", label: "My Week", to: MY_WEEK_PATH, match: [MY_WEEK_PATH, SCHEDULE_PATH] },
       ]
