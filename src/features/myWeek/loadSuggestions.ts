@@ -69,7 +69,7 @@ export const loadSuggestions = async (
   } else errors.openMatches = open.reason;
 
   if (nearby.status === "fulfilled") {
-    items.push(...nearbyClassSuggestions(matchLessonsToLevel(nearby.value, level, nowMs), days, slots));
+    items.push(...nearbyClassSuggestions(matchLessonsToLevel(nearby.value, level, nowMs), days, slots, level));
   } else errors.nearbyClasses = nearby.reason;
 
   if (videos.status === "fulfilled") items.push(...videoSuggestions(days, videos.value));

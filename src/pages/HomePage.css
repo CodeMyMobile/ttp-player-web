@@ -29,10 +29,8 @@
   gap: 32px;
   width: min(640px, 100%);
   margin: 0 auto;
-  /* Clears the mobile tab bar (MobileHomeBottomNav.css): its 68px bar, the + button's 38px
-     rise above it (it sits over its "Plan" label), then 16px, plus the home indicator, so the
-     last card is never covered. */
-  padding: 20px 16px calc(68px + 38px + 16px + var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
+  /* Clears the mobile tab bar and the + button's rise (--tab-bar-clearance, index.css). */
+  padding: 20px 16px var(--tab-bar-clearance);
   box-sizing: border-box;
 }
 

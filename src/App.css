@@ -3177,9 +3177,17 @@ button.secondary-link {
 }
 }
 
+/* Pages that draw the tab bar themselves, outside MainLayout's home chrome (match play). The
+   bar is mobile-only (MobileHomeBottomNav.css). */
+@media (max-width: 767px) {
+  .dashboard-page--tab-bar > .main-layout__content {
+    padding-bottom: var(--tab-bar-clearance);
+  }
+}
+
 @media (max-width: 1023px) {
   .dashboard-page--home-mobile {
-    --home-mobile-bottom-nav-space: calc(92px + env(safe-area-inset-bottom, 0px));
+    --home-mobile-bottom-nav-space: var(--tab-bar-clearance);
   }
 
   .dashboard-page--home-mobile > .main-layout__content {
@@ -3687,13 +3695,7 @@ button.secondary-link {
    header's chevron asks for via requestLocationPicker().
    ============================================================ */
 .ladder-page {
-  /* Measured from the rendered tab bar, not from the stylesheet: 69px with a
-     zero safe-area inset. Its own padding already adds env(safe-area-inset-bottom),
-     so --safe-b below is the inset once, not twice. --fab-lift is the FAB's
-     translateY(-14px) overhang above the bar. */
-  --nav-h: 69px;
-  --fab-lift: 14px;
-  --safe-b: env(safe-area-inset-bottom, 0px);
+  /* The tab bar's room at the bottom is --tab-bar-clearance (index.css). */
   --safe-t: env(safe-area-inset-top, 0px);
   --ladder-head-h: 52px;
 }
@@ -3707,9 +3709,9 @@ button.secondary-link {
     padding: 0;
   }
 
-  /* The last row has to clear the tab bar AND the FAB that lifts above it. */
+  /* The last row has to clear the tab bar AND the + that lifts above it. */
   .ladder-scroll {
-    padding-bottom: calc(var(--nav-h) + var(--fab-lift) + var(--safe-b) + 16px);
+    padding-bottom: var(--tab-bar-clearance);
   }
 }
 

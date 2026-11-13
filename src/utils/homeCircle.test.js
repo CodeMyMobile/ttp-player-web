@@ -30,7 +30,20 @@ test("a match hosted by someone I know reads as them looking to hit", () => {
     initials: "CM",
     href: "/matches/10",
     cta: "View",
+    bookedKey: "match:10",
   });
+});
+
+test("rows carry the key My Week books them under, so a joined one reads You're in", () => {
+  const rows = buildCircleRows({
+    matches: [{ match_id: 10, people: [person(2, "Casey")] }],
+    group_lessons: [{ lesson_id: 7, title: "Drill" }],
+  });
+  // utils/homeBookingState keys bookings "match:<id>" and "group:<id>".
+  assert.deepEqual(
+    rows.map((row) => row.bookedKey),
+    ["match:10", "group:7"],
+  );
 });
 
 test("when someone I know joined another player's match, it says whose match it is", () => {

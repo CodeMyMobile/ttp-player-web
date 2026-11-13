@@ -1,5 +1,6 @@
 import { toCanonicalAvailability } from "./matchProfile";
 import { levelNumber } from "./levelScope";
+import { levelMatchLabel } from "./levelMatch";
 import type { DirectoryPlayer } from "./suggestedPlayer";
 
 /**
@@ -168,22 +169,31 @@ export const reasonFor = ({
   sameCourt,
   sharedSlots,
   distanceMiles,
+  exactLevel,
 }: {
   sameCourt: boolean;
   sharedSlots: Set<string>;
   distanceMiles: number | null;
+  /** Everyone suggested is within half a level; only an exact match says "At your level". */
+  exactLevel: boolean;
 }): SuggestionReason => {
   if (sameCourt) return { type: "same_court", label: "Same home court" };
   if (sharedSlots.has(WEEKENDS)) return { type: "weekends", label: "Both free weekends" };
   if (sharedSlots.has(WEEKDAY_AM)) return { type: "weekday_am", label: "Weekday mornings" };
   if (sharedSlots.has(WEEKDAY_PM)) return { type: "weekday_pm", label: "Weekday evenings" };
+  const level = levelMatchLabel(exactLevel ? "exact" : "near") as string;
   return {
     type: "level",
-    label: distanceMiles === null ? "Your level" : `Your level · ${formatMiles(distanceMiles)} mi`,
+    label: distanceMiles === null ? level : `${level} · ${formatMiles(distanceMiles)} mi`,
   };
 };
 
-const scoreOf = (player: DirectoryPlayer, viewerCourts: Set<string>, viewerSlots: Set<string>) => {
+const scoreOf = (
+  player: DirectoryPlayer,
+  viewerCourts: Set<string>,
+  viewerSlots: Set<string>,
+  exactLevel: boolean,
+) => {
   const sameCourt = player.localCourts.some((court) => viewerCourts.has(normalize(court)));
   const playerSlots = slotsOf(player.availability);
   const sharedSlots = new Set([...playerSlots].filter((slot) => viewerSlots.has(slot)));
@@ -193,7 +203,7 @@ const scoreOf = (player: DirectoryPlayer, viewerCourts: Set<string>, viewerSlots
     (sharedSlots.size > 0 ? 2 : 0) +
     (player.verified ? 1 : 0) +
     (player.profileImageUrl ? 1 : 0);
-  return { score, distanceMiles, reason: reasonFor({ sameCourt, sharedSlots, distanceMiles }) };
+  return { score, distanceMiles, reason: reasonFor({ sameCourt, sharedSlots, distanceMiles, exactLevel }) };
 };
 
 const byDistance = (a: number | null, b: number | null) => {
@@ -290,11 +300,10 @@ export const homePlayerSuggestions = ({
 
   const viewerCourts = new Set(viewer.courts.map(normalize));
   const viewerSlots = slotsOf(viewer.availability);
-  const scored = inRange.map((player) => ({
-    player,
-    exactLevel: isExactLevel(viewer.level, player.level),
-    ...scoreOf(player, viewerCourts, viewerSlots),
-  }));
+  const scored = inRange.map((player) => {
+    const exactLevel = isExactLevel(viewer.level, player.level);
+    return { player, exactLevel, ...scoreOf(player, viewerCourts, viewerSlots, exactLevel) };
+  });
   const random = seed === undefined ? null : seededRandom(seed);
   const order = (group: typeof scored) =>
     random

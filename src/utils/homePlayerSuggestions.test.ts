@@ -99,26 +99,34 @@ test("scores shared court 3, availability 2, verified 1, photo 1, and breaks tie
 test("picks the reason chip in priority order", () => {
   const slots = (...names: string[]) => new Set(names.map((name) => name.toLowerCase()));
   assert.equal(
-    reasonFor({ sameCourt: true, sharedSlots: slots("Weekends"), distanceMiles: 1 }).label,
+    reasonFor({ sameCourt: true, sharedSlots: slots("Weekends"), distanceMiles: 1, exactLevel: true }).label,
     "Same home court",
   );
   assert.equal(
-    reasonFor({ sameCourt: false, sharedSlots: slots("Weekdays AM", "Weekends"), distanceMiles: 1 }).label,
+    reasonFor({ sameCourt: false, sharedSlots: slots("Weekdays AM", "Weekends"), distanceMiles: 1, exactLevel: true }).label,
     "Both free weekends",
   );
   assert.equal(
-    reasonFor({ sameCourt: false, sharedSlots: slots("Weekdays AM", "Weekday PM"), distanceMiles: 1 }).label,
+    reasonFor({ sameCourt: false, sharedSlots: slots("Weekdays AM", "Weekday PM"), distanceMiles: 1, exactLevel: true }).label,
     "Weekday mornings",
   );
   assert.equal(
-    reasonFor({ sameCourt: false, sharedSlots: slots("Weekday PM"), distanceMiles: 1 }).label,
+    reasonFor({ sameCourt: false, sharedSlots: slots("Weekday PM"), distanceMiles: 1, exactLevel: true }).label,
     "Weekday evenings",
   );
-  assert.deepEqual(reasonFor({ sameCourt: false, sharedSlots: slots(), distanceMiles: 2.34 }), {
+  assert.deepEqual(reasonFor({ sameCourt: false, sharedSlots: slots(), distanceMiles: 2.34, exactLevel: true }), {
     type: "level",
-    label: "Your level · 2.3 mi",
+    label: "At your level · 2.3 mi",
   });
-  assert.equal(reasonFor({ sameCourt: false, sharedSlots: slots(), distanceMiles: null }).label, "Your level");
+  assert.equal(
+    reasonFor({ sameCourt: false, sharedSlots: slots(), distanceMiles: null, exactLevel: true }).label,
+    "At your level",
+  );
+  // Half a level away is suggested too, but never called the player's level.
+  assert.equal(
+    reasonFor({ sameCourt: false, sharedSlots: slots(), distanceMiles: 2.34, exactLevel: false }).label,
+    "Near your level · 2.3 mi",
+  );
 });
 
 test("availability in the API's own words still overlaps", () => {
@@ -164,7 +172,7 @@ test("without distance_miles from the API, players count only once widened to th
   const result = homePlayerSuggestions({ players, viewer: viewer() });
   assert.equal(result.state, "suggestions");
   assert.equal(result.radiusMiles, 15);
-  assert.equal(result.state === "suggestions" && result.suggestions[0].reason.label, "Your level");
+  assert.equal(result.state === "suggestions" && result.suggestions[0].reason.label, "At your level");
 });
 
 test("shows at most 8 but counts everyone who qualified", () => {

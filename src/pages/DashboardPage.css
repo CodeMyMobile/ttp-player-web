@@ -18,7 +18,12 @@
   min-height: 100vh;
   background: var(--ph-bg);
   color: var(--ph-text);
-  padding-bottom: 92px;
+  padding-bottom: var(--tab-bar-clearance);
+}
+
+/* Home v2 pads its own content (HomePage.css); padding the page too would double it. */
+.player-home.home-v2 {
+  padding-bottom: 0;
 }
 
 .ph-header {

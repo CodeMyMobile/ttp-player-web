@@ -111,7 +111,7 @@ test("matches the player hosts, is in, is invited to, or that are full aren't su
 
 test("coach classes are read as the venue's clock time", () => {
   const [item] = coachClassSuggestions(
-    [{ lesson_id: 12, coach_id: 20, coach_name: "Paul Cochrane", title: "Beginner clinic", starts_at: "2026-11-08T21:00:00", at_your_level: true, spots_left: 3, location: "Penmar" }],
+    [{ lesson_id: 12, coach_id: 20, coach_name: "Paul Cochrane", title: "Beginner clinic", starts_at: "2026-11-08T21:00:00", level_min: 3.5, level_max: 4, viewer_level: 3.5, spots_left: 3, location: "Penmar" }],
     DAYS,
     [],
     NOW_MS,
@@ -143,8 +143,44 @@ test("nearby classes come in as already matched to the level", () => {
     DAYS,
     [],
   );
-  assert.equal(item.reason, "At your level · 2 spots left");
+  assert.equal(item.reason, "2 spots left");
   assert.equal(item.dayKey, "2026-11-09");
+});
+
+test("a coach class claims a level only from its band, never from the old at_your_level flag", () => {
+  const base = { lesson_id: 14, coach_name: "Maria", title: "Drill", starts_at: "2026-11-08T21:00:00", spots_left: 3 };
+  const reasons = coachClassSuggestions(
+    [
+      { ...base, lesson_id: 14, at_your_level: true },
+      { ...base, lesson_id: 15, level_min: 4, level_max: 4, viewer_level: 4.5 },
+      { ...base, lesson_id: 16, level_min: 3, level_max: 3, viewer_level: 4.5 },
+    ],
+    DAYS,
+    [],
+    NOW_MS,
+  ).map((item) => item.reason);
+  assert.deepEqual(reasons, ["From your coach · 3 spots", "From your coach · Near your level · 3 spots", "From your coach · 3 spots"]);
+});
+
+test("nearby classes say 'At your level' only when their band holds the player's level", () => {
+  const lesson = {
+    id: "17",
+    title: "4.0 drill",
+    levelPill: "4.0",
+    external: false,
+    spotsLabel: "2 spots left",
+    path: "/group-lessons/17",
+    when: "",
+    whenShort: "",
+    venue: "Westwood",
+    coachName: "Maria",
+    startsAt: new Date(2026, 10, 9, 18, 0),
+  };
+  const reasonAt = (band: { min: number; max: number | null }, level: number) =>
+    nearbyClassSuggestions([{ ...lesson, band }], DAYS, [], level)[0].reason;
+  assert.equal(reasonAt({ min: 4, max: 4 }, 4), "At your level · 2 spots left");
+  // The bug this fixes: a 4.0 class read "At your level" to a 4.5.
+  assert.equal(reasonAt({ min: 4, max: 4 }, 4.5), "Near your level · 2 spots left");
 });
 
 test("the training plan: one start item until started, then a session a day and the rest day", () => {
