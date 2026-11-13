@@ -19,11 +19,11 @@ import {
   abbreviateVenueLabel,
   COACH_CHIPS,
   countSessionsThisWeek,
-  COACH_SORT_OPTIONS,
   formatAvailabilityPhrase,
   type CoachChipKey,
   type CoachSortKey,
   coachMatchesChips,
+  coachSortOptionsFor,
   countWithinRadius,
   findDistanceDividerIndex,
   sortCoaches,
@@ -744,7 +744,10 @@ const FindCoaches = () => {
     () => getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES,
   );
   const [page, setPage] = useState(1);
-  const [sortKey, setSortKey] = useState<CoachSortKey>("nearest");
+  // null means "not chosen": the default then follows the mode — best match once the
+  // player has wizard answers behind it, nearest otherwise. Storing the default in state
+  // instead would freeze whichever mode the page happened to mount in.
+  const [sortChoice, setSortChoice] = useState<CoachSortKey | null>(null);
   // Mobile only: the trust claim is one tap away rather than a standing card. Same copy
   // the per-coach shield shows, so there is one wording for it in the app.
   const [mobileTrustOpen, setMobileTrustOpen] = useState(false);
@@ -1224,12 +1227,38 @@ const FindCoaches = () => {
     applyLocationFilter(null);
   };
 
-  // Render in server-returned order. No client-side sort: it only reordered the
-  // current page of ~12, which misrepresents the full result set (see
-  // COACH_SEARCH_API_FINDINGS.md). The recommender's ranking is applied server-side.
+  // Derived here rather than further down because the list order depends on it, and the
+  // list is built next. Its inputs are all state declared at the top of the component.
+  const coachMatchSummaryItems = useMemo(
+    () => getCoachMatchSummaryItems(coachMatchQuestions),
+    [coachMatchQuestions],
+  );
+  const hasSavedCoachMatchPreferences = coachMatchSummaryItems.length > 0;
+  const shouldShowCoachMatchSummary =
+    !coachMatchSummaryDismissed && !showCoachMatchSurvey && coachMatchSummaryItems.length > 0;
+  // Post-questionnaire "Your matches" framing: hide search/filters and lead with the ranked count.
+  const isMatchedMode = shouldShowCoachMatchSummary;
+
+  const sortOptions = useMemo(
+    () => coachSortOptionsFor(hasSavedCoachMatchPreferences),
+    [hasSavedCoachMatchPreferences],
+  );
+  // An explicit choice wins, except a stale "best match" after the player clears their
+  // answers — the scores are all 0 by then, so it would order nothing while claiming to.
+  const sortKey: CoachSortKey =
+    sortChoice && (sortChoice !== "best-match" || hasSavedCoachMatchPreferences)
+      ? sortChoice
+      : hasSavedCoachMatchPreferences
+        ? "best-match"
+        : "nearest";
+
   // Filtering and sorting are client-side over the whole roster. The endpoint offers
   // only radius and a name search, and the roster is small enough that doing it here
   // costs nothing and avoids a round trip per chip.
+  //
+  // The API does return its recommendation ranking (score per coach, highest first), and
+  // "best-match" reproduces that order — a client-side filter has to re-sort, so simply
+  // rendering in server-returned order stops being an option the moment a chip is on.
   const filteredCoaches = useMemo(() => {
     if (mode !== "normal") return [];
     const matching = coaches.filter((coach) => {
@@ -1262,13 +1291,6 @@ const FindCoaches = () => {
     status === "ready" && (mode === "empty" || (mode === "normal" && filteredCoaches.length === 0));
   const shouldShowResults = status === "ready" && mode === "normal" && filteredCoaches.length > 0;
   const locationShortLabel = hasLocationFilter ? locationLabel : "Nearby";
-  const coachMatchSummaryItems = useMemo(
-    () => getCoachMatchSummaryItems(coachMatchQuestions),
-    [coachMatchQuestions],
-  );
-  const hasSavedCoachMatchPreferences = coachMatchSummaryItems.length > 0;
-  const shouldShowCoachMatchSummary =
-    !coachMatchSummaryDismissed && !showCoachMatchSurvey && coachMatchSummaryItems.length > 0;
   const coachMatchBudgetRange = useMemo(
     () => parseBudgetRange(coachMatchSummaryItems.find((item) => item.label === "Budget")?.value),
     [coachMatchSummaryItems],
@@ -1293,14 +1315,15 @@ const FindCoaches = () => {
             (withinRadiusCount < filteredCoaches.length
               ? ` · ${withinRadiusCount} within ${radiusMiles} mi`
               : "");
-  // Post-questionnaire "Your matches" framing: hide search/filters and lead with the ranked count.
-  const isMatchedMode = shouldShowCoachMatchSummary;
   const matchedSubtitle =
     status === "loading"
       ? "Finding your matches..."
       : shouldShowError
         ? "Unable to load coaches"
-        : `${filteredCoaches.length} ${filteredCoaches.length === 1 ? "coach" : "coaches"}, ranked just for you`;
+        // "ranked just for you" is only true while the list is in score order. A player
+        // who switches to Nearest or Lowest price gets the plain count.
+        : `${filteredCoaches.length} ${filteredCoaches.length === 1 ? "coach" : "coaches"}` +
+          (sortKey === "best-match" ? ", ranked just for you" : "");
   const renderCoachMatchPanel = () =>
     shouldShowCoachMatchSummary ? (
       <section className="fc-matched" aria-label="Matched for you">
@@ -1423,22 +1446,22 @@ const FindCoaches = () => {
                 </>
               ) : null}
             </p>
-            {!isMatchedMode ? (
-              <label className="fcv2-mobile-sort">
-                <span className="sr-only">Sort coaches</span>
-                <select
-                  value={sortKey}
-                  onChange={(event) => setSortKey(event.target.value as CoachSortKey)}
-                  aria-label="Sort coaches"
-                >
-                  {COACH_SORT_OPTIONS.map((option) => (
-                    <option key={option.key} value={option.key}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
+            {/* Kept in matched mode too: the ranking is what the mode is for, so the
+                player needs to see that it is on — and be able to leave it. */}
+            <label className="fcv2-mobile-sort">
+              <span className="sr-only">Sort coaches</span>
+              <select
+                value={sortKey}
+                onChange={(event) => setSortChoice(event.target.value as CoachSortKey)}
+                aria-label="Sort coaches"
+              >
+                {sortOptions.map((option) => (
+                  <option key={option.key} value={option.key}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
 
           {mobileTrustOpen ? (
@@ -1499,8 +1522,9 @@ const FindCoaches = () => {
               </div>
             ) : null}
 
-            {!isMatchedMode ? (
-              <div className="fcv2-search-controls">
+            {/* Matched mode drops the filters but keeps the sort — see the mobile row. */}
+            <div className="fcv2-search-controls">
+              {!isMatchedMode ? (
                 <label className="fcv2-control">
                   <span className="sr-only">Maximum price per hour</span>
                   <select
@@ -1518,24 +1542,23 @@ const FindCoaches = () => {
                     ))}
                   </select>
                 </label>
+              ) : null}
 
-                <label className="fcv2-control">
-                  <span className="sr-only">Sort coaches</span>
-                  <select
-                    value={sortKey}
-                    onChange={(event) => setSortKey(event.target.value as CoachSortKey)}
-                    aria-label="Sort coaches"
-                  >
-                    {COACH_SORT_OPTIONS.map((option) => (
-                      <option key={option.key} value={option.key}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                </div>
-
-            ) : null}
+              <label className="fcv2-control">
+                <span className="sr-only">Sort coaches</span>
+                <select
+                  value={sortKey}
+                  onChange={(event) => setSortChoice(event.target.value as CoachSortKey)}
+                  aria-label="Sort coaches"
+                >
+                  {sortOptions.map((option) => (
+                    <option key={option.key} value={option.key}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
 
             {!isMatchedMode ? (
               <div className="fcv2-chips" role="group" aria-label="Filter coaches">
