@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AppNav from "../components/AppNav";
 import MobileHomeBottomNav from "../components/MobileHomeBottomNav";
@@ -35,6 +35,7 @@ import { bookedCount } from "../features/myWeek/homeWeekCard";
 import { notifyMyWeekChanged, useMyWeek } from "../features/myWeek/useMyWeek";
 import type { HomeInviteItem } from "../utils/homeInvite";
 import { findPlayersTilePlacement } from "../utils/homeTiles";
+import { bookedKeysFromBookings, bookedKeysFromWeekItems } from "../utils/homeBookingState";
 import "./HomePage.css";
 
 /**
@@ -58,8 +59,17 @@ export default function HomePage() {
   const week = useMyWeek({ enabled: myWeekOn });
   // Always fetched, never gated on the rating: an unrated player with a
   // standing weekly lesson has real bookings and needs to see them.
-  const { count: weekBookingsCount, nextLabel, today } = useWeekBookings(myWeekOn);
+  const { count: weekBookingsCount, nextLabel, today, bookings } = useWeekBookings(myWeekOn);
   const count = myWeekOn ? bookedCount(week.days) : weekBookingsCount;
+  // What the player is already in, from the same source as the week above, so a list on
+  // home never offers Join or Book on it.
+  const bookedKeys = useMemo(
+    () =>
+      myWeekOn
+        ? bookedKeysFromWeekItems([...week.days.flatMap((day) => day.items), ...week.later])
+        : bookedKeysFromBookings(bookings),
+    [myWeekOn, week.days, week.later, bookings],
+  );
   const { alerts } = useHomeAlerts();
   const { invite, remaining, refetch: refetchInvites } = useHomeInvites();
 
@@ -91,7 +101,7 @@ export default function HomePage() {
     myCoachIds,
     loading: feedLoading,
   } = useActivityFeed();
-  const { rows: circleRows } = usePlayerCircle();
+  const { rows: circleRows } = usePlayerCircle(viewerId);
   const { seasons } = useActiveSeasons(user);
   const { tip } = useTipOfDay();
 
@@ -182,6 +192,8 @@ export default function HomePage() {
           windowEnd={windowEnd}
           myCoachIds={myCoachIds}
           loading={feedLoading}
+          bookedKeys={bookedKeys}
+          viewerId={viewerId}
         />
 
 

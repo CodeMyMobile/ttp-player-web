@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { ExternalLink, Swords, UserRound, Users } from "lucide-react";
+import { Check, ExternalLink, Swords, UserRound, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { usableAvatar } from "../../utils/avatar";
+import type { ViewerState } from "../../utils/homeBookingState";
 import {
   feedCtaLabel,
   feedInitials,
@@ -24,6 +25,8 @@ const TYPE_ICONS: Record<string, LucideIcon> = {
 
 interface ActivityCardProps {
   item: FeedItem;
+  /** Already in it, or coaching it (utils/homeBookingState): no Join or Book then. */
+  viewerState?: ViewerState;
 }
 
 /**
@@ -34,7 +37,7 @@ interface ActivityCardProps {
  * rather than restyled. Every line is omitted when its data is missing, which is
  * why a card can be as short as a title and a type.
  */
-export function ActivityCard({ item }: ActivityCardProps) {
+export function ActivityCard({ item, viewerState = null }: ActivityCardProps) {
   const time = feedTimeLabel(item);
   const meta = feedMetaLabel(item);
   const price = feedPriceLabel(item.price, Boolean(item.priceFrom));
@@ -77,8 +80,15 @@ export function ActivityCard({ item }: ActivityCardProps) {
       <span className="home-feed__tail">
         {/* Omitted when the price is unknown — an unpriced session must not
             silently read as free. */}
-        {price ? <span className="home-feed__price">{price}</span> : null}
-        {item.destination ? (
+        {price && !viewerState ? <span className="home-feed__price">{price}</span> : null}
+        {viewerState === "coaching" ? (
+          <span className="home-feed__coaching">You're coaching</span>
+        ) : viewerState === "in" && item.destination ? (
+          <Link className="home-feed__in" to={item.destination}>
+            You're in
+            <Check size={14} strokeWidth={2.5} aria-hidden="true" />
+          </Link>
+        ) : item.destination ? (
           <Link className="home-feed__cta" to={item.destination}>
             {feedCtaLabel(item.type)}
           </Link>

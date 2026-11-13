@@ -240,6 +240,7 @@ const bookingsFetcher = async (): Promise<WeekBooking[]> => {
 };
 
 const NO_PARAMS = {};
+const EMPTY_BOOKINGS: WeekBooking[] = [];
 
 /**
  * Confirmed bookings in the next 7 days, the soonest, and the soonest still to
@@ -257,6 +258,8 @@ export function useWeekBookings(skip = false) {
   return {
     loading,
     error,
+    /** Every booking read, for "You're in" on home's lists (utils/homeBookingState). */
+    bookings: data ?? EMPTY_BOOKINGS,
     count: summary.count,
     nextLabel: nextBookingLabel(summary.next),
     today,
@@ -434,9 +437,9 @@ const circleFetcher = () => getPlayerCircle({ token: getStoredAuthToken() ?? und
  * "Your tennis circle". A failed request shows nothing rather than an error: the section
  * is a nicety, and an empty one is hidden anyway.
  */
-export function usePlayerCircle(skip = false): { loading: boolean; rows: CircleRow[] } {
+export function usePlayerCircle(viewerId: number | null = null, skip = false): { loading: boolean; rows: CircleRow[] } {
   const { data, loading } = useApiRequest(circleFetcher, NO_PARAMS, { skip });
-  const rows = useMemo(() => buildCircleRows(data), [data]);
+  const rows = useMemo(() => buildCircleRows(data, { viewerId }), [data, viewerId]);
   return { loading, rows };
 }
 

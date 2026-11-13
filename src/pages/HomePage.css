@@ -4,7 +4,16 @@
 .home-v2__main {
   width: min(640px, 100%);
   margin: 0 auto;
-  padding: 16px 16px 96px;
+  /* Clears the mobile tab bar (MobileHomeBottomNav.css): its 68px bar, the + button's 26px
+     rise above it, then 16px, plus the home indicator, so the last card is never covered. */
+  padding: 16px 16px calc(68px + 26px + 16px + var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
+}
+
+/* The tab bar is mobile-only. */
+@media (min-width: 768px) {
+  .home-v2__main {
+    padding-bottom: 48px;
+  }
 }
 
 /* --- status tiles --------------------------------------------------------- */
@@ -1122,6 +1131,33 @@
   font-size: 13px;
   font-weight: 600;
   text-decoration: none;
+}
+
+/* Already in it: a green pill that opens the booking, in place of Join or Book. */
+.home-v2 .home-feed__in {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border: 1.5px solid #bbf7d0;
+  border-radius: 999px;
+  background: #ecfdf3;
+  color: #15803d;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+/* The viewer's own class: a label, not an action. */
+.home-v2 .home-feed__coaching {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .home-v2 .home-feed__more {

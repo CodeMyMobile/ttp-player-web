@@ -10,6 +10,7 @@ import {
 import { ActivityCard } from "./ActivityCard";
 import { hasStoredLocation, requestLocationPicker } from "../../utils/userLocation";
 import type { FeedItem } from "../../utils/homeFeedLabels";
+import { feedItemViewerState } from "../../utils/homeBookingState";
 
 interface ActivityFeedProps {
   items: FeedItem[];
@@ -18,7 +19,12 @@ interface ActivityFeedProps {
   /** Accepted coaches. Empty means the "My coaches" chip is not offered. */
   myCoachIds?: number[];
   loading?: boolean;
+  /** What the player is booked into, "<kind>:<id>" (utils/homeBookingState). */
+  bookedKeys?: Set<string>;
+  viewerId?: number | null;
 }
+
+const NO_KEYS = new Set<string>();
 
 /** The mockups show three cards and then a button; the rest is one tap away. */
 const PREVIEW_COUNT = 3;
@@ -47,6 +53,8 @@ export function ActivityFeed({
   windowEnd,
   myCoachIds = [],
   loading = false,
+  bookedKeys = NO_KEYS,
+  viewerId = null,
 }: ActivityFeedProps) {
   const [selectedDay, setSelectedDay] = useState<string>("all");
   const [selectedType, setSelectedType] = useState<string>("all");
@@ -182,7 +190,11 @@ export function ActivityFeed({
           {shown.length ? (
             <div className="home-feed__list">
               {shown.map((item) => (
-                <ActivityCard key={String(item.id)} item={item as FeedItem} />
+                <ActivityCard
+                  key={String(item.id)}
+                  item={item as FeedItem}
+                  viewerState={feedItemViewerState(item, { bookedKeys, viewerId })}
+                />
               ))}
             </div>
           ) : (
