@@ -63,6 +63,7 @@ import {
 import { getAuthNavState } from "../utils/authNavState";
 import { isMyWeekEnabled } from "../utils/featureFlags";
 import { isTabActive, primaryNavTabs } from "../utils/navTabs";
+import { isPlaySectionsEnabled } from "../utils/playSections";
 import { badgeLabel, useMyWeekBadge } from "../features/myWeek/useMyWeek";
 import "./AppNav.css";
 
@@ -72,7 +73,7 @@ const NAV_ICONS = { home: Home, coaches: Users, schedule: CalendarDays, play: Tr
 const DESKTOP_LABELS = { coaches: "My Coaches" };
 
 const buildNavItems = (myWeek) =>
-  primaryNavTabs(myWeek)
+  primaryNavTabs(myWeek, isPlaySectionsEnabled())
     .filter((tab) => tab.to)
     .map((tab) => ({
       key: tab.key,

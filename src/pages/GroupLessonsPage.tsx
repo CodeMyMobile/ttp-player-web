@@ -49,6 +49,7 @@ import {
 
 import "../components/coaches/coaches.css";
 import "./GroupLessonsPage.css";
+import PlaySectionTabs from "../components/PlaySectionTabs";
 
 const DEFAULT_LOCATION = "San Francisco, CA";
 
@@ -961,6 +962,7 @@ const GroupLessonsPage = () => {
     <MainLayout mobileChrome="home" desktopChrome="home" showDesktopNav={true}>
       <div className="find-coaches-page group-lessons-page" style={themeVars}>
         <div className="find-coaches-page__inner group-lessons-page__inner">
+          <PlaySectionTabs />
           <div className="group-lessons-desktop-shell">
             <ResultsHeader
               title="Group Lessons"

@@ -43,6 +43,8 @@ import { handleImageTransformError, sizedImageUrl } from "../utils/playerImage";
 import { ensureStringArray, toCanonicalAvailability } from "../utils/matchProfile";
 import { isNearLevel, toCourtList } from "../utils/homePlayerSuggestions";
 
+import { isHomeV2Enabled } from "../utils/featureFlags";
+import PlaySectionTabs from "../components/PlaySectionTabs";
 import "../components/coaches/coaches.css";
 import "../components/players/players.css";
 
@@ -74,6 +76,10 @@ type PlayerFilters = {
   playType: string;
   availability: string;
   verifiedOnly: boolean;
+  /** Play › Players quick chip: shares a free slot with the viewer's match profile. */
+  freeWhenIAm: boolean;
+  /** Play › Players quick chip: plays at one of the viewer's home courts. */
+  myCourts: boolean;
 };
 
 const DEFAULT_PLAYER_FILTERS: PlayerFilters = {
@@ -83,10 +89,20 @@ const DEFAULT_PLAYER_FILTERS: PlayerFilters = {
   playType: playTypeOptions[0],
   availability: availabilityOptions[0],
   verifiedOnly: false,
+  freeWhenIAm: false,
+  myCourts: false,
+};
+
+/** The viewer's own match profile, as the filters compare against it (all normalized). */
+type FilterViewer = {
+  level: string | null | undefined;
+  availability: string[];
+  courts: string[];
 };
 
 // Module level and pure so the same rules can be applied speculatively — see countMatching.
-const playerMatchesFilters = (player: DirectoryPlayer, filters: PlayerFilters, viewerLevel?: string | null) => {
+const playerMatchesFilters = (player: DirectoryPlayer, filters: PlayerFilters, viewer: FilterViewer) => {
+  const viewerLevel = viewer.level;
   const normalizedTerm = normalize(filters.searchTerm);
   const matchesSearch =
     !normalizedTerm ||
@@ -127,8 +143,23 @@ const playerMatchesFilters = (player: DirectoryPlayer, filters: PlayerFilters, v
 
   const matchesVerification = !filters.verifiedOnly || player.verified;
 
+  // The quick chips are offered only when the viewer's profile has slots or courts to compare.
+  const matchesFreeWhenIAm =
+    !filters.freeWhenIAm ||
+    player.availability.some((slot) => viewer.availability.includes(normalize(toCanonicalAvailability(slot))));
+
+  const matchesMyCourts =
+    !filters.myCourts || player.localCourts.some((court) => viewer.courts.includes(normalize(court)));
+
   return (
-    matchesSearch && matchesLevel && matchesGender && matchesPlayType && matchesAvailability && matchesVerification
+    matchesSearch &&
+    matchesLevel &&
+    matchesGender &&
+    matchesPlayType &&
+    matchesAvailability &&
+    matchesVerification &&
+    matchesFreeWhenIAm &&
+    matchesMyCourts
   );
 };
 
@@ -837,6 +868,8 @@ const FindPlayersPage = () => {
   const [selectedGender, setSelectedGender] = useState<string>(genderOptions[0]);
   const [selectedPlayType, setSelectedPlayType] = useState<string>(playTypeOptions[0]);
   const [selectedAvailability, setSelectedAvailability] = useState<string>(availabilityOptions[0]);
+  const [freeWhenIAm, setFreeWhenIAm] = useState(false);
+  const [myCourts, setMyCourts] = useState(false);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [players, setPlayers] = useState<DirectoryPlayer[]>([]);
   const [mode, setMode] = useState<Mode>("normal");
@@ -1244,8 +1277,19 @@ const FindPlayersPage = () => {
       playType: selectedPlayType,
       availability: selectedAvailability,
       verifiedOnly,
+      freeWhenIAm,
+      myCourts,
     }),
-    [appliedSearchTerm, selectedLevel, selectedGender, selectedPlayType, selectedAvailability, verifiedOnly],
+    [
+      appliedSearchTerm,
+      selectedLevel,
+      selectedGender,
+      selectedPlayType,
+      selectedAvailability,
+      verifiedOnly,
+      freeWhenIAm,
+      myCourts,
+    ],
   );
 
   const viewerTier = useMemo(() => {
@@ -1272,12 +1316,19 @@ const FindPlayersPage = () => {
     [matchProfile],
   );
 
+  const filterViewer: FilterViewer = useMemo(
+    () => ({
+      level: matchProfile?.level,
+      availability: (matchProfile?.availability ?? []).map((slot) => normalize(toCanonicalAvailability(slot))),
+      courts: viewerCourts,
+    }),
+    [matchProfile, viewerCourts],
+  );
+
   const filteredPlayers = useMemo(
     () =>
-      mode === "normal"
-        ? players.filter((player) => playerMatchesFilters(player, activeFilters, matchProfile?.level))
-        : [],
-    [mode, players, activeFilters, matchProfile?.level],
+      mode === "normal" ? players.filter((player) => playerMatchesFilters(player, activeFilters, filterViewer)) : [],
+    [mode, players, activeFilters, filterViewer],
   );
 
   // Same predicate, run against a hypothetical filter set, so an analytics event can
@@ -1286,10 +1337,10 @@ const FindPlayersPage = () => {
     (overrides: Partial<PlayerFilters>) =>
       mode === "normal"
         ? players.filter((player) =>
-            playerMatchesFilters(player, { ...activeFilters, ...overrides }, matchProfile?.level),
+            playerMatchesFilters(player, { ...activeFilters, ...overrides }, filterViewer),
           ).length
         : 0,
-    [mode, players, activeFilters, matchProfile?.level],
+    [mode, players, activeFilters, filterViewer],
   );
 
   const buildConnectProps = useCallback(
@@ -1462,6 +1513,8 @@ const FindPlayersPage = () => {
     setSelectedPlayType(playTypeOptions[0]);
     setSelectedAvailability(availabilityOptions[0]);
     setVerifiedOnly(false);
+    setFreeWhenIAm(false);
+    setMyCourts(false);
     setMode("normal");
   };
 
@@ -1490,6 +1543,7 @@ const FindPlayersPage = () => {
     <MainLayout mobileChrome="home" desktopChrome="home" hideMobileNewMatch pageClassName="dashboard-page--find-players">
       <div className="find-players-page" style={themeVars}>
         <div className="find-players-page__inner">
+          <PlaySectionTabs />
           <ResultsHeader
             title="Find Players"
             description="Connect with local players who match your level and style."
@@ -1676,6 +1730,40 @@ const FindPlayersPage = () => {
                 </p>
               ) : null}
             </section>
+          ) : null}
+
+          {/* Play › Players (home v2): one-tap filters against the viewer's own match profile,
+              beside "Near my level" in the level row. Each is offered only when the profile has
+              something to compare. */}
+          {isHomeV2Enabled() && (filterViewer.availability.length > 0 || filterViewer.courts.length > 0) ? (
+            <div className="fp-quick-chips" role="group" aria-label="Quick filters">
+              {filterViewer.availability.length > 0 ? (
+                <button
+                  type="button"
+                  className="fp-quick-chip"
+                  aria-pressed={freeWhenIAm}
+                  onClick={() => {
+                    trackClientFilter("free_when_i_am", String(!freeWhenIAm), { freeWhenIAm: !freeWhenIAm });
+                    setFreeWhenIAm(!freeWhenIAm);
+                  }}
+                >
+                  Free when I am
+                </button>
+              ) : null}
+              {filterViewer.courts.length > 0 ? (
+                <button
+                  type="button"
+                  className="fp-quick-chip"
+                  aria-pressed={myCourts}
+                  onClick={() => {
+                    trackClientFilter("my_courts", String(!myCourts), { myCourts: !myCourts });
+                    setMyCourts(!myCourts);
+                  }}
+                >
+                  My courts
+                </button>
+              ) : null}
+            </div>
           ) : null}
 
           <span className="fc-results-count">{resultsCountLabel}</span>

@@ -1,0 +1,46 @@
+/* The Play tab's segmented control (home v2). One row of four equal segments in a soft track;
+   the current section is a white raised segment in the primary purple. */
+.play-sections {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto 16px;
+  padding: 4px;
+  border-radius: 12px;
+  background: #eef0f5;
+  box-sizing: border-box;
+}
+
+.play-sections__item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  border-radius: 9px;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.play-sections__item.is-active {
+  background: #ffffff;
+  color: #6d28d9;
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+}
+
+.play-sections__item:focus-visible {
+  outline: 2px solid #6d28d9;
+  outline-offset: 2px;
+}
+
+/* Match play's shell spaces its children 32px apart and runs edge to edge; line the switcher up
+   with the match list's own 16px inset instead. */
+.dashboard-page--tab-bar > .main-layout__content > .play-sections {
+  width: calc(100% - 32px);
+  margin: 0 auto -8px;
+}

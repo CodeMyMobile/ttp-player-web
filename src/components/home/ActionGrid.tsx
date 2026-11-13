@@ -1,40 +1,44 @@
-import { Trophy, UserSearch, Users, Wrench } from "lucide-react";
+import { GraduationCap, Trophy, UserSearch, Wrench } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
+import { ANALYTICS_EVENTS, track } from "../../utils/analytics";
 
-interface Action {
+interface Shortcut {
+  key: "lessons" | "leagues" | "players" | "restring";
   label: string;
   to: string;
   icon: LucideIcon;
 }
 
-// One row of four. Find a coach and Match play aren't here: the tab bar already has them.
-// Leagues goes to league browse (league enrolment is what seeds a rating, so it's never
-// gated); the Play tab is where a player's own leagues and the ladder live.
-const ACTIONS: Action[] = [
-  { label: "Restring", to: "/restring", icon: Wrench },
-  { label: "Leagues", to: "/leagues", icon: Trophy },
-  { label: "Find players", to: "/find-players", icon: UserSearch },
-  { label: "Group lessons", to: "/group-lessons", icon: Users },
+// Exactly four, one word each. Lessons, Leagues and Players open that section of the Play tab
+// (each section is its own page, utils/playSections); Restring is a service with no tab.
+// Coaches isn't here: it's a tab.
+const SHORTCUTS: Shortcut[] = [
+  { key: "lessons", label: "Lessons", to: "/group-lessons", icon: GraduationCap },
+  { key: "leagues", label: "Leagues", to: "/leagues", icon: Trophy },
+  { key: "players", label: "Players", to: "/find-players", icon: UserSearch },
+  { key: "restring", label: "Restring", to: "/restring", icon: Wrench },
 ];
 
-/** "Quick actions": the four places the tab bar doesn't reach. */
+/** Home's shortcut row: a white band under the header. */
 export function ActionGrid() {
   return (
-    <section className="home-sec" aria-labelledby="home-quick-title">
-      <div className="home-sec__head">
-        <h2 id="home-quick-title" className="home-sec__title">
-          Quick actions
-        </h2>
-      </div>
-      <nav className="home-grid" aria-labelledby="home-quick-title">
-        {ACTIONS.map(({ label, to, icon: Icon }) => (
-          <Link key={label} className="home-grid__tile" to={to}>
-            <Icon size={22} strokeWidth={1.8} aria-hidden="true" />
-            <span className="home-grid__label">{label}</span>
+    <nav className="home-shortcuts" aria-label="Shortcuts">
+      <div className="home-shortcuts__row">
+        {SHORTCUTS.map(({ key, label, to, icon: Icon }) => (
+          <Link
+            key={key}
+            className="home-shortcuts__item"
+            to={to}
+            onClick={() => track(ANALYTICS_EVENTS.homeShortcutTap, { item: key })}
+          >
+            <span className="home-shortcuts__tile" aria-hidden="true">
+              <Icon size={24} strokeWidth={1.9} />
+            </span>
+            <span className="home-shortcuts__label">{label}</span>
           </Link>
         ))}
-      </nav>
-    </section>
+      </div>
+    </nav>
   );
 }

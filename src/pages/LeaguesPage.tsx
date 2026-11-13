@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CircleAlert, MapPin, Search, Share2 } from "lucide-react";
+import { ChevronRight, CircleAlert, ListOrdered, MapPin, Search, Share2 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import {
@@ -59,6 +59,8 @@ import {
 } from "./leagueBrowse";
 
 import "./LeaguesPage.css";
+import PlaySectionTabs from "../components/PlaySectionTabs";
+import { isPlaySectionsEnabled } from "../utils/playSections";
 
 type BrowseTopFilter = "all" | "available" | "mine" | "archived";
 type JoinStep = "agreement" | "payment" | "success";
@@ -957,6 +959,20 @@ const LeaguesPage = () => {
   return (
     <MainLayout pageClassName="leagues-shell" mobileChrome="home" hideMobileNewMatch>
       <div className="leagues-redesign tpl">
+        <PlaySectionTabs />
+        {/* Play › Leagues: the ladder is a league of its own, pinned above the seasons. */}
+        {isPlaySectionsEnabled() ? (
+          <Link to="/ladder" className="leagues-ladder-pin">
+            <span className="leagues-ladder-pin__icon" aria-hidden="true">
+              <ListOrdered size={22} />
+            </span>
+            <span className="leagues-ladder-pin__copy">
+              <span className="leagues-ladder-pin__title">Ladder</span>
+              <span className="leagues-ladder-pin__line">Rankings and recent results</span>
+            </span>
+            <ChevronRight size={18} className="leagues-ladder-pin__chevron" aria-hidden="true" />
+          </Link>
+        ) : null}
         <header className="ljr-hero-greet">
           <div>
             <h1>Your leagues{isAuthenticated ? `, ${firstName}` : ""}</h1>

@@ -86,6 +86,7 @@ export default function HomePage() {
   return (
     <div className="player-home home-v2">
       <AppNav homeHeader hideMobileNewMatch hideMobileNotifications />
+      <ActionGrid />
 
       <main className="home-v2__main">
         <UpNext
@@ -125,7 +126,6 @@ export default function HomePage() {
           viewerId={viewerId}
         />
 
-        <ActionGrid />
 
         <OffCourt tip={tip} />
       </main>

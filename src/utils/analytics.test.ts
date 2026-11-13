@@ -71,6 +71,7 @@ test("event names are the agreed strings", () => {
     homeRatingPromptClick: "home_rating_prompt_click",
     homeCircleView: "home_circle_view",
     homeCircleClick: "home_circle_click",
+    homeShortcutTap: "home_shortcut_tap",
     myWeekSkip: "my_week_skip",
     myWeekJoin: "my_week_join",
     myWeekBook: "my_week_book",
