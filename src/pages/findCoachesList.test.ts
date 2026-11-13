@@ -8,6 +8,7 @@ import {
   coachMatchesChip,
   countSessionsThisWeek,
   coachMatchesChips,
+  coachSortOptionsFor,
   countWithinRadius,
   findDistanceDividerIndex,
   formatAvailabilityPhrase,
@@ -98,7 +99,7 @@ test("missing values sort last, not first", () => {
   );
 });
 
-test("thin profiles sort last under every order", () => {
+test("thin profiles sort last under every order but best match", () => {
   const thin = coach({ specialties: [], availabilityWindows: [], distanceMiles: 0.1, hourlyRateValue: 1, studentCount: 999 });
   const full = coach({ specialties: ["Forehand"], distanceMiles: 8, hourlyRateValue: 300, studentCount: 1 });
 
@@ -106,6 +107,62 @@ test("thin profiles sort last under every order", () => {
     const [first] = sortCoaches([thin, full], sort);
     assert.equal(first.specialties[0], "Forehand", `thin profile led under ${sort}`);
   }
+});
+
+test("best match orders by the API score, highest first", () => {
+  // This is the regression the sort key exists for: the API returns its ranking, and
+  // before "best-match" existed every wizard result was silently re-sorted by distance.
+  const list = [
+    coach({ specialties: ["mid"], matchScore: 60, distanceMiles: 1 }),
+    coach({ specialties: ["top"], matchScore: 91, distanceMiles: 20 }),
+    coach({ specialties: ["low"], matchScore: 12, distanceMiles: 0.2 }),
+  ];
+  assert.deepEqual(
+    sortCoaches(list, "best-match").map((row) => row.specialties[0]),
+    ["top", "mid", "low"],
+  );
+});
+
+test("equal scores fall back to distance, the way the API breaks its own ties", () => {
+  const list = [
+    coach({ specialties: ["far"], matchScore: 70, distanceMiles: 12 }),
+    coach({ specialties: ["near"], matchScore: 70, distanceMiles: 2 }),
+    coach({ specialties: ["unknown"], matchScore: 70, distanceMiles: null }),
+  ];
+  assert.deepEqual(
+    sortCoaches(list, "best-match").map((row) => row.specialties[0]),
+    ["near", "far", "unknown"],
+  );
+});
+
+test("a top match is not demoted for a sparse profile", () => {
+  // The card prints the percentage, so sinking the highest score would contradict what
+  // the player is reading on it.
+  const thin = coach({ specialties: [], availabilityWindows: [], matchScore: 95, distanceMiles: 9 });
+  const full = coach({ specialties: ["Forehand"], matchScore: 40, distanceMiles: 1 });
+  assert.equal(sortCoaches([full, thin], "best-match")[0].matchScore, 95);
+});
+
+test("a coach the API scored nothing for sorts last, not first", () => {
+  const list = [
+    coach({ specialties: ["unscored"], matchScore: null, distanceMiles: 0.1 }),
+    coach({ specialties: ["scored"], matchScore: 5, distanceMiles: 30 }),
+  ];
+  assert.deepEqual(
+    sortCoaches(list, "best-match").map((row) => row.specialties[0]),
+    ["scored", "unscored"],
+  );
+});
+
+test("best match is offered only to a player who answered the wizard", () => {
+  // Without answers the API scores every coach null, which the page reads as 0 — the
+  // option would order nothing while claiming to rank.
+  assert.deepEqual(coachSortOptionsFor(false).map((option) => option.key), [
+    "nearest",
+    "price-low",
+    "students-high",
+  ]);
+  assert.equal(coachSortOptionsFor(true)[0].key, "best-match");
 });
 
 test("thin means no availability AND no specialties, not a missing photo", () => {

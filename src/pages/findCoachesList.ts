@@ -10,19 +10,30 @@
  * and sorting here costs nothing and avoids an API round trip per chip.
  */
 
-export type CoachSortKey = "nearest" | "price-low" | "students-high";
+export type CoachSortKey = "best-match" | "nearest" | "price-low" | "students-high";
 
 export interface CoachSortOption {
   key: CoachSortKey;
   label: string;
 }
 
-/** Order matters: the first is the default. */
+/** Order matters: the first is the default when there is no match ranking to lead with. */
 export const COACH_SORT_OPTIONS: CoachSortOption[] = [
   { key: "nearest", label: "Nearest" },
   { key: "price-low", label: "Lowest price" },
   { key: "students-high", label: "Most students" },
 ];
+
+const BEST_MATCH_SORT_OPTION: CoachSortOption = { key: "best-match", label: "Best match" };
+
+/**
+ * Best match is offered only to a player who has answered the coach-match wizard.
+ * Without answers the API scores nobody — every coach comes back with a null score
+ * (coachRecommendations.js buildEmptyMatch), which the page reads as 0 — so the option
+ * would name a ranking that does not exist.
+ */
+export const coachSortOptionsFor = (hasMatchRanking: boolean): CoachSortOption[] =>
+  hasMatchRanking ? [BEST_MATCH_SORT_OPTION, ...COACH_SORT_OPTIONS] : COACH_SORT_OPTIONS;
 
 export type CoachChipKey =
   | "beginner"
@@ -47,6 +58,10 @@ export interface CoachListItem extends CoachChipSource {
   hourlyRateValue?: number | null;
   studentCount?: number | null;
   availabilityWindows?: string[];
+  /** The API's recommendation score (0-100), as the search response sent it. The API
+   *  scores nobody until the player has answered the wizard — every coach arrives with a
+   *  null score, read as 0 here — so best match orders nothing before then. */
+  matchScore?: number | null;
 }
 
 /**
@@ -125,11 +140,23 @@ const numberOr = (value: number | null | undefined, fallback: number) =>
   typeof value === "number" && Number.isFinite(value) ? value : fallback;
 
 /**
- * Sorts a copy. Thin profiles are pushed last regardless of the chosen order — the sort
- * runs first, then a stable pass moves them down, so their relative order is preserved.
+ * Sorts a copy. Thin profiles are pushed last under every order but best match — the
+ * sort runs first, then a stable pass moves them down, so their relative order is
+ * preserved.
  */
 export const sortCoaches = <T extends CoachListItem>(coaches: T[], sort: CoachSortKey): T[] => {
   const compare: Record<CoachSortKey, (a: T, b: T) => number> = {
+    // Highest score first, ties broken by distance — the same order the API returns
+    // (player_coaches.js getchecklocation), reproduced here because filtering happens
+    // client-side and a filter has to be able to hand the list back in ranked order.
+    "best-match": (a, b) => {
+      const byScore = numberOr(b.matchScore, -1) - numberOr(a.matchScore, -1);
+      if (byScore !== 0) return byScore;
+      return (
+        numberOr(a.distanceMiles, Number.POSITIVE_INFINITY) -
+        numberOr(b.distanceMiles, Number.POSITIVE_INFINITY)
+      );
+    },
     // Unknown distance sorts last rather than to zero, which would put it first.
     nearest: (a, b) =>
       numberOr(a.distanceMiles, Number.POSITIVE_INFINITY) -
@@ -140,9 +167,14 @@ export const sortCoaches = <T extends CoachListItem>(coaches: T[], sort: CoachSo
     "students-high": (a, b) => numberOr(b.studentCount, -1) - numberOr(a.studentCount, -1),
   };
 
-  return [...coaches]
-    .sort(compare[sort] ?? compare.nearest)
-    .sort((a, b) => Number(isThinCoachProfile(a)) - Number(isThinCoachProfile(b)));
+  const sorted = [...coaches].sort(compare[sort] ?? compare.nearest);
+
+  // Best match is exempt from the demotion: the score already accounts for how well the
+  // coach fits, and sinking a top match for a sparse profile would contradict the
+  // percentage printed on its own card.
+  if (sort === "best-match") return sorted;
+
+  return sorted.sort((a, b) => Number(isThinCoachProfile(a)) - Number(isThinCoachProfile(b)));
 };
 
 /**
