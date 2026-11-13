@@ -393,6 +393,9 @@ const getMatchBallsDisplay = (match) => {
   return typeof value === "string" ? value.trim() : value ? String(value) : "";
 };
 
+// The status card's "N waiting" link scrolls the host down to the waitlist.
+const MATCH_WAITLIST_ID = "match-waitlist";
+
 const getVerifiedOnlyFlag = (match) =>
   Boolean(
     match?.verifiedOnly ??
@@ -2811,159 +2814,265 @@ const MatchDetailsModal = ({
     }
   };
 
-  const renderPlayers = () => (
-    <div className="space-y-3">
-      {playersList.map((player) => {
-        const canViewProfile =
-          typeof onViewPlayerProfile === "function" || Boolean(player.profileUrl);
-        const canRemove =
-          isHost && !player.isHost && !isArchived && !isCancelled;
-        // Opens a text to them, like "Message group". Only when the API has shared their number:
-        // the host sees every player's, anyone else only numbers players chose to share.
-        const textNumber = normalizePhoneValue(getParticipantPhone(player.participant));
-        const canDm =
-          isJoined &&
-          Boolean(textNumber) &&
-          !idsMatch(player.playerId, currentUser?.id) &&
-          !isArchived &&
-          !isCancelled;
-        const phoneLink =
-          player.phoneDisplay && player.phoneHref ? (
-            <a
-              href={player.phoneHref}
-              aria-label={`Call ${player.name}`}
-              className="text-xs font-semibold text-emerald-600 transition hover:text-emerald-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
-            >
-              {player.phoneDisplay}
-            </a>
-          ) : null;
-        return (
-          <div
-            key={player.id}
-            className={`flex flex-col gap-2 rounded-2xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between ${
-              isPageLayout ? "border-slate-200 bg-white" : "border-gray-100 bg-gray-50"
-            }`}
+  const renderPlayers = () => {
+    const rows = playersList.map((player) => {
+      const canViewProfile =
+        typeof onViewPlayerProfile === "function" || Boolean(player.profileUrl);
+      const canRemove =
+        isHost && !player.isHost && !isArchived && !isCancelled;
+      // Opens a text to them, like "Message group". Only when the API has shared their number:
+      // the host sees every player's, anyone else only numbers players chose to share.
+      const textNumber = normalizePhoneValue(getParticipantPhone(player.participant));
+      const canDm =
+        isJoined &&
+        Boolean(textNumber) &&
+        !idsMatch(player.playerId, currentUser?.id) &&
+        !isArchived &&
+        !isCancelled;
+      const phoneLink =
+        player.phoneDisplay && player.phoneHref ? (
+          <a
+            href={player.phoneHref}
+            aria-label={`Call ${player.name}`}
+            className="text-xs font-semibold text-emerald-600 transition hover:text-emerald-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
           >
+            {player.phoneDisplay}
+          </a>
+        ) : null;
+      const showLevelPrompt =
+        !player.rating &&
+        status !== "success" &&
+        match?.id &&
+        currentUser?.id &&
+        idsMatch(player.playerId, currentUser.id);
+      // The page lists players as one row each — name, then rating and number in small type,
+      // actions on the right — so a full doubles roster fits on a phone screen. The modal
+      // keeps its stacked cards.
+      if (isPageLayout) {
+        return (
+          <li key={player.id} className="flex items-center gap-3 px-3 py-2.5">
             <button
               type="button"
               onClick={() => handlePlayerProfileClick(player)}
               disabled={!canViewProfile}
-              className={`flex flex-1 items-center gap-3 rounded-2xl bg-transparent p-0 text-left focus:outline-none transition-colors ${
-                canViewProfile
-                  ? "cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500 hover:bg-white/70"
-                  : "cursor-default"
-              }`}
-              title={
-                canViewProfile ? `View ${player.name}'s profile` : undefined
-              }
+              tabIndex={-1}
+              aria-hidden
+              className={`flex-none bg-transparent p-0 ${canViewProfile ? "cursor-pointer" : "cursor-default"}`}
             >
               <PlayerAvatar
                 name={player.name}
                 imageUrl={player.avatar}
                 fallback={getAvatarInitials(player.name)}
                 variant={player.isHost ? "emerald" : "indigo"}
+                size="sm"
               />
-              <div className="flex-1">
-                <p className="text-sm font-black text-gray-900">
+            </button>
+            <div className="min-w-0 flex-1">
+              <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[15px] font-semibold leading-tight text-slate-900">
+                <button
+                  type="button"
+                  onClick={() => handlePlayerProfileClick(player)}
+                  disabled={!canViewProfile}
+                  className={`min-w-0 truncate bg-transparent p-0 text-left focus:outline-none ${
+                    canViewProfile ? "cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500" : "cursor-default"
+                  }`}
+                  title={canViewProfile ? `View ${player.name}'s profile` : undefined}
+                >
                   {player.name}
-                  {player.isHost && (
-                    <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">
-                      Host
-                    </span>
-                  )}
-                  {player.stillOn === "yes" && !isArchived && !isCancelled && (
-                    <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700">
-                      ✓ Confirmed
-                    </span>
-                  )}
-                  {player.stillOn === "waiting" && !isArchived && !isCancelled && (
-                    <span
-                      className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-700"
-                      title="We texted them to check they're still on, and they haven't replied yet"
+                </button>
+                {player.isHost && (
+                  <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[11px] font-bold text-emerald-700">
+                    Host
+                  </span>
+                )}
+                {player.stillOn === "yes" && !isArchived && !isCancelled && (
+                  <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[11px] font-bold text-emerald-700">
+                    ✓ Confirmed
+                  </span>
+                )}
+                {player.stillOn === "waiting" && !isArchived && !isCancelled && (
+                  <span
+                    className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[11px] font-bold text-amber-700"
+                    title="We texted them to check they're still on, and they haven't replied yet"
+                  >
+                    Hasn't replied
+                  </span>
+                )}
+              </p>
+              {(player.rating || (player.phoneDisplay && player.phoneHref)) && (
+                <p className="mt-0.5 text-xs text-slate-500">
+                  {player.rating && `Rating ${player.rating}`}
+                  {player.rating && player.phoneDisplay && player.phoneHref && " · "}
+                  {player.phoneDisplay && player.phoneHref && (
+                    <a
+                      href={player.phoneHref}
+                      aria-label={`Call ${player.name}`}
+                      className="whitespace-nowrap font-semibold text-emerald-600 hover:text-emerald-700"
                     >
-                      Hasn't replied
-                    </span>
+                      {player.phoneDisplay}
+                    </a>
                   )}
                 </p>
-                {player.rating && (
-                  <p className="text-xs font-semibold text-gray-500">
-                    Rating {player.rating}
-                  </p>
-                )}
-              </div>
-            </button>
-            {!player.rating &&
-              status !== "success" &&
-              match?.id &&
-              currentUser?.id &&
-              idsMatch(player.playerId, currentUser.id) && (
-                <div className="pl-[52px] sm:pl-0">
+              )}
+              {showLevelPrompt && (
+                <div className="mt-1">
                   <MatchLevelPrompt matchId={match.id} variant="link" onSaved={reloadMatchQuietly} />
                 </div>
               )}
-            {(phoneLink || canDm || canRemove) && (
-              <div className="flex items-center gap-2 sm:ml-4">
-                {phoneLink}
-                {canDm && (
-                  <button
-                    type="button"
-                    onClick={() => openSmsComposer([textNumber], onToast)}
-                    className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-violet-500 transition-colors hover:bg-violet-50"
-                    aria-label={`Text ${player.name}`}
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                  </button>
+            </div>
+            {canDm && (
+              <button
+                type="button"
+                onClick={() => openSmsComposer([textNumber], onToast)}
+                className="flex h-8 w-8 flex-none items-center justify-center rounded-full text-violet-500 transition-colors hover:bg-violet-50"
+                aria-label={`Text ${player.name}`}
+              >
+                <MessageCircle className="h-4 w-4" />
+              </button>
+            )}
+            {canRemove && (
+              <button
+                type="button"
+                onClick={() => handleRemoveParticipant(player.playerId, player.name)}
+                disabled={removingParticipantId === player.playerId}
+                className="flex h-8 w-8 flex-none items-center justify-center rounded-full text-slate-400 transition-colors hover:text-red-500 disabled:opacity-60"
+                aria-label={`Remove ${player.name}`}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </li>
+        );
+      }
+      return (
+        <div
+          key={player.id}
+          className="flex flex-col gap-2 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <button
+            type="button"
+            onClick={() => handlePlayerProfileClick(player)}
+            disabled={!canViewProfile}
+            className={`flex flex-1 items-center gap-3 rounded-2xl bg-transparent p-0 text-left focus:outline-none transition-colors ${
+              canViewProfile
+                ? "cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500 hover:bg-white/70"
+                : "cursor-default"
+            }`}
+            title={
+              canViewProfile ? `View ${player.name}'s profile` : undefined
+            }
+          >
+            <PlayerAvatar
+              name={player.name}
+              imageUrl={player.avatar}
+              fallback={getAvatarInitials(player.name)}
+              variant={player.isHost ? "emerald" : "indigo"}
+            />
+            <div className="flex-1">
+              <p className="text-sm font-black text-gray-900">
+                {player.name}
+                {player.isHost && (
+                  <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">
+                    Host
+                  </span>
                 )}
-                {canRemove && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveParticipant(player.playerId, player.name)}
-                    disabled={removingParticipantId === player.playerId}
-                    className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-gray-400 transition-colors hover:text-red-500 disabled:opacity-60"
-                    aria-label={`Remove ${player.name}`}
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+                {player.stillOn === "yes" && !isArchived && !isCancelled && (
+                  <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700">
+                    ✓ Confirmed
+                  </span>
                 )}
+                {player.stillOn === "waiting" && !isArchived && !isCancelled && (
+                  <span
+                    className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-700"
+                    title="We texted them to check they're still on, and they haven't replied yet"
+                  >
+                    Hasn't replied
+                  </span>
+                )}
+              </p>
+              {player.rating && (
+                <p className="text-xs font-semibold text-gray-500">
+                  Rating {player.rating}
+                </p>
+              )}
+            </div>
+          </button>
+          {showLevelPrompt && (
+              <div className="pl-[52px] sm:pl-0">
+                <MatchLevelPrompt matchId={match.id} variant="link" onSaved={reloadMatchQuietly} />
               </div>
             )}
-          </div>
-        );
-      })}
-      {openSpotCount > 0 && (
-        <section className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-4 shadow-inner">
-          <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
-            <Users className="h-4 w-4 text-slate-500" />
-            <span>
-              {openSpotCount === 1 ? "1 open spot" : `${openSpotCount} open spots`}
-            </span>
-          </div>
-          <p className="mt-1 text-xs text-slate-500">
-            {openSpotCount === 1
-              ? "Waiting on one more player to join."
-              : "Waiting on more players to join."}
-          </p>
-          <div
-            className="mt-3 grid grid-cols-1 gap-1 sm:grid-cols-2"
-            role="list"
-            aria-label="Open spots"
-          >
-            {Array.from({ length: openSpotCount }).map((_, index) => (
-              <div
-                key={`open-slot-${index}`}
-                role="listitem"
-                className="h-1.5 rounded-full bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200"
-              >
-                <span className="sr-only">
-                  {`Open spot ${index + 1} of ${openSpotCount}`}
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-    </div>
-  );
+          {(phoneLink || canDm || canRemove) && (
+            <div className="flex items-center gap-2 sm:ml-4">
+              {phoneLink}
+              {canDm && (
+                <button
+                  type="button"
+                  onClick={() => openSmsComposer([textNumber], onToast)}
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-violet-500 transition-colors hover:bg-violet-50"
+                  aria-label={`Text ${player.name}`}
+                >
+                  <MessageCircle className="h-4 w-4" />
+                </button>
+              )}
+              {canRemove && (
+                <button
+                  type="button"
+                  onClick={() => handleRemoveParticipant(player.playerId, player.name)}
+                  disabled={removingParticipantId === player.playerId}
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-gray-400 transition-colors hover:text-red-500 disabled:opacity-60"
+                  aria-label={`Remove ${player.name}`}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    });
+    return (
+      <div className={isPageLayout ? "space-y-2" : "space-y-3"}>
+        {isPageLayout ? (
+          <ul className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white">{rows}</ul>
+        ) : (
+          rows
+        )}
+        {openSpotCount > 0 && (
+          <section className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-4 shadow-inner">
+            <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
+              <Users className="h-4 w-4 text-slate-500" />
+              <span>
+                {openSpotCount === 1 ? "1 open spot" : `${openSpotCount} open spots`}
+              </span>
+            </div>
+            <p className="mt-1 text-xs text-slate-500">
+              {openSpotCount === 1
+                ? "Waiting on one more player to join."
+                : "Waiting on more players to join."}
+            </p>
+            <div
+              className="mt-3 grid grid-cols-1 gap-1 sm:grid-cols-2"
+              role="list"
+              aria-label="Open spots"
+            >
+              {Array.from({ length: openSpotCount }).map((_, index) => (
+                <div
+                  key={`open-slot-${index}`}
+                  role="listitem"
+                  className="h-1.5 rounded-full bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200"
+                >
+                  <span className="sr-only">
+                    {`Open spot ${index + 1} of ${openSpotCount}`}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
+    );
+  };
 
   const renderOfferedSlotSummary = () => {
     if (!unresolvedSinglesSlot) return null;
@@ -3071,7 +3180,10 @@ const MatchDetailsModal = ({
   );
 
   const renderWaitlist = () => (
-    <section className="space-y-3 rounded-2xl border border-violet-100 bg-violet-50 p-4">
+    <section
+      id={MATCH_WAITLIST_ID}
+      className={`scroll-mt-24 space-y-3 rounded-2xl border border-violet-100 bg-violet-50 ${isPageLayout ? "p-3" : "p-4"}`}
+    >
       <div className="flex items-center gap-2">
         <ClipboardList className="h-4 w-4 text-violet-600" />
         <p className="text-sm font-black text-violet-900">
@@ -3085,25 +3197,42 @@ const MatchDetailsModal = ({
           ? "A spot is open. Promote someone, or open it to everyone waiting."
           : "Only you can see who is waiting. Promote someone when a spot opens."}
       </p>
-      <div className="space-y-2">
+      {/* On the page the entries share one list, like the players above, so a name isn't
+          squeezed by a card's padding on a phone. */}
+      <div
+        className={
+          isPageLayout
+            ? "divide-y divide-violet-50 overflow-hidden rounded-xl border border-violet-100 bg-white"
+            : "space-y-2"
+        }
+      >
         {waitlistEntries.map((entry) => (
           <div
             key={entry.key}
-            className="flex items-center gap-3 rounded-xl border border-violet-100 bg-white px-3 py-2"
+            className={`flex items-center py-2 ${
+              isPageLayout ? "gap-2.5 px-2.5" : "gap-3 rounded-xl border border-violet-100 bg-white px-3"
+            }`}
           >
             <PlayerAvatar
               name={entry.name}
               imageUrl={entry.avatar}
               fallback={getAvatarInitials(entry.name)}
               variant="indigo"
+              size={isPageLayout ? "sm" : undefined}
             />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-black text-gray-900">{entry.name}</p>
               {(entry.rating || entry.joinedLabel) && (
                 <p className="text-xs font-semibold text-gray-500">
+                  {/* Each part stays whole, so a narrow row breaks between them, not inside one. */}
                   {[entry.rating ? `Rating ${entry.rating}` : "", entry.joinedLabel]
                     .filter(Boolean)
-                    .join(" \u2022 ")}
+                    .map((part, index) => (
+                      <React.Fragment key={part}>
+                        {index > 0 && " \u2022 "}
+                        <span className="whitespace-nowrap">{part}</span>
+                      </React.Fragment>
+                    ))}
                 </p>
               )}
             </div>
@@ -3111,7 +3240,9 @@ const MatchDetailsModal = ({
               type="button"
               onClick={() => handlePromoteFromWaitlist(entry)}
               disabled={!waitlistState.hostCanPromote || Boolean(waitlistAction)}
-              className="rounded-xl bg-violet-500 px-3 py-1.5 text-xs font-black text-white shadow-sm transition-all hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-50"
+              className={`flex-none rounded-xl bg-violet-500 py-1.5 text-xs font-black text-white shadow-sm transition-all hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-50 ${
+                isPageLayout ? "px-2.5" : "px-3"
+              }`}
             >
               {waitlistAction === `promote:${entry.key}` ? "Promoting..." : "Promote"}
             </button>
@@ -3119,7 +3250,9 @@ const MatchDetailsModal = ({
               type="button"
               onClick={() => handleRemoveFromWaitlist(entry)}
               disabled={Boolean(waitlistAction)}
-              className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-violet-50 text-gray-400 transition-colors hover:text-red-500 disabled:opacity-60"
+              className={`flex flex-none items-center justify-center rounded-full bg-violet-50 text-gray-400 transition-colors hover:text-red-500 disabled:opacity-60 ${
+                isPageLayout ? "h-8 w-8" : "h-9 w-9"
+              }`}
               aria-label={`Remove ${entry.name} from the waitlist`}
             >
               <X className="h-4 w-4" />
@@ -4185,7 +4318,6 @@ const MatchDetailsModal = ({
     const rowClass = "flex items-center gap-3 px-4 py-3";
     const smallButton =
       "inline-flex min-h-[40px] flex-none items-center justify-center rounded-xl border px-3.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60";
-    const pill = "inline-flex h-7 items-center rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700";
     const initials = (name) => getAvatarInitials(name || "");
 
     return (
@@ -4200,85 +4332,145 @@ const MatchDetailsModal = ({
           </button>
         </div>
 
-        <header className="mb-6">
-          <div className="mb-3 flex flex-wrap gap-2">
-            {headerDateTimeLabel && (
-              <span className="inline-flex h-7 items-center rounded-full border border-violet-200 bg-violet-50 px-3 text-xs font-bold uppercase tracking-wide text-violet-700">
-                {headerDateTimeLabel}
-              </span>
-            )}
-            {suggestedSkillLevel && <span className={pill}>NTRP {suggestedSkillLevel}</span>}
-            <span className={pill}>{isPrivate ? "Private match" : isHiddenMatch ? "Link-only match" : "Open match"}</span>
-            {genderDisplay && genderDisplay !== "Any" && <span className={pill}>{genderDisplay}</span>}
-            {verifiedOnly && <span className={pill}>Verified-only</span>}
-          </div>
-          <h1 id="match-details-heading" className="text-[28px] font-bold leading-tight tracking-tight text-slate-900 sm:text-4xl">
+        {/* One line each for when, what and the terms, so the players are on the first screen
+            of a phone. Format and place are in the title, and the old "Match details" grid
+            (format, level, who can join, balls) is folded into the facts line. */}
+        <header className="mb-4 sm:mb-6">
+          {headerDateTimeLabel && (
+            <p className="text-sm font-bold uppercase tracking-wide text-violet-700">{headerDateTimeLabel}</p>
+          )}
+          <h1
+            id="match-details-heading"
+            className="mt-1 text-[22px] font-bold leading-tight tracking-tight text-slate-900 sm:text-4xl"
+          >
             {title}
           </h1>
-          <p className="mt-2 text-base text-slate-600">{hostLine}</p>
+          <p className="mt-1.5 text-sm text-slate-600 sm:text-base">
+            {[
+              suggestedSkillLevel ? `NTRP ${suggestedSkillLevel}` : "All levels",
+              isPrivate ? "Private match" : isHiddenMatch ? "Link-only match" : "Open match",
+              genderDisplay && genderDisplay !== "Any" ? genderDisplay : null,
+              verifiedOnly ? "Verified-only" : null,
+              ballsDisplay ? `Balls: ${ballsDisplay}` : null,
+              // The host already reads "Your match" on the card below.
+              isHost ? null : hostLine,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
         </header>
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
           <aside className="flex flex-col gap-3 lg:sticky lg:top-6 lg:col-start-2 lg:row-start-1">
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_4px_16px_rgba(16,24,40,0.06)]">
               <p className={sectionLabel}>{isHost ? "Your match" : isJoined ? "You're playing" : "This match"}</p>
-              {spotsLabel && <p className="text-2xl font-bold text-slate-900">{spotsLabel}</p>}
-              {shareDateTimeLabel && <p className="mt-1 text-sm text-slate-600">{shareDateTimeLabel}</p>}
+              {(spotsLabel || waitlistState.count > 0) && (
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                  {spotsLabel && <p className="text-2xl font-bold text-slate-900">{spotsLabel}</p>}
+                  {/* The count is public; the names are the host's, so only the host gets a
+                      link down to them. */}
+                  {waitlistState.count > 0 &&
+                    (isHost && waitlistEntries.length > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          document
+                            .getElementById(MATCH_WAITLIST_ID)
+                            ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                        }
+                        className="text-sm font-semibold text-violet-700 hover:text-violet-800"
+                      >
+                        {waitlistState.count} waiting ›
+                      </button>
+                    ) : (
+                      <p className="text-sm font-semibold text-slate-600">{waitlistState.count} waiting</p>
+                    ))}
+                </div>
+              )}
               {fillPercent !== null && (
-                <div className="mb-4 mt-4 h-2 rounded-full bg-slate-100" aria-hidden>
+                <div className="mb-4 mt-3 h-2 rounded-full bg-slate-100" aria-hidden>
                   <div className="h-2 rounded-full bg-violet-500" style={{ width: `${fillPercent}%` }} />
                 </div>
               )}
               {isHost && !isArchived && !isCancelled ? (
-                <div className="mt-4 flex flex-col gap-2.5">
-                  {canManageInvites && (
-                    <button
-                      type="button"
-                      onClick={handleManageInvites}
-                      className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-violet-500 px-4 text-[15px] font-semibold text-white transition hover:bg-violet-600"
-                    >
-                      <UserPlus className="h-4 w-4" aria-hidden /> Invite players
-                    </button>
-                  )}
-                  {isOpenMatch && (
-                    <button
-                      type="button"
-                      onClick={handleCopyShareLink}
-                      disabled={!shareLinkReady}
-                      className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-                    >
-                      <Copy className="h-4 w-4" aria-hidden /> {shareCopied ? "Link copied" : "Copy share link"}
-                    </button>
-                  )}
-                  <div className="mt-2 flex flex-col border-t border-slate-100 pt-2">
-                    {canMessageParticipants && (
-                      <button
-                        type="button"
-                        onClick={() => openSmsComposer(participantPhoneRecipients, onToast)}
-                        className="py-2 text-left text-sm font-semibold text-violet-700 hover:text-violet-800"
-                      >
-                        Message players
-                      </button>
-                    )}
-                    {!isEditing && (
-                      <button
-                        type="button"
-                        onClick={handleStartEdit}
-                        className="py-2 text-left text-sm font-semibold text-violet-700 hover:text-violet-800"
-                      >
-                        Edit match
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={handleCancelMatch}
-                      disabled={cancellingMatch}
-                      className="py-2 text-left text-sm font-semibold text-red-700 hover:text-red-800 disabled:opacity-60"
-                    >
-                      {cancellingMatch ? "Cancelling..." : "Cancel match"}
-                    </button>
-                  </div>
-                </div>
+                (() => {
+                  // Inviting is the job while there are spots to fill. Once the match is full,
+                  // talking to the players is, and inviting drops to the secondary row.
+                  const isFullNow = remainingSpots === 0;
+                  const inviteLeads = canManageInvites && !isFullNow;
+                  const messageLeads = canMessageParticipants && !inviteLeads;
+                  const primaryClass =
+                    "inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-violet-500 px-4 text-[15px] font-semibold text-white transition hover:bg-violet-600";
+                  const secondaryClass =
+                    "inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60";
+                  const textAction = "text-sm font-semibold text-violet-700 hover:text-violet-800";
+                  return (
+                    <div className="mt-3 flex flex-col gap-2.5">
+                      {inviteLeads && (
+                        <button type="button" onClick={handleManageInvites} className={primaryClass}>
+                          <UserPlus className="h-4 w-4" aria-hidden /> Invite players
+                        </button>
+                      )}
+                      {messageLeads && (
+                        <button
+                          type="button"
+                          onClick={() => openSmsComposer(participantPhoneRecipients, onToast)}
+                          className={primaryClass}
+                        >
+                          <MessageCircle className="h-4 w-4" aria-hidden /> Message players
+                        </button>
+                      )}
+                      {(isOpenMatch || (canManageInvites && !inviteLeads)) && (
+                        <div className="flex gap-2.5">
+                          {canManageInvites && !inviteLeads && (
+                            <button type="button" onClick={handleManageInvites} className={secondaryClass}>
+                              <UserPlus className="h-4 w-4" aria-hidden /> Invite
+                            </button>
+                          )}
+                          {isOpenMatch && (
+                            <button
+                              type="button"
+                              onClick={handleCopyShareLink}
+                              disabled={!shareLinkReady}
+                              className={secondaryClass}
+                            >
+                              <Copy className="h-4 w-4" aria-hidden />{" "}
+                              {shareCopied
+                                ? "Link copied"
+                                : canManageInvites && !inviteLeads
+                                  ? "Copy link"
+                                  : "Copy share link"}
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-slate-100 pt-3">
+                        {canMessageParticipants && !messageLeads && (
+                          <button
+                            type="button"
+                            onClick={() => openSmsComposer(participantPhoneRecipients, onToast)}
+                            className={textAction}
+                          >
+                            Message players
+                          </button>
+                        )}
+                        {!isEditing && (
+                          <button type="button" onClick={handleStartEdit} className={textAction}>
+                            Edit match
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={handleCancelMatch}
+                          disabled={cancellingMatch}
+                          className="text-sm font-semibold text-red-700 hover:text-red-800 disabled:opacity-60"
+                        >
+                          {cancellingMatch ? "Cancelling..." : "Cancel match"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()
               ) : (
                 <div className="mt-4">{renderPrimaryActions()}</div>
               )}
@@ -4446,30 +4638,6 @@ const MatchDetailsModal = ({
               </div>
             )}
 
-            <div>
-              <p className={sectionLabel}>Match details</p>
-              <dl className="grid grid-cols-2 gap-4 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-4">
-                <div>
-                  <dt className="text-sm text-slate-600">Format</dt>
-                  <dd className="mt-0.5 text-[15px] font-semibold text-slate-900">{match.match_format || match.format || "TBA"}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm text-slate-600">Level</dt>
-                  <dd className="mt-0.5 text-[15px] font-semibold text-slate-900">
-                    {suggestedSkillLevel ? `NTRP ${suggestedSkillLevel}` : "All levels"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-sm text-slate-600">Who can join</dt>
-                  <dd className="mt-0.5 text-[15px] font-semibold text-slate-900">{genderDisplay || "Any"}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm text-slate-600">Balls</dt>
-                  <dd className="mt-0.5 text-[15px] font-semibold text-slate-900">{ballsDisplay || "Not specified"}</dd>
-                </div>
-              </dl>
-            </div>
-
             {match.notes && (
               <div>
                 <p className={sectionLabel}>{isHost ? "Your note" : `Note from ${hostName.split(" ")[0]}`}</p>
@@ -4479,31 +4647,41 @@ const MatchDetailsModal = ({
               </div>
             )}
 
-            <div>
-              <p className={sectionLabel}>Location</p>
-              <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4">
-                <p className="min-w-0 flex-1 text-[15px] font-semibold text-slate-900">
-                  {locationLabel || "Location coming soon"}
-                </p>
-                {mapUrl && (
-                  <a
-                    href={mapUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`${smallButton} border-slate-300 text-slate-700 hover:bg-slate-50`}
-                  >
-                    <MapPin className="mr-1.5 h-4 w-4" aria-hidden /> Directions
-                  </a>
-                )}
-              </div>
+            {/* The place is already in the title; this row is for getting there. */}
+            <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
+              <MapPin className="h-4 w-4 flex-none text-slate-500" aria-hidden />
+              <p className="min-w-0 flex-1 text-[15px] font-semibold text-slate-900">
+                {locationLabel || "Location coming soon"}
+              </p>
+              {mapUrl && (
+                <a
+                  href={mapUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`${smallButton} border-slate-300 text-slate-700 hover:bg-slate-50`}
+                >
+                  Directions
+                </a>
+              )}
             </div>
 
-            {isHost && !isArchived && !isCancelled && (
-              <div className="flex flex-col gap-4">
-                <p className={`${sectionLabel} mb-0`}>More ways to fill it</p>
-                {renderFillSections()}
-              </div>
-            )}
+            {isHost && !isArchived && !isCancelled &&
+              (remainingSpots === 0 ? (
+                // Full: filling it is no longer the job, so it waits behind a tap rather than
+                // taking a screen and a half below the players.
+                <details className="group rounded-2xl border border-slate-200 bg-white">
+                  <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-semibold text-slate-700 [&::-webkit-details-marker]:hidden">
+                    <span>More ways to fill it</span>
+                    <span aria-hidden className="text-slate-400 transition group-open:rotate-90">›</span>
+                  </summary>
+                  <div className="flex flex-col gap-4 border-t border-slate-100 p-4">{renderFillSections()}</div>
+                </details>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  <p className={`${sectionLabel} mb-0`}>More ways to fill it</p>
+                  {renderFillSections()}
+                </div>
+              ))}
             {!isHost && renderFillSections()}
             {!isHost && renderShareSection()}
           </section>
