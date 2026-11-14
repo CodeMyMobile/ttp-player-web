@@ -1,4 +1,5 @@
 import type { WeekItemType } from "./types";
+import type { AwaitingScore } from "../../api/awaitingScores";
 import { planDayFor, type TrainingPlanProgress } from "./trainingPlanProgress";
 
 /**
@@ -25,6 +26,10 @@ export interface PlusAction {
   type: WeekItemType | null;
   /** The Plan sheet's second line (home v2); the older sheets have none. */
   subtitle?: string;
+  /** A count on the right of the row, e.g. matches waiting for a score. */
+  badge?: number;
+  /** "success": the row's icon tile in green (a score is waiting). */
+  tone?: "success";
 }
 
 /**
@@ -32,14 +37,42 @@ export interface PlusAction {
  * group lessons, leagues, players) lives in the Play tab, so Find players is gone. The ladder
  * challenge is offered only to a player on the ladder.
  *
- * Log a score always reads "Enter a result": nothing yet says which played match is missing
- * its score (recreational results aren't linked to matches, league fixtures carry no time).
+ * Log a score reads "Your match vs Ana is waiting" when a played match has no score
+ * (ttp-api GET /match-results/awaiting), with a green count; otherwise "Enter a result".
  */
-export const planSheetActions = ({ onLadder }: { onLadder: boolean }): PlusAction[] => [
+const firstName = (name: string | null | undefined) => String(name || "").trim().split(/\s+/)[0] || "your opponent";
+
+export const logScoreAction = (awaiting: AwaitingScore[] = []): PlusAction => {
+  if (!awaiting.length) return { key: "logScore", label: "Log a score", subtitle: "Enter a result", type: null };
+  return {
+    key: "logScore",
+    label: "Log a score",
+    subtitle:
+      awaiting.length === 1
+        ? `Your match vs ${firstName(awaiting[0].opponent.name)} is waiting`
+        : `${awaiting.length} matches are waiting for a score`,
+    badge: awaiting.length,
+    tone: "success",
+    type: null,
+  };
+};
+
+/**
+ * Where Log a score goes: straight into the one waiting match (its league fixture, or the casual
+ * match), or the ordinary form when there are several or none.
+ */
+export const logScoreDestination = (awaiting: AwaitingScore[] = []): string => {
+  if (awaiting.length !== 1) return "/log-result";
+  const [match] = awaiting;
+  if (match.league_id && match.league_match_id) return `/log-result?league=${match.league_id}&fixture=${match.league_match_id}`;
+  return `/log-result?match=${match.match_id}`;
+};
+
+export const planSheetActions = ({ onLadder, awaiting = [] }: { onLadder: boolean; awaiting?: AwaitingScore[] }): PlusAction[] => [
   { key: "newMatch", label: "New match", subtitle: "Post a time and invite players", type: null },
   { key: "bookLesson", label: "Book a lesson", subtitle: "Private or group, with a coach", type: null },
   { key: "bookRestring", label: "Book a restring", subtitle: "String, tension and drop-off time", type: null },
-  { key: "logScore", label: "Log a score", subtitle: "Enter a result", type: null },
+  logScoreAction(awaiting),
   { key: "addWorkout", label: "Add a workout", subtitle: "From your 7-day plan", type: null },
   ...(onLadder
     ? [{ key: "ladderChallenge" as const, label: "Challenge on the ladder", subtitle: "Pick a player to challenge", type: null }]

@@ -59,9 +59,9 @@ const alertRow = (alert: HomeAlert): ActionRow => ({
 });
 
 /**
- * "Time for a restring?": once the last picked-up restring is this many weeks old. The other
- * half of the rule, this many logged matches and lessons since it, needs a count the app
- * doesn't have yet; RESTRING_NUDGE_MATCHES is here for when it does.
+ * "Time for a restring?": once the last picked-up restring is this many weeks old, or the player
+ * has played this many matches and lessons since it (ttp-api GET /players/me/activity-count),
+ * whichever comes first.
  */
 export const RESTRING_NUDGE_WEEKS = 8;
 export const RESTRING_NUDGE_MATCHES = 20;
@@ -83,25 +83,52 @@ const isRestringItem = (item: unknown) => {
 const hasRestring = (order: Order) => Array.isArray(order.items) && order.items.some(isRestringItem);
 const doneAt = (order: Order) => epoch(order.picked_up_at) ?? epoch(order.fulfilled_at) ?? epoch(order.created_at);
 
-/** The nudge row, or null: no restring on record, one still open, or the last is recent. */
-export const restringNudgeRow = (orders: unknown, now: number): ActionRow | null => {
+/**
+ * When the last restring was picked up, as an epoch; null with none on record, or "open" while one
+ * is still at the shop or waiting to be collected.
+ */
+export const lastRestrungAt = (orders: unknown): number | null | "open" => {
   const list = (Array.isArray(orders) ? orders : []).filter((order): order is Order => Boolean(order));
   const restrings = list.filter(hasRestring);
-  if (restrings.some((order) => orderStatuses(order).some((status) => OPEN_ORDER_STATUSES.has(status)))) return null;
+  if (restrings.some((order) => orderStatuses(order).some((status) => OPEN_ORDER_STATUSES.has(status)))) return "open";
   const last = Math.max(
     ...restrings
       .filter((order) => orderStatuses(order).some((status) => DONE_ORDER_STATUSES.has(status)))
       .map((order) => doneAt(order) ?? -Infinity),
   );
-  // Nothing to measure from: never restrung with us, so no claim about how long it's been.
-  if (!Number.isFinite(last)) return null;
+  return Number.isFinite(last) ? last : null;
+};
+
+export interface PlayedSinceRestring {
+  matches: number;
+  lessons: number;
+}
+
+const playedLine = ({ matches, lessons }: PlayedSinceRestring) => {
+  const total = matches + lessons;
+  return lessons > 0 ? `${total} matches and lessons since` : `${total} matches since`;
+};
+
+/**
+ * The nudge row, or null: no restring on record, one still open, or neither half of the rule met.
+ * `played` is the count since the last restring, when it has loaded.
+ */
+export const restringNudgeRow = (orders: unknown, now: number, played: PlayedSinceRestring | null = null): ActionRow | null => {
+  const last = lastRestrungAt(orders);
+  // Nothing to measure from (never restrung with us), or a restring still in hand.
+  if (last === null || last === "open") return null;
   const weeks = Math.floor((now - last) / WEEK_MS);
-  if (weeks < RESTRING_NUDGE_WEEKS) return null;
+  const playedEnough = played !== null && played.matches + played.lessons >= RESTRING_NUDGE_MATCHES;
+  if (weeks < RESTRING_NUDGE_WEEKS && !playedEnough) return null;
+  const detail =
+    weeks >= RESTRING_NUDGE_WEEKS
+      ? `Last restrung ${weeks} weeks ago${playedEnough && played ? ` · ${playedLine(played)}` : ""}`
+      : `${playedLine(played as PlayedSinceRestring)} your last restring`;
   return {
     key: "restring-nudge",
     kind: "restringNudge",
     title: "Time for a restring?",
-    detail: `Last restrung ${weeks} weeks ago`,
+    detail,
     deadlineAt: null,
     href: "/restring",
     cta: "Book restring",
@@ -113,14 +140,17 @@ export const buildActionRows = ({
   invites = [],
   alerts = [],
   restringOrders = [],
+  playedSinceRestring = null,
   now = Date.now(),
 }: {
   invites?: HomeInviteItem[];
   alerts?: HomeAlert[];
   restringOrders?: unknown[];
+  /** Matches and lessons since the last restring (useRestringActivity); null until loaded. */
+  playedSinceRestring?: PlayedSinceRestring | null;
   now?: number;
 }): ActionRow[] => {
-  const nudge = restringNudgeRow(restringOrders, now);
+  const nudge = restringNudgeRow(restringOrders, now, playedSinceRestring);
   return sortByDeadline(
     [
       ...invites.filter(Boolean).map(inviteRow),

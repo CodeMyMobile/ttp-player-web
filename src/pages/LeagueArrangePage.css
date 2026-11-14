@@ -288,3 +288,42 @@
   text-decoration: none;
   cursor: pointer;
 }
+
+/* Court chips: where each of you plays (ttp-api player courts). */
+.arrange-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.arrange-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1.5px solid var(--v2-border);
+  border-radius: 14px;
+  background: var(--v2-surface);
+  color: var(--v2-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.arrange-chip.is-on {
+  border-color: var(--v2-primary);
+  background: var(--v2-primary-tint);
+}
+
+.arrange-chip__name {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.arrange-chip__note {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--v2-success);
+}

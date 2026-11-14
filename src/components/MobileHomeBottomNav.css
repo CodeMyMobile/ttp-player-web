@@ -341,3 +341,23 @@
     display: none;
   }
 }
+
+/* Log a score with a match waiting (§4): green tile and a count on the right. */
+.mbn-sheet--plan .mbn-sheet__action-icon--success {
+  background: var(--v2-success-bg);
+  color: var(--v2-success);
+}
+
+.mbn-sheet__badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  margin-left: auto;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--v2-success);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+}

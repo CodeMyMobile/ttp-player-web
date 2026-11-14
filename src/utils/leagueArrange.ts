@@ -1,5 +1,5 @@
 import type { AvailabilityWindow } from "../api/availability";
-import type { LeagueFixture } from "../api/leagues";
+import type { LeagueFixture, PlayedCourt } from "../api/leagues";
 
 // Arranging a league fixture (home v2, §6.2): the "You're both free" suggestions, the times the
 // player sends, and the "waiting for a pick" rows on the Schedule. ttp-api takes 1–4 times.
@@ -95,3 +95,36 @@ export const proposalRows = (fixtures: LeagueFixture[], viewerId: string | numbe
       },
     ];
   });
+
+export interface CourtChip {
+  id: string;
+  name: string;
+  area: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  /** "You both play here", "Ana plays here" or "You play here". */
+  note: string;
+}
+
+export const MAX_COURT_CHIPS = 4;
+
+/**
+ * Court chips for the propose screen: courts both players have played at first, then the
+ * opponent's (they're being asked to come), then the viewer's. Each court once, at most four.
+ */
+export const courtChips = (mine: PlayedCourt[], theirs: PlayedCourt[], opponentFirst: string): CourtChip[] => {
+  const mineIds = new Set(mine.map((court) => String(court.id)));
+  const theirIds = new Set(theirs.map((court) => String(court.id)));
+  const chip = (court: PlayedCourt, note: string): CourtChip => ({
+    id: String(court.id),
+    name: court.name,
+    area: court.area ?? null,
+    latitude: court.latitude ?? null,
+    longitude: court.longitude ?? null,
+    note,
+  });
+  const both = theirs.filter((court) => mineIds.has(String(court.id))).map((court) => chip(court, "You both play here"));
+  const theirsOnly = theirs.filter((court) => !mineIds.has(String(court.id))).map((court) => chip(court, `${opponentFirst} plays here`));
+  const mineOnly = mine.filter((court) => !theirIds.has(String(court.id))).map((court) => chip(court, "You play here"));
+  return [...both, ...theirsOnly, ...mineOnly].slice(0, MAX_COURT_CHIPS);
+};

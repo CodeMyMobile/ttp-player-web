@@ -8,6 +8,7 @@ import {
   buildActionRows,
   RESTRING_NUDGE_WEEKS,
   restringNudgeRow,
+  lastRestrungAt,
 } from "./homeActionNeeded";
 import type { HomeInviteItem } from "./homeInvite";
 
@@ -123,4 +124,24 @@ test("one list: deadlines first, then a pickup, the rating card, and the nudge l
     items.slice(0, ACTION_PREVIEW_COUNT).map((item) => item.kind),
     ["league", "row", "league"],
   );
+});
+
+test("20 matches and lessons since the last restring nudge before 8 weeks", () => {
+  const at = (weeks: number) => new Date(NOW - weeks * WEEK).toISOString();
+  const recent = [restring({ picked_up_at: at(3) })];
+  assert.equal(restringNudgeRow(recent, NOW, { matches: 19, lessons: 0 }), null);
+  assert.equal(restringNudgeRow(recent, NOW, { matches: 20, lessons: 0 })?.detail, "20 matches since your last restring");
+  assert.equal(restringNudgeRow(recent, NOW, { matches: 15, lessons: 6 })?.detail, "21 matches and lessons since your last restring");
+  assert.equal(restringNudgeRow(recent, NOW, null), null);
+  assert.equal(
+    restringNudgeRow([restring({ picked_up_at: at(10) })], NOW, { matches: 22, lessons: 0 })?.detail,
+    "Last restrung 10 weeks ago · 22 matches since",
+  );
+});
+
+test("lastRestrungAt: when, none, or still open", () => {
+  const picked = new Date(NOW - 3 * WEEK).toISOString();
+  assert.equal(lastRestrungAt([restring({ picked_up_at: picked })]), Date.parse(picked));
+  assert.equal(lastRestrungAt([]), null);
+  assert.equal(lastRestrungAt([restring({ fulfillment_status: "dropped_off" })]), "open");
 });
