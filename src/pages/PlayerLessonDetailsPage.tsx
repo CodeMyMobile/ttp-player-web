@@ -445,9 +445,11 @@ const PlayerLessonDetailsPage = () => {
 
   const token = useMemo(() => getStoredAuthToken({ preferScheme: "token" }) ?? null, []);
   const isSignedIn = Boolean(token);
+  // `from` must be the location object: the login redirects read from.pathname / from.search, and
+  // on a string `from.search` is String.prototype.search, which crashed the router after signing in.
   const promptSignIn = useCallback(() => {
-    navigate("/login", { state: { from: `${location.pathname}${location.search}` } });
-  }, [location.pathname, location.search, navigate]);
+    navigate("/login", { state: { from: location } });
+  }, [location, navigate]);
   const lessonTotalAmountCents = useMemo(() => {
     if (!lesson) return null;
     const record = lesson as Record<string, unknown>;
