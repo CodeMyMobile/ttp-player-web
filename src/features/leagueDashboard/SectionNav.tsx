@@ -28,19 +28,25 @@ const SECTIONS: Array<{ key: SectionKey; label: string }> = [
   { key: "pending", label: "Pending" },
 ];
 
-interface SectionNavProps {
-  section: SectionKey;
-  onChange: (section: SectionKey) => void;
+interface SectionNavProps<K extends string> {
+  section: K;
+  onChange: (section: K) => void;
+  /** Home v2 passes Schedule · Standings · Results (LeagueSectionsV2). */
+  sections?: Array<{ key: K; label: string }>;
 }
 
-const SectionNav = ({ section, onChange }: SectionNavProps) => {
+const SectionNav = <K extends string = SectionKey>({
+  section,
+  onChange,
+  sections = SECTIONS as Array<{ key: K; label: string }>,
+}: SectionNavProps<K>) => {
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   const focusTab = (index: number) => {
-    const count = SECTIONS.length;
+    const count = sections.length;
     const next = (index + count) % count;
     tabRefs.current[next]?.focus();
-    onChange(SECTIONS[next].key);
+    onChange(sections[next].key);
   };
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
@@ -55,14 +61,14 @@ const SectionNav = ({ section, onChange }: SectionNavProps) => {
       focusTab(0);
     } else if (event.key === "End") {
       event.preventDefault();
-      focusTab(SECTIONS.length - 1);
+      focusTab(sections.length - 1);
     }
   };
 
   return (
     <nav className="section-nav" aria-label="League sections">
       <div className="section-nav__row" role="tablist" aria-label="League sections">
-        {SECTIONS.map((item, index) => {
+        {sections.map((item, index) => {
           const active = section === item.key;
           return (
             <button

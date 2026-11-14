@@ -278,3 +278,18 @@ export const fetchSeasonEnrichment = async ({
     viewerIdentities,
   });
 };
+
+/**
+ * The league page's pace line (§6.1): matches still to play spread over the weeks left,
+ * rounded up, so "About 2 matches a week to finish on time". Null when it can't be said
+ * honestly: no end date, or the season already over.
+ */
+export const paceLine = (
+  { played, total, weeksLeft }: { played: number; total: number; weeksLeft: number | null },
+): string | null => {
+  const remaining = Math.max(0, total - played);
+  if (total > 0 && remaining === 0) return "All your matches are played";
+  if (weeksLeft == null || weeksLeft <= 0 || total === 0) return null;
+  const perWeek = Math.ceil(remaining / weeksLeft);
+  return `About ${perWeek} ${perWeek === 1 ? "match" : "matches"} a week to finish on time`;
+};

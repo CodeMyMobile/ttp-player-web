@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { computeSeasonProgress, weeksRemaining, LEAGUE_MIN_MATCHES } from "./leagueSeason.ts";
+import { computeSeasonProgress, paceLine, weeksRemaining, LEAGUE_MIN_MATCHES } from "./leagueSeason.ts";
 
 test("season progress mirrors the dashboard math (played/minimum)", () => {
   const p = computeSeasonProgress(4);
@@ -36,4 +36,17 @@ test("weeksRemaining — whole weeks up, 0 once past, null when absent", () => {
   assert.equal(weeksRemaining("2026-09-01T00:00:00Z", now), 0); // past
   assert.equal(weeksRemaining(null, now), null);
   assert.equal(weeksRemaining("not-a-date", now), null);
+});
+
+test("pace line: matches left over weeks left, rounded up", () => {
+  assert.equal(paceLine({ played: 3, total: 9, weeksLeft: 4 }), "About 2 matches a week to finish on time");
+  assert.equal(paceLine({ played: 5, total: 8, weeksLeft: 3 }), "About 1 match a week to finish on time");
+  assert.equal(paceLine({ played: 0, total: 7, weeksLeft: 2 }), "About 4 matches a week to finish on time");
+});
+
+test("pace line: done, or nothing honest to say", () => {
+  assert.equal(paceLine({ played: 8, total: 8, weeksLeft: 3 }), "All your matches are played");
+  assert.equal(paceLine({ played: 2, total: 8, weeksLeft: null }), null);
+  assert.equal(paceLine({ played: 2, total: 8, weeksLeft: 0 }), null);
+  assert.equal(paceLine({ played: 0, total: 0, weeksLeft: 5 }), null);
 });
