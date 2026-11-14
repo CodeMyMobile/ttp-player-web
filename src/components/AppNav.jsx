@@ -99,13 +99,13 @@ const reverseGeocodeDeviceLocation = async ({ latitude, longitude }) => {
 };
 
 const userMenuItems = [
-  { label: "Restring Service", to: "/restring", icon: RefreshCw },
+  { label: "Restring", to: "/restring", icon: RefreshCw },
   { label: "Restring orders", to: "/restring?screen=orders", icon: ClipboardList },
   { label: "My Leagues", to: "/leagues", icon: Trophy },
   { label: "Player profile", to: "/settings/profile", icon: UserRound },
   { label: "Player match profile", to: "/settings/match-profile", icon: Target },
   { label: "My groups", to: "/groups", icon: Users },
-  { label: "Log result", to: "/log-result", icon: Trophy },
+  { label: "Log a score", to: "/log-result", icon: Trophy },
   { label: "Ladder", to: "/ladder", icon: Trophy },
   { label: "Payment methods", to: "/settings/payment-methods", icon: CreditCard },
   { label: "Blocked users", to: "/settings/blocked-users", icon: ShieldX },

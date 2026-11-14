@@ -446,7 +446,7 @@ const LeagueDashboardPage = () => {
         {isMobile && data ? (
           <div className="nextmove-bar">
             <button type="button" className="btn" onClick={() => goLogScore()}>
-              Log a Score
+              Log a score
             </button>
             <button type="button" className="btn ghost" onClick={() => goPostAvailability()}>
               Need a Match

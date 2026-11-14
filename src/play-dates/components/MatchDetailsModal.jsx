@@ -4616,7 +4616,7 @@ const MatchDetailsModal = ({
                         <p className="text-[15px] font-semibold text-slate-900">{lesson.title}</p>
                         <p className="text-sm text-slate-600">
                           {[
-                            `Group class · ${lesson.time_label}`,
+                            `Group lesson · ${lesson.time_label}`,
                             lesson.coach_name,
                             lesson.location,
                             lesson.price_per_person ? price(lesson.price_per_person) : null,

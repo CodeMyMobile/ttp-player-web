@@ -62,10 +62,10 @@ const GROUP_LESSONS: PillarData = {
   img: groupLessonsImg,
   alt: "A group class warming up together on a tennis court.",
   eyebrow: "Group lessons",
-  title: "Clinics, liveball, and group classes",
+  title: "Clinics, liveball, and group lessons",
   body: "Group lessons, clinics, and liveball sessions — browse what's on by date, location, and level, and grab a spot in a couple of taps.",
   to: "/group-lessons",
-  linkLabel: "Browse classes",
+  linkLabel: "Browse group lessons",
 };
 const PLAYERS: PillarData = {
   img: playPartnersImg,

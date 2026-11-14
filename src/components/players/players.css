@@ -644,10 +644,10 @@
 .fp-quick-chip {
   min-height: 36px;
   padding: 0 14px;
-  border: 1.5px solid #c4b5fd;
+  border: 1.5px solid var(--v2-primary-border);
   border-radius: 9999px;
-  background: #ffffff;
-  color: #6d28d9;
+  background: var(--v2-surface);
+  color: var(--v2-primary);
   font-size: 14px;
   font-weight: 600;
   white-space: nowrap;
@@ -655,8 +655,8 @@
 }
 
 .fp-quick-chip[aria-pressed="true"] {
-  border-color: #6d28d9;
-  background: #6d28d9;
+  border-color: var(--v2-primary);
+  background: var(--v2-primary);
   color: #ffffff;
 }
 

@@ -126,7 +126,7 @@ test("a sharing player shows their number as a third meta line", () => {
   assert.ok(html.includes("+1 (310) 555-0148"), "formatted number on the row");
 });
 
-test("the toolbar offers Need a match and never Log a Score", () => {
+test("the toolbar offers Need a match and never Log a score", () => {
   const html = renderToStaticMarkup(
     createElement(LeagueTabs, {
       data,
@@ -139,7 +139,7 @@ test("the toolbar offers Need a match and never Log a Score", () => {
     } as Parameters<typeof LeagueTabs>[0]),
   );
   assert.ok(html.includes("Need a match"));
-  assert.ok(!html.includes("Log a Score"), "a roster screen implies no finished match");
+  assert.ok(!/log a score/i.test(html), "a roster screen implies no finished match");
   assert.ok(html.includes("3 players"), "the count renders");
   assert.ok(html.includes("share a number with this division"), "the footnote renders");
 });

@@ -324,7 +324,7 @@ const MobileHomeBottomNav = () => {
 
   return (
     <>
-      <nav className="mbn" role="tablist" aria-label="Mobile navigation">
+      <nav className={`mbn${planOn ? " mbn--v2" : ""}`} role="tablist" aria-label="Mobile navigation">
         {renderTab(tabs[0])}
         {renderTab(tabs[1])}
         <div className={`mbn__fab-slot${planOn ? "" : " mbn__fab-slot--labeled"}`}>

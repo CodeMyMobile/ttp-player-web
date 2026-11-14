@@ -1562,7 +1562,7 @@ const MatchInviteScreen = ({
                       <p className="text-sm font-bold text-gray-800">{lesson.title}</p>
                       <p className="text-xs font-semibold text-gray-500">
                         {[
-                          `Group class · ${lesson.time_label}`,
+                          `Group lesson · ${lesson.time_label}`,
                           lesson.coach_name,
                           lesson.location,
                           lesson.price_per_person ? formatPrice(lesson.price_per_person) : null,

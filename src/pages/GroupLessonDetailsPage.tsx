@@ -1245,7 +1245,7 @@ const GroupLessonDetailsPage = () => {
                   </div>
                 </div>
                 <div className="group-lesson-details__cancel-success-card">
-                  <strong>Looking for another class?</strong>
+                  <strong>Looking for another group lesson?</strong>
                   <p>Browse upcoming sessions or check out other dates for this class.</p>
                 </div>
               </div>
@@ -1255,7 +1255,7 @@ const GroupLessonDetailsPage = () => {
                   className="group-lesson-details__cancel-primary"
                   onClick={handleCancelSuccessClose}
                 >
-                  Find another class
+                  Find another group lesson
                 </button>
               </div>
             </>

@@ -22,6 +22,22 @@
   /* theme.ts accentPurpleLight / accentPurpleBorder: selected options, icon tiles. */
   --color-primary-tint: #f4ebff;
   --color-primary-border: #d6bbfb;
+  /* Redesign visual system (home v2, §7): #6D28D9 passes 4.5:1 on white where #8B5CF6 doesn't.
+     theme.ts colors.primary. Used only by the flagged screens (home, Plan sheet, tab bar, Play
+     switcher) until it replaces --color-primary app-wide. */
+  --v2-primary: #6d28d9;
+  --v2-primary-border: #c4b5fd;
+  --v2-primary-tint: #f5f3ff;
+  --v2-bg: #f5f6fa;
+  --v2-surface: #ffffff;
+  --v2-border: #e5e7ef;
+  --v2-divider: #eef0f5;
+  --v2-ink: #0f172a;
+  --v2-ink-2: #475569;
+  --v2-urgent: #c2410c;
+  --v2-urgent-bg: #fff7ed;
+  --v2-success: #15803d;
+  --v2-success-bg: #ecfdf3;
   /* theme.ts featuredBg / featuredText: cautions (e.g. "avoid polyester while sore"). */
   --color-warning-bg: #fef0c7;
   --color-warning-text: #b54708;

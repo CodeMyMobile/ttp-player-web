@@ -48,7 +48,8 @@ const groupRows = (items: ActionItem<HomeSeason>[]): (ActionItem<HomeSeason> | A
     return [...groups, [item.row]];
   }, []);
 
-function LeagueCard({ season }: { season: HomeSeason }) {
+/** `primary`: the section's one filled button (§7) goes to the first league; the rest are outline. */
+function LeagueCard({ season, primary }: { season: HomeSeason; primary: boolean }) {
   const { matchesPlayed = 0, matchesTotal = 0, preSeason } = season.enrichment;
   // No fixtures yet means the season hasn't started: a bar at zero would read as
   // "you're behind" rather than "nothing yet".
@@ -94,7 +95,10 @@ function LeagueCard({ season }: { season: HomeSeason }) {
 
       {/* The league dashboard: arranging a match starts from where the season
           stands, and the arrange flow lives there. */}
-      <Link className="home-btn home-btn--fill" to={`/leagues/${season.id}/dashboard`}>
+      <Link
+        className={`home-btn ${primary ? "home-btn--fill" : "home-btn--outline"}`}
+        to={`/leagues/${season.id}/dashboard`}
+      >
         Arrange a match
       </Link>
     </article>
@@ -108,6 +112,8 @@ export function ActionNeeded({ seasons, rows, ratingState, declaredLevel, loadin
   const prompt = ratingState === "unrated" ? ratingPrompt(declaredLevel) : null;
   const items = buildActionItems({ seasons, prompt, rows });
   const shown = expanded ? items : items.slice(0, ACTION_PREVIEW_COUNT);
+  const groups = groupRows(shown);
+  const firstLeagueKey = groups.find((group) => !Array.isArray(group) && group.kind === "league")?.key;
   const hidden = items.length - shown.length;
 
   // The restring nudge, once per page view and only when it's actually on screen.
@@ -143,7 +149,7 @@ export function ActionNeeded({ seasons, rows, ratingState, declaredLevel, loadin
       </div>
 
       <div className="home-action__stack">
-        {groupRows(shown).map((group) =>
+        {groups.map((group) =>
           Array.isArray(group) ? (
             <ul key={group[0].key} className="home-card home-action__rows">
               {group.map((row) => (
@@ -168,7 +174,7 @@ export function ActionNeeded({ seasons, rows, ratingState, declaredLevel, loadin
               ))}
             </ul>
           ) : group.kind === "league" ? (
-            <LeagueCard key={group.key} season={group.season} />
+            <LeagueCard key={group.key} season={group.season} primary={group.key === firstLeagueKey} />
           ) : group.kind === "rating" ? (
             <article key={group.key} className="home-card home-rating">
               <span className="home-rating__icon" aria-hidden="true">

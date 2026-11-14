@@ -179,7 +179,7 @@ const buildScheduleMatchItems = (records = [], currentUser) =>
           : normalizedMatch.relationship === "participant"
             ? "Joined"
             : "Match";
-      const matchTitle = normalizedMatch.format ? `${normalizedMatch.format} Match` : "Match Play";
+      const matchTitle = normalizedMatch.format ? `${normalizedMatch.format} Match` : "Match play";
 
       return {
         id: `match-${matchId ?? startAt.toISOString()}`,
@@ -205,8 +205,8 @@ const buildScheduleMatchItems = (records = [], currentUser) =>
 
 const quickActions = [
   { icon: "👤", label: "Find a Coach", labelShort: "Find a\nCoach", to: "/find-coaches" },
-  { icon: "👥", label: "Group Lessons", labelShort: "Group\nLessons", to: "/group-lessons" },
-  { icon: "🏆", label: "Match Play", labelShort: "Match\nPlay", to: "/matches" },
+  { icon: "👥", label: "Group lessons", labelShort: "Group\nlessons", to: "/group-lessons" },
+  { icon: "🏆", label: "Match play", labelShort: "Match\nplay", to: "/matches" },
   { icon: "🔍", label: "Find Players", labelShort: "Find\nPlayers", to: "/find-players" },
 ];
 
