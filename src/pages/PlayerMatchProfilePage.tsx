@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { AlertTriangle, ClipboardList, PencilLine, RefreshCcw, Target } from "lucide-react";
+import { AlertTriangle, CalendarClock, ClipboardList, PencilLine, RefreshCcw, Target } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
 import { useAuth } from "../context/AuthContext";
@@ -16,6 +16,8 @@ import {
   hasSurveyAnswer,
   type NormalizedSurveyQuestion,
 } from "../utils/surveyQuestionnaire";
+
+import { isHomeV2Enabled } from "../utils/featureFlags";
 
 import "./PlayerSettingsPages.css";
 
@@ -148,6 +150,19 @@ const PlayerMatchProfilePage = () => {
               </div>
               <Link to="/settings/match-profile/edit" className="match-profile-banner__action">
                 Edit my player match profile
+              </Link>
+            </div>
+          ) : null}
+
+          {isHomeV2Enabled() ? (
+            <div className="match-profile-banner">
+              <CalendarClock size={18} aria-hidden="true" />
+              <div>
+                <strong>When you can play</strong>
+                <p>Your weekly times, used to find times you and other players are both free.</p>
+              </div>
+              <Link to="/settings/availability" className="match-profile-banner__action">
+                Set your times
               </Link>
             </div>
           ) : null}

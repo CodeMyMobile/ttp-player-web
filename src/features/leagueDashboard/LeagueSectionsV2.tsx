@@ -1,7 +1,7 @@
 // The league page as three sections (home v2, §6.1): Schedule · Standings · Results.
 //
 // Each section is made of LeagueTabs' existing panels, so a panel changes in one place:
-//   Schedule  = the summary card, the page's action prompt, Still to play (the roster cut to
+//   Schedule  = the summary card, the page's action prompt, best bets this week, Still to play (the roster cut to
 //               the opponents the viewer hasn't played, with its contact and propose actions),
 //               Scheduled, players looking, then the viewer's unplayed fixtures.
 //   Standings = the table, with a Table / Ladder switch for the rated ladder.
@@ -9,9 +9,11 @@
 
 import React, { useState, type ReactNode } from "react";
 
+import BestBets from "./BestBets";
 import LeagueTabs, { type LeagueTabsProps } from "./LeagueTabs";
 import ScheduleSummary from "./ScheduleSummary";
 import type { LeagueData } from "./types";
+import type { BestBetsState } from "./useBestBets";
 
 export type ScheduleSectionKey = "schedule" | "standings" | "results";
 
@@ -39,10 +41,12 @@ interface LeagueSectionsV2Props {
   actionSlot?: ReactNode;
   /** Players looking for a match, shown under Scheduled. */
   looking?: ReactNode;
+  /** Best bets this week (useBestBets); left out when absent. */
+  bestBets?: BestBetsState;
   panel: PanelProps;
 }
 
-const LeagueSectionsV2 = ({ data, section, onSection, showTabs, actionSlot, looking, panel }: LeagueSectionsV2Props) => {
+const LeagueSectionsV2 = ({ data, section, onSection, showTabs, actionSlot, looking, bestBets, panel }: LeagueSectionsV2Props) => {
   const [standingsView, setStandingsView] = useState<"standings" | "ladder">("standings");
   const opponents = stillToPlay(data);
   const noop = () => {};
@@ -70,6 +74,8 @@ const LeagueSectionsV2 = ({ data, section, onSection, showTabs, actionSlot, look
         <div className="sched">
           {data.progress ? <ScheduleSummary progress={data.progress} /> : null}
           {actionSlot}
+
+          {bestBets && panel.onProposeMatch ? <BestBets state={bestBets} onArrange={panel.onProposeMatch} /> : null}
 
           {opponents.length ? (
             <section className="sched-block" aria-labelledby="sched-still">

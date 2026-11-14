@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { MemoryRouter } from "react-router-dom";
 
 import LeagueSectionsV2, { stillToPlay } from "./LeagueSectionsV2";
 import { getLeagueData } from "./fixtures";
@@ -43,4 +44,52 @@ test("Standings opens on the table, with a switch to the ladder", () => {
   const html = render("standings");
   assert.match(html, /aria-pressed="true"[^>]*>Table</);
   assert.match(html, />Ladder</);
+});
+
+const renderWithBets = (bestBets: unknown) =>
+  renderToStaticMarkup(
+    createElement(
+      MemoryRouter,
+      null,
+      createElement(LeagueSectionsV2, {
+        data,
+        section: "schedule",
+        onSection: () => {},
+        bestBets: bestBets as never,
+        panel: { onSchedule: () => {}, onProposeMatch: () => {} },
+      }),
+    ),
+  );
+
+const bet = (player_id: number, name: string, shared_count: number, shared_days: string[]) => ({
+  player_id,
+  name,
+  has_availability: true,
+  shared_count,
+  shared_days,
+  windows: [],
+});
+
+test("best bets: ranked rows with shared times, Arrange filled only on the first", () => {
+  const html = renderWithBets({
+    status: "ready",
+    data: {
+      tz: "America/Los_Angeles",
+      has_availability: true,
+      opponents: [bet(1, "Ana One", 3, ["Sat", "Sun", "Tue"]), bet(2, "Ben Two", 1, ["Tue"]), bet(3, "Cy Three", 0, [])],
+    },
+  });
+  assert.match(html, /Best bets this week/);
+  assert.match(html, /3 shared times · Sat, Sun, Tue/);
+  assert.match(html, /1 shared time · Tue/);
+  assert.doesNotMatch(html, /Cy Three/);
+  assert.equal((html.match(/best-bets__arrange is-primary/g) || []).length, 1);
+});
+
+test("best bets: a viewer with no weekly times is asked to set them; failures show nothing", () => {
+  assert.match(
+    renderWithBets({ status: "ready", data: { tz: "x", has_availability: false, opponents: [] } }),
+    /href="\/settings\/availability"/,
+  );
+  assert.doesNotMatch(renderWithBets({ status: "unavailable" }), /Best bets/);
 });

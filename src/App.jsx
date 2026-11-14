@@ -43,6 +43,7 @@ import CoachLessonRequestPage from "./pages/CoachLessonRequestPage";
 import AccountProfilePage from "./pages/AccountProfilePage";
 import PlayerMatchProfilePage from "./pages/PlayerMatchProfilePage";
 import PlayerMatchProfileEditPage from "./pages/PlayerMatchProfileEditPage";
+import AvailabilityPage from "./pages/AvailabilityPage";
 import PaymentMethodsPage from "./pages/PaymentMethodsPage";
 import PayLinkCheckoutPage from "./pages/PayLinkCheckoutPage";
 import BlockedUsersPage from "./pages/BlockedUsersPage";
@@ -798,6 +799,14 @@ const AppRoutes = () => (
           <PlayerMatchProfilePage />
         </ProtectedRoute>
       )}
+    />
+    <Route
+      path="/settings/availability"
+      element={isHomeV2Enabled() ? (
+        <ProtectedRoute>
+          <AvailabilityPage />
+        </ProtectedRoute>
+      ) : <Navigate to="/settings/match-profile" replace />}
     />
     <Route
       path="/settings/match-profile/edit"
