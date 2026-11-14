@@ -44,6 +44,8 @@ import AccountProfilePage from "./pages/AccountProfilePage";
 import PlayerMatchProfilePage from "./pages/PlayerMatchProfilePage";
 import PlayerMatchProfileEditPage from "./pages/PlayerMatchProfileEditPage";
 import AvailabilityPage from "./pages/AvailabilityPage";
+import LeagueArrangePage from "./pages/LeagueArrangePage";
+import LeaguePickPage from "./pages/LeaguePickPage";
 import PaymentMethodsPage from "./pages/PaymentMethodsPage";
 import PayLinkCheckoutPage from "./pages/PayLinkCheckoutPage";
 import BlockedUsersPage from "./pages/BlockedUsersPage";
@@ -380,6 +382,10 @@ const AppRoutes = () => (
       element={<HitRequestPage />}
     />
     <Route
+      path="/pick/:token"
+      element={<LeaguePickPage />}
+    />
+    <Route
       path="/coach-request/:token"
       element={<CoachLessonRequestPage />}
     />
@@ -625,6 +631,14 @@ const AppRoutes = () => (
           <LeagueDashboardPage />
         </ProtectedRoute>
       )}
+    />
+    <Route
+      path="/leagues/:id/arrange/:opponentId"
+      element={isHomeV2Enabled() ? (
+        <ProtectedRoute>
+          <LeagueArrangePage />
+        </ProtectedRoute>
+      ) : <Navigate to="/leagues" replace />}
     />
     <Route
       path="/leagues/:id/match-browser"

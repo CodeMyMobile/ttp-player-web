@@ -1,4 +1,5 @@
 import type { ScheduledLeagueMatch } from "../../utils/scheduledLeagueMatches";
+import type { ProposalRow } from "../../utils/leagueArrange";
 
 // Domain types for the League Dashboard.
 //
@@ -199,6 +200,10 @@ export interface LeagueData {
   /** The viewer's matches played and total, and weeks left (schedule summary, home v2).
    *  Absent in the offline fixtures. */
   progress?: { played: number; total: number; weeksLeft: number | null };
+  /** Opponents with an unplayed fixture against the viewer, who can be arranged (home v2). */
+  arrangeableOpponentIds?: string[];
+  /** Fixtures with times proposed and none picked yet (utils/leagueArrange). */
+  proposals?: ProposalRow[];
   hero: ViewerHero;
   /** Input for computeNextMove — the viewing player's live context. */
   nextMoveContext: NextMoveContext;

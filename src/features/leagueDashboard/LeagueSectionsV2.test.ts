@@ -93,3 +93,28 @@ test("best bets: a viewer with no weekly times is asked to set them; failures sh
   );
   assert.doesNotMatch(renderWithBets({ status: "unavailable" }), /Best bets/);
 });
+
+test("proposals waiting for a pick: yours to change, or theirs for you to pick", () => {
+  const html = renderToStaticMarkup(
+    createElement(
+      MemoryRouter,
+      null,
+      createElement(LeagueSectionsV2, {
+        data: {
+          ...data,
+          proposals: [
+            { fixtureId: "1", matchId: 900, opponentId: "20", opponentName: "Deepak", sentByViewer: true, times: ["a", "b"], location: null },
+            { fixtureId: "2", matchId: 901, opponentId: "30", opponentName: "Ana", sentByViewer: false, times: ["c"], location: null },
+          ],
+        },
+        section: "schedule",
+        onSection: () => {},
+        panel: { onSchedule: () => {} },
+      }),
+    ),
+  );
+  assert.match(html, /2 times sent · waiting for a pick/);
+  assert.match(html, /href="\/leagues\/[^"]+\/arrange\/20"[^>]*>Send new times/);
+  assert.match(html, /Sent you 1 time/);
+  assert.match(html, /href="\/matches\/901"[^>]*>Pick a time/);
+});

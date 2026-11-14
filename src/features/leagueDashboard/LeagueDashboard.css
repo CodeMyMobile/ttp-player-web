@@ -716,3 +716,13 @@
 .lgd .best-bets__arrange{flex:none;min-height:44px;padding:0 16px;border:1.5px solid var(--v2-primary-border);border-radius:12px;background:var(--v2-surface);color:var(--v2-primary);font-size:14px;font-weight:700;cursor:pointer}
 .lgd .best-bets__arrange.is-primary{border-color:var(--v2-primary);background:var(--v2-primary);color:#fff}
 .lgd .best-bets__more{align-self:flex-start;min-height:44px;padding:0;border:0;background:none;color:var(--v2-primary);font-size:14px;font-weight:700;cursor:pointer}
+
+/* Fixtures with times proposed, waiting for a pick (Schedule › Scheduled). */
+.lgd .sched-proposals{margin:0 0 8px;padding:0;list-style:none;border:1px solid var(--v2-border);border-radius:18px;background:var(--v2-surface)}
+.lgd .sched-proposal{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--v2-divider)}
+.lgd .sched-proposal:last-child{border-bottom:0}
+.lgd .sched-proposal__text{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.lgd .sched-proposal__who{font-size:16px;font-weight:700;color:var(--v2-ink)}
+.lgd .sched-proposal__state{font-size:14px;color:var(--v2-ink-2)}
+.lgd .sched-proposal__cta{flex:none;display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border:1.5px solid var(--v2-primary-border);border-radius:12px;color:var(--v2-primary);font-size:14px;font-weight:700;text-decoration:none;white-space:nowrap}
+.lgd .sched-proposal__cta.is-primary{border-color:var(--v2-primary);background:var(--v2-primary);color:#fff}
