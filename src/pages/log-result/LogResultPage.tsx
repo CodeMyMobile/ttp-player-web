@@ -8,6 +8,10 @@ import type { MatchType } from "./MatchTypeToggle";
 import { PlayerPicker } from "./PlayerPicker";
 import { WhenWhere } from "./WhenWhere";
 import { ScoreSection } from "./Scoreboard";
+import { ScoreGrid } from "./ScoreGrid";
+import { deciderKind } from "./scoreGridRules";
+import type { FormatChip } from "./scoreGridRules";
+import { isHomeV2Enabled } from "../../utils/featureFlags";
 import type { ScoreControls } from "./Scoreboard";
 import { ReviewCard } from "./ReviewCard";
 import { SentCard } from "./SentCard";
@@ -216,6 +220,23 @@ export default function LogResultPage() {
 
   const effectiveOpponent = matchType === "league" ? leagueOpponent : matchType === "recreational" ? opponent : null;
 
+  // Home v2: the score grid (ScoreGrid), and Submit score sends straight from this screen; the
+  // winner line under the grid takes the review screen's place.
+  const scoreGridOn = isHomeV2Enabled();
+  const replaceSet = (index: number, set: MatchSet) =>
+    setSets((current) => current.map((row, idx) => (idx === index ? set : row)));
+  const pickChip = (chip: FormatChip) => {
+    const kind = deciderKind(chip);
+    if (!kind) {
+      setDnf(true);
+      setDnfWinner(null);
+      return;
+    }
+    setDnf(false);
+    setDnfWinner(null);
+    if (sets[2] && sets[2].kind !== kind) controls.setKind(2, kind);
+  };
+
   const result = useMemo(() => computeResult({ sets, dnf, dnfWinner, format }), [sets, dnf, dnfWinner, format]);
   const valid = !!(matchType && effectiveOpponent && court && result.complete && me.id && (matchType === "recreational" || selectedFixture));
   const missing = !matchType ? "Choose Casual or League to start."
@@ -228,6 +249,7 @@ export default function LogResultPage() {
     : courtsError ? "Courts are unavailable right now."
     : !court ? "Choose a court to continue."
     : !result.complete ? "Finish entering the score."
+    : scoreGridOn ? `We’ll ask ${effectiveOpponent.name} to confirm it.`
     : "You’ll check it on the next screen before it’s sent.";
 
   const reset = () => {
@@ -310,12 +332,28 @@ export default function LogResultPage() {
     <Shell
       title="Log a score"
       me={me}
-      footer={
+      footer={scoreGridOn ? (
+        <>
+          <button
+            type="button"
+            disabled={!valid || submitting}
+            onClick={submit}
+            className="min-h-[48px] w-full rounded-xl bg-[var(--v2-primary)] text-[15px] font-bold text-white transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--v2-primary)]/40 focus-visible:ring-offset-2 disabled:bg-slate-200 disabled:text-[var(--v2-ink-2)]"
+          >
+            {submitting ? "Sending..." : "Submit score"}
+          </button>
+          {submitError ? (
+            <p className="mt-2 text-center text-xs font-semibold text-rose-700">{submitError}</p>
+          ) : (
+            <p className="mt-2 flex items-start gap-1.5 text-xs leading-snug text-[var(--v2-ink-2)]"><Info className="mt-px h-3.5 w-3.5 shrink-0" />{missing}</p>
+          )}
+        </>
+      ) : (
         <>
           <PrimaryButton disabled={!valid} onClick={() => setStep("review")}>Review result</PrimaryButton>
           <p className="mt-2 flex items-start gap-1.5 text-[11px] leading-snug text-slate-400"><Info className="h-3.5 w-3.5 mt-px shrink-0" />{missing}</p>
         </>
-      }
+      )}
     >
       <div className="rounded-2xl border border-slate-200 bg-white shadow-md shadow-slate-200/60">
         <div className="px-4 sm:px-6 py-4 sm:py-5 space-y-4 sm:space-y-5">
@@ -352,7 +390,23 @@ export default function LogResultPage() {
             />
           ) : null}
           <WhenWhere date={date} onDateChange={setDate} court={court} onCourtChange={setCourt} courts={courts} />
-          <ScoreSection me={me} opponent={opponent} format={format} sets={sets} dnf={dnf} dnfWinner={dnfWinner} result={result} controls={controls} />
+          {scoreGridOn ? (
+            <ScoreGrid
+              me={me}
+              opponent={effectiveOpponent}
+              format={format}
+              sets={sets}
+              dnf={dnf}
+              dnfWinner={dnfWinner}
+              result={result}
+              onSet={replaceSet}
+              onChip={pickChip}
+              onFormat={controls.changeFormat}
+              onDnfWinner={setDnfWinner}
+            />
+          ) : (
+            <ScoreSection me={me} opponent={opponent} format={format} sets={sets} dnf={dnf} dnfWinner={dnfWinner} result={result} controls={controls} />
+          )}
         </div>
       </div>
     </Shell>
