@@ -8,6 +8,7 @@
 //   Results   = results.
 
 import React, { useState, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 
 import BestBets from "./BestBets";
 import LeagueTabs, { type LeagueTabsProps } from "./LeagueTabs";
@@ -93,6 +94,31 @@ const LeagueSectionsV2 = ({ data, section, onSection, showTabs, actionSlot, look
 
           <section className="sched-block" aria-labelledby="sched-booked">
             <h2 className="sched-h" id="sched-booked">Scheduled</h2>
+            {data.proposals?.length ? (
+              <ul className="sched-proposals">
+                {data.proposals.map((row) => (
+                  <li key={row.fixtureId} className="sched-proposal">
+                    <span className="sched-proposal__text">
+                      <span className="sched-proposal__who">{row.opponentName}</span>
+                      <span className="sched-proposal__state">
+                        {row.sentByViewer
+                          ? `${row.times.length} ${row.times.length === 1 ? "time" : "times"} sent · waiting for a pick`
+                          : `Sent you ${row.times.length} ${row.times.length === 1 ? "time" : "times"}`}
+                      </span>
+                    </span>
+                    {row.sentByViewer ? (
+                      <Link className="sched-proposal__cta" to={`/leagues/${data.summary.id}/arrange/${row.opponentId}`}>
+                        Send new times
+                      </Link>
+                    ) : (
+                      <Link className="sched-proposal__cta is-primary" to={`/matches/${row.matchId}`}>
+                        Pick a time
+                      </Link>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
             <LeagueTabs {...panel} data={data} activeTab="scheduled" onTabChange={noop} hideTabBar scheduledEmpty="Nothing booked yet" />
           </section>
 

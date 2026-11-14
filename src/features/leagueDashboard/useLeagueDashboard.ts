@@ -40,6 +40,7 @@ import { deriveNtrp, deriveUtr } from "../../utils/ratingConversions";
 import { byNewestPlayed, playedAtMs } from "./resultRows"
 import { computeNextMove } from "./nextMove";
 import { deriveSeasonEnrichment, weeksRemaining } from "../../utils/leagueSeason";
+import { fixtureAgainst, proposalRows } from "../../utils/leagueArrange";
 import type {
   LeagueData,
   LeagueStatus,
@@ -656,6 +657,13 @@ const buildDashboard = (
     weeksLeft: archived ? 0 : weeksRemaining((league.end_date || league.deadline || null) as string | null),
   };
 
+  // Arranging (home v2): who the viewer still has a fixture to arrange with, and fixtures with
+  // times proposed but not yet picked. `pending` is the viewer's own scheduled fixtures.
+  const arrangeableOpponentIds = players
+    .map((player) => String(player.player_id))
+    .filter((pid) => pid !== viewerId && fixtureAgainst(pending, pid) !== null);
+  const proposals = proposalRows(pending, viewerId || null);
+
   const data: LeagueData = {
     summary,
     standings: standingRows,
@@ -674,6 +682,8 @@ const buildDashboard = (
     },
     season,
     progress,
+    arrangeableOpponentIds,
+    proposals,
     hero,
     nextMoveContext,
     pendingScoreCount: pending.length,

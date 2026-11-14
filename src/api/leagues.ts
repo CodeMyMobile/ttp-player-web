@@ -111,7 +111,23 @@ export interface LeagueResultOpponent {
   [key: string]: unknown;
 }
 
+/** A fixture's arranged match (ttp-api #458): proposed until the opponent picks a time. */
+export interface FixtureScheduledMatch {
+  id: number;
+  host_id: number;
+  status: "open" | "confirmed";
+  picked: boolean;
+  start_date_time: string;
+  /** Filled until a time is picked. */
+  proposed_times: string[];
+  timezone?: string | null;
+  location_text?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+}
+
 export interface LeagueFixture {
+  scheduled_match?: FixtureScheduledMatch | null;
   id: number | string;
   league_id: number | string;
   player1_id?: number | string;
@@ -663,3 +679,30 @@ export const dismissLeagueMatchSuggestion = ({
     method: "POST",
     token,
   });
+
+export interface ProposeFixtureBody {
+  times: string[];
+  location: { location_text: string; latitude?: number | null; longitude?: number | null };
+  notes?: string;
+  timezone?: string;
+}
+
+/**
+ * Proposes times for a fixture (ttp-api #458). Creates the fixture's arranged match, replacing any
+ * open or confirmed one, and texts the opponent. They pick through the match page or the pick link.
+ */
+export const proposeFixtureTimes = ({
+  leagueId,
+  fixtureId,
+  token,
+  body,
+}: {
+  leagueId: number | string;
+  fixtureId: number | string;
+  token?: string;
+  body: ProposeFixtureBody;
+}) =>
+  request<{ match: { id: number }; opponent_id: number; texted: boolean }, ProposeFixtureBody>(
+    `/leagues/${leagueId}/matches/${fixtureId}/propose`,
+    { method: "POST", token, body },
+  );

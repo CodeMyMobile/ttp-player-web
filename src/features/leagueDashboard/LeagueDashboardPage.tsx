@@ -263,10 +263,19 @@ const LeagueDashboardPage = () => {
       {lessonsCard}
     </>
   ) : null;
+  // Home v2: Arrange opens the propose-times screen for an opponent with an unplayed fixture;
+  // anyone else (a flex league with no fixture between you) still gets the create flow.
+  const arrange = (playerId: string) => {
+    if (data?.arrangeableOpponentIds?.includes(String(playerId))) {
+      navigate(`/leagues/${id}/arrange/${playerId}`);
+      return;
+    }
+    goProposeMatch(playerId);
+  };
   const panelProps = {
     onSchedule: () => goPostAvailability(),
     onChallenge: goChallenge,
-    onProposeMatch: goProposeMatch,
+    onProposeMatch: scheduleOn ? arrange : goProposeMatch,
     viewerName,
     ladderNudge,
     onCancelScheduled: (matchId: string | number, viewerIsHost: boolean) => {

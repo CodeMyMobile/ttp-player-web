@@ -1,0 +1,290 @@
+/* Propose times for a league fixture, and the public pick page (home v2, §6.2–6.3). */
+.arrange-page {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 20px 16px calc(var(--tab-bar-clearance, 24px) + 16px);
+  color: var(--v2-ink);
+}
+
+.arrange-skeleton {
+  height: 420px;
+  border-radius: 18px;
+  background: var(--v2-divider);
+}
+
+.arrange-page__title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.arrange-page__lede {
+  margin: 4px 0 16px;
+  font-size: 15px;
+  color: var(--v2-ink-2);
+}
+
+.arrange-page__warn {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--v2-urgent-bg);
+  color: var(--v2-urgent);
+  font-size: 14px;
+}
+
+.arrange-page__link {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--v2-primary);
+}
+
+.arrange-block {
+  margin-bottom: 20px;
+}
+
+.arrange-h {
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.arrange-empty,
+.arrange-note {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: var(--v2-ink-2);
+}
+
+.arrange-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--v2-border);
+  border-radius: 18px;
+  background: var(--v2-surface);
+}
+
+.arrange-list:empty {
+  display: none;
+}
+
+.arrange-list li + li {
+  border-top: 1px solid var(--v2-divider);
+}
+
+.arrange-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 60px;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+.arrange-row input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.arrange-row__box {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1.5px solid var(--v2-primary-border);
+  border-radius: 7px;
+  color: #ffffff;
+}
+
+.arrange-row.is-on .arrange-row__box {
+  border-color: var(--v2-primary);
+  background: var(--v2-primary);
+}
+
+.arrange-row input:focus-visible + .arrange-row__box {
+  outline: 2px solid var(--v2-primary);
+  outline-offset: 2px;
+}
+
+.arrange-row input:disabled + .arrange-row__box {
+  opacity: 0.4;
+}
+
+.arrange-row__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.arrange-row__when {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.arrange-row__window {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--v2-success);
+}
+
+.arrange-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.arrange-add input,
+.arrange-select {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--v2-border);
+  border-radius: 12px;
+  background: var(--v2-surface);
+  color: var(--v2-ink);
+  font-size: 16px;
+}
+
+.arrange-select {
+  width: 100%;
+}
+
+.arrange-add button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1.5px solid var(--v2-primary-border);
+  border-radius: 12px;
+  background: var(--v2-surface);
+  color: var(--v2-primary);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.arrange-add button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.arrange-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.arrange-send,
+.pick-time {
+  min-height: 52px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--v2-primary);
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.arrange-send:disabled {
+  background: var(--v2-divider);
+  color: var(--v2-ink-2);
+  cursor: default;
+}
+
+/* Pick page: one big button per time. Only the first is filled (§7). */
+.pick-times {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.pick-time.is-outline {
+  border: 1.5px solid var(--v2-primary-border);
+  background: var(--v2-surface);
+  color: var(--v2-primary);
+}
+
+.pick-time:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.pick-none {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--v2-primary);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pick-note {
+  width: 100%;
+  min-height: 80px;
+  margin: 8px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--v2-border);
+  border-radius: 12px;
+  font: inherit;
+  font-size: 16px;
+}
+
+.pick-card {
+  padding: 16px;
+  border: 1px solid var(--v2-border);
+  border-radius: 18px;
+  background: var(--v2-surface);
+}
+
+.pick-card__eyebrow {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--v2-success);
+}
+
+.pick-card__when {
+  margin: 4px 0;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.pick-card__who {
+  margin: 0;
+  font-size: 15px;
+  color: var(--v2-ink-2);
+}
+
+.pick-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.pick-actions > * {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  border: 1.5px solid var(--v2-primary-border);
+  border-radius: 12px;
+  background: var(--v2-surface);
+  color: var(--v2-primary);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
