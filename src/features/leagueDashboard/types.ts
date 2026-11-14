@@ -196,6 +196,9 @@ export interface LeagueData {
   ticker: TickerItem[];
   week: WeekStats;
   season: SeasonProgress;
+  /** The viewer's matches played and total, and weeks left (schedule summary, home v2).
+   *  Absent in the offline fixtures. */
+  progress?: { played: number; total: number; weeksLeft: number | null };
   hero: ViewerHero;
   /** Input for computeNextMove — the viewing player's live context. */
   nextMoveContext: NextMoveContext;

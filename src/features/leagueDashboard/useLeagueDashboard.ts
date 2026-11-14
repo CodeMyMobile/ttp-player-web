@@ -39,6 +39,7 @@ import { orientScore } from "../../pages/leagueScore";
 import { deriveNtrp, deriveUtr } from "../../utils/ratingConversions";
 import { byNewestPlayed, playedAtMs } from "./resultRows"
 import { computeNextMove } from "./nextMove";
+import { deriveSeasonEnrichment, weeksRemaining } from "../../utils/leagueSeason";
 import type {
   LeagueData,
   LeagueStatus,
@@ -642,6 +643,19 @@ const buildDashboard = (
     viewerId,
   });
 
+  // The schedule summary (home v2): played and total by the same rule as home's league card
+  // (utils/leagueSeason.deriveSeasonEnrichment), so the two screens can't disagree.
+  const enrichment = deriveSeasonEnrichment({
+    standings,
+    fixtures: [...completed, ...pending],
+    viewerIdentities: viewer.identities,
+  });
+  const progress = {
+    played: enrichment.matchesPlayed ?? 0,
+    total: enrichment.matchesTotal ?? 0,
+    weeksLeft: archived ? 0 : weeksRemaining((league.end_date || league.deadline || null) as string | null),
+  };
+
   const data: LeagueData = {
     summary,
     standings: standingRows,
@@ -659,6 +673,7 @@ const buildDashboard = (
       hottestStreak,
     },
     season,
+    progress,
     hero,
     nextMoveContext,
     pendingScoreCount: pending.length,

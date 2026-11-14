@@ -88,7 +88,7 @@ const TrendCell = ({ row }: { row: StandingRow }) => {
   return <span className="trend flat">–</span>;
 };
 
-interface LeagueTabsProps {
+export interface LeagueTabsProps {
   data: LeagueData;
   activeTab: TabKey;
   onTabChange: (tab: TabKey) => void;
@@ -113,6 +113,8 @@ interface LeagueTabsProps {
   pointerCoarse?: boolean;
   /** The clinic prompt under the viewer's ladder row. Absent when the flag is off. */
   ladderNudge?: LadderNudgeInput | null;
+  /** The Scheduled panel's empty line. Home v2's Schedule section says it in three words. */
+  scheduledEmpty?: string;
 }
 
 /** Roster player as the contact helpers want it — ratings ride along for the vCard name. */
@@ -155,6 +157,7 @@ const LeagueTabs = ({
   contactSheetEnabled: contactSheetEnabledProp,
   pointerCoarse: pointerCoarseProp,
   ladderNudge = null,
+  scheduledEmpty,
 }: LeagueTabsProps) => {
   const nudgeLeagueId = ladderNudge?.leagueId ?? null;
   const [nudgeDismissed, setNudgeDismissed] = useState(() =>
@@ -587,8 +590,8 @@ const LeagueTabs = ({
           ))
         ) : (
           <div className="list-empty">
-            No scheduled matches yet. Post a time you can play, or accept one another
-            player has offered.
+            {scheduledEmpty ??
+              "No scheduled matches yet. Post a time you can play, or accept one another player has offered."}
           </div>
         )}
       </section>

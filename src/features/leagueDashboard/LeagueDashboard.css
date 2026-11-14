@@ -683,3 +683,19 @@
   .lgd .hero .hero__clinic-link{display:inline-flex;align-items:center;min-height:44px;margin-top:4px;
     color:#fff;font-size:13.5px;font-weight:600}
 }
+
+/* ── Home v2: Schedule · Standings · Results (LeagueSectionsV2) ───────────────── */
+.lgd .sched{display:flex;flex-direction:column;gap:16px}
+.lgd .sched-summary{padding:16px;border:1px solid var(--v2-border);border-radius:18px;background:var(--v2-surface);color:var(--v2-ink)}
+.lgd .sched-summary__top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.lgd .sched-summary__count{font-size:20px;font-weight:700}
+.lgd .sched-chip{flex:none;padding:4px 10px;border-radius:999px;background:var(--v2-primary-tint);color:var(--v2-primary);font-size:13px;font-weight:600;white-space:nowrap}
+.lgd .sched-chip--urgent{background:var(--v2-urgent-bg);color:var(--v2-urgent)}
+.lgd .sched-summary__bar{height:8px;margin-top:12px;border-radius:999px;background:var(--v2-divider);overflow:hidden}
+.lgd .sched-summary__bar i{display:block;height:100%;border-radius:inherit;background:var(--v2-primary)}
+.lgd .sched-summary__pace{margin:10px 0 0;font-size:14px;color:var(--v2-ink-2)}
+.lgd .sched-block{display:flex;flex-direction:column;gap:8px}
+.lgd .sched-h{margin:0;font-size:20px;font-weight:700;color:var(--v2-ink)}
+.lgd .sched-switch{display:inline-flex;align-self:flex-start;gap:4px;padding:4px;border-radius:12px;background:var(--v2-divider)}
+.lgd .sched-switch__item{min-height:40px;padding:0 16px;border:0;border-radius:9px;background:transparent;color:var(--v2-ink-2);font-size:14px;font-weight:600;cursor:pointer}
+.lgd .sched-switch__item.is-on{background:var(--v2-surface);color:var(--v2-primary);font-weight:700;box-shadow:0 1px 3px rgba(15,23,42,.12)}

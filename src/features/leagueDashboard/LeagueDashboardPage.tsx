@@ -16,6 +16,7 @@ import ActionSlot from "./ActionSlot";
 import Hero from "./Hero";
 import Icon from "./Icon";
 import LeagueSwitcher from "./LeagueSwitcher";
+import LeagueSectionsV2, { SCHEDULE_SECTIONS, type ScheduleSectionKey } from "./LeagueSectionsV2";
 import LeagueTabs from "./LeagueTabs";
 import LessonsAtYourLevel from "./LessonsAtYourLevel";
 import PlayersLooking from "./PlayersLooking";
@@ -30,7 +31,7 @@ import { cancelHostedMatch, leaveMatch } from "../../api/matches";
 import { getStoredAuthToken } from "../../services/authToken";
 import { useLeagueDashboard } from "./useLeagueDashboard";
 import { useLevelMatchedLessons } from "./useLevelMatchedLessons";
-import { isLeagueCoachingPromptsEnabled } from "../../utils/featureFlags";
+import { isHomeV2Enabled, isLeagueCoachingPromptsEnabled } from "../../utils/featureFlags";
 import { track } from "../../utils/analytics";
 import type { NextMoveTarget, TabKey } from "./types";
 
@@ -97,6 +98,9 @@ const LeagueDashboardPage = () => {
   // Mobile section state (Overview + the four data tabs). Kept separate from the
   // desktop `activeTab` so "overview" can never leak into the desktop LeagueTabs.
   const [section, setSection] = useState<SectionKey>("overview");
+  // Home v2: the page is Schedule · Standings · Results (LeagueSectionsV2), on both branches.
+  const scheduleOn = isHomeV2Enabled();
+  const [schedSection, setSchedSection] = useState<ScheduleSectionKey>("schedule");
 
   // "See full standings" (mobile Overview preview) switches to the Standings
   // section AND moves focus into the panel for keyboard/AT users. The panel only
@@ -119,6 +123,7 @@ const LeagueDashboardPage = () => {
   useEffect(() => {
     setActiveTab("ladder");
     setSection("overview");
+    setSchedSection("schedule");
   }, [data?.summary.id]);
 
   // Jump to the Pending list from either branch's affordances (banner "View",
@@ -127,6 +132,7 @@ const LeagueDashboardPage = () => {
   const showPending = () => {
     setActiveTab("pending");
     setSection("pending");
+    setSchedSection("schedule");
   };
 
   // Hand off to the existing LeagueDetailPage flows via router state (the same
@@ -231,6 +237,42 @@ const LeagueDashboardPage = () => {
     }
   };
 
+  // Home v2's sections (LeagueSectionsV2) reuse the same prompt, list and handlers as below.
+  const actionSlotFor = (onRespond: () => void) =>
+    data ? (
+      <ActionSlot
+        reportOpponent={data.nextMoveContext.unscored_results[0]?.opponentName}
+        challengeFrom={data.nextMoveContext.pending_challenges_for_me[0]?.fromName}
+        lookingName={data.looking[0]?.name}
+        playersLookingCount={data.playersLookingCount}
+        onReport={() => goLogScore()}
+        onRespond={onRespond}
+        onSeeLooking={() => navigate(`/leagues/${id}/match-browser`)}
+        onViewAll={() => navigate(`/leagues/${id}/match-browser`)}
+      />
+    ) : null;
+  const lookingAndLessons = data ? (
+    <>
+      <PlayersLooking
+        looking={data.looking}
+        onNeedMatch={() => goPostAvailability()}
+        onSeeAll={() => navigate(`/leagues/${id}/match-browser`)}
+      />
+      {lessonsCard}
+    </>
+  ) : null;
+  const panelProps = {
+    onSchedule: () => goPostAvailability(),
+    onChallenge: goChallenge,
+    onProposeMatch: goProposeMatch,
+    viewerName,
+    ladderNudge,
+    onCancelScheduled: (matchId: string | number, viewerIsHost: boolean) => {
+      setCancelError(null);
+      setCancelTarget({ id: matchId, viewerIsHost });
+    },
+  };
+
   return (
     <MainLayout
       pageClassName="leagues-shell lgd-shell"
@@ -264,6 +306,24 @@ const LeagueDashboardPage = () => {
           if (isMobile) {
             if (notReady || !data || !hero || !nextMove) {
               return <div className="wrap">{loadingOrError}</div>;
+            }
+            if (scheduleOn) {
+              return (
+                <>
+                  <SectionNav section={schedSection} onChange={setSchedSection} sections={SCHEDULE_SECTIONS} />
+                  <div className="wrap">
+                    <LeagueSectionsV2
+                      data={data}
+                      section={schedSection}
+                      onSection={setSchedSection}
+                      actionSlot={actionSlotFor(showPending)}
+                      looking={lookingAndLessons}
+                      panel={panelProps}
+                    />
+                    <div className="mobile-foot">{data.summary.sub}</div>
+                  </div>
+                </>
+              );
             }
             return (
               <>
@@ -355,6 +415,18 @@ const LeagueDashboardPage = () => {
                     </div>
                   </div>
 
+                  {scheduleOn ? (
+                    <LeagueSectionsV2
+                      data={data}
+                      section={schedSection}
+                      onSection={setSchedSection}
+                      showTabs
+                      actionSlot={actionSlotFor(showPending)}
+                      looking={lookingAndLessons}
+                      panel={panelProps}
+                    />
+                  ) : (
+                  <>
                   {/* Unified contextual slot (replaces the league-wide pending
                       banner + the next-move card on desktop, mirroring mobile).
                       Full-width, top of content: ONE specific named prompt, or
@@ -410,6 +482,8 @@ const LeagueDashboardPage = () => {
                       setCancelTarget({ id: matchId, viewerIsHost });
                     }}
                   />
+                  </>
+                  )}
                 </>
               )}
             </div>
