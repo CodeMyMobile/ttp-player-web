@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   bookLessonDestination,
+  newMatchOptions,
   PLAN_BUTTON_LABEL,
   planSheetActions,
   plusSheetActions,
@@ -72,4 +73,18 @@ test("Add a workout: today's session once started (repeating after day 7), else 
   assert.equal(workoutDestination(null, "2026-11-06"), "/training-plan");
   assert.equal(workoutDestination({ startedOn: "2026-11-04", done: {} }, "2026-11-06"), "/training-plan?day=3");
   assert.equal(workoutDestination({ startedOn: "2026-11-04", done: {} }, "2026-11-11"), "/training-plan?day=1");
+});
+
+test("New match offers Friendly, then one League match per running league", () => {
+  assert.deepEqual(newMatchOptions([]).map((option) => option.key), ["friendly"]);
+  const options = newMatchOptions([{ id: 4, name: "Fall Flex 4.0" }, { id: 9, name: " " }]);
+  assert.deepEqual(
+    options.map((option) => [option.label, option.subtitle, option.path]),
+    [
+      ["Friendly", "Post a time and invite players", "/create"],
+      ["League match", "Fall Flex 4.0", "/leagues/4/dashboard"],
+      ["League match", "Your league", "/leagues/9/dashboard"],
+    ],
+  );
+  assert.ok(!options.some((option) => /rated/i.test(option.label)));
 });

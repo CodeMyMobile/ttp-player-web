@@ -262,6 +262,15 @@
   cursor: pointer;
 }
 
+/* New match's step: the back arrow sits before the title. */
+.mbn-sheet__back {
+  margin: 0 4px 0 -10px;
+}
+
+.mbn-sheet__head:has(.mbn-sheet__back) .mbn-sheet__heading {
+  flex: 1;
+}
+
 .mbn-sheet__close:active {
   background: #f1f5f9;
 }
