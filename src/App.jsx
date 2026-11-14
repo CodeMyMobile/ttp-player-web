@@ -73,6 +73,7 @@ import { isPlaySectionsEnabled, playSectionDestination } from "./utils/playSecti
 import MyWeekPage from "./pages/MyWeekPage";
 import LogResultPage from "./pages/log-result";
 import ConfirmResultPage from "./pages/log-result/ConfirmResultPage";
+import ResultPage from "./pages/log-result/ResultPage";
 import MobileHomeBottomNav from "./components/MobileHomeBottomNav";
 import PlayerCoachListPage from "./pages/PlayerCoachListPage";
 import RestringingClaimPage from "./restringing/RestringingClaimPage";
@@ -473,6 +474,14 @@ const AppRoutes = () => (
           <LogResultPage />
         </LogResultProtectedPageRoute>
       )}
+    />
+    <Route
+      path="/log-result/result/:id"
+      element={isHomeV2Enabled() ? (
+        <ProtectedRoute>
+          <ResultPage />
+        </ProtectedRoute>
+      ) : <Navigate to="/log-result" replace />}
     />
     <Route
       path="/log-result/confirm/:id"

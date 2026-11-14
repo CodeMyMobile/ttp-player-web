@@ -94,6 +94,7 @@ export interface LeagueFixture {
 export interface MatchResultDetail {
   id: number | string;
   status: "pending" | "confirmed" | "disputed" | "voided" | string;
+  context?: "recreational" | "league" | string | null;
   player_a: number | string;
   player_b: number | string;
   player_a_name?: string | null;
@@ -431,7 +432,33 @@ export function getMatchResult(id: string): Promise<{ match_result: MatchResultD
   return unwrap(api(`/match-results/${id}`));
 }
 
-export function confirmMatchResult(id: string): Promise<{ match_result: MatchResultDetail }> {
+/** The result screen's numbers, from the viewer's side (ttp-api #460). */
+export interface MatchOutcome {
+  id: number;
+  status: string;
+  context: "recreational" | "league" | string;
+  played_at: string | null;
+  won: boolean;
+  retired: boolean;
+  sets: Array<{ you: number | null; opp: number | null; kind: string }>;
+  opponent: { id: number; name: string | null };
+  rating: { before: number | null; after: number | null; delta: number | null } | null;
+  first_confirmed_result: boolean;
+  league: {
+    id: number;
+    rank_before: number | null;
+    rank_after: number;
+    places: number | null;
+    total: number;
+    rows_around: Array<{ rank: number; player_id: number; name: string | null; wins: number; losses: number; you: boolean }>;
+  } | null;
+}
+
+export function getMatchOutcome(id: string): Promise<{ outcome: MatchOutcome }> {
+  return unwrap(api(`/match-results/${id}/outcome`));
+}
+
+export function confirmMatchResult(id: string): Promise<{ match_result: MatchResultDetail; outcome?: MatchOutcome }> {
   return unwrap(
     api(`/match-results/${id}/confirm`, {
       method: "POST",

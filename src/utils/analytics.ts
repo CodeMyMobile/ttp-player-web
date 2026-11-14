@@ -69,6 +69,11 @@ export const ANALYTICS_EVENTS = {
   leagueTimesSent: "league_times_sent",
   leagueInviteOpened: "league_invite_opened",
   leagueTimeConfirmed: "league_time_confirmed",
+  // Scores (§8): a league score logged ({}), confirmed by the opponent ({}), and the standings
+  // picture shared or saved ({ method: "shared" | "downloaded" }).
+  leagueScoreSubmitted: "league_score_submitted",
+  leagueScoreConfirmed: "league_score_confirmed",
+  leagueStandingsShared: "league_standings_shared",
   // New match's type picker: { type: "friendly" | "league" }.
   newMatchType: "new_match_type",
   // Someone added to a circle: from search, a suggestion or their profile. Never who.
