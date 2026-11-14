@@ -282,11 +282,14 @@ const restringOrdersFetcher = async () => {
 export function useHomeAlerts(skip = false): {
   loading: boolean;
   alerts: HomeAlert[];
+  /** The restring orders behind the alerts, for Action needed's restring nudge. */
+  restringOrders: unknown[];
 } {
   const { data, loading } = useApiRequest(restringOrdersFetcher, NO_PARAMS, { skip });
-  const alerts = useMemo(() => buildHomeAlerts({ restringOrders: data ?? [] }), [data]);
+  const restringOrders = useMemo(() => data ?? [], [data]);
+  const alerts = useMemo(() => buildHomeAlerts({ restringOrders }), [restringOrders]);
 
-  return { loading, alerts };
+  return { loading, alerts, restringOrders };
 }
 
 /** The list endpoint has been seen returning several envelope shapes. */

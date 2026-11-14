@@ -50,6 +50,8 @@ export const ANALYTICS_EVENTS = {
   homeCircleView: "home_circle_view",
   homeCircleClick: "home_circle_click",
   homeShortcutTap: "home_shortcut_tap",
+  restringNudgeShown: "restring_nudge_shown",
+  restringNudgeTap: "restring_nudge_tap",
   // My Week actions. The item's source and type, its day (0 = today) and place in the day,
   // never which match, class or person: enough to tune the ranking.
   myWeekSkip: "my_week_skip",

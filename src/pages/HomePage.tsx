@@ -54,10 +54,13 @@ export default function HomePage() {
     [week.days, week.later],
   );
 
-  const { alerts, loading: alertsLoading } = useHomeAlerts();
+  const { alerts, restringOrders, loading: alertsLoading } = useHomeAlerts();
   const { items: invites, loading: invitesLoading } = useHomeInvites();
   const { seasons, loading: seasonsLoading } = useActiveSeasons(user);
-  const actionRows = useMemo(() => buildActionRows({ invites, alerts }), [invites, alerts]);
+  const actionRows = useMemo(
+    () => buildActionRows({ invites, alerts, restringOrders }),
+    [invites, alerts, restringOrders],
+  );
 
   const { rows: circleRows, loading: circleLoading } = usePlayerCircle(viewerId);
   const {
