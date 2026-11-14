@@ -29,6 +29,7 @@ import { challengeService } from "./challengeService";
 import { useIsMobile } from "./useIsMobile";
 import { cancelHostedMatch, leaveMatch } from "../../api/matches";
 import { getStoredAuthToken } from "../../services/authToken";
+import { useBestBets } from "./useBestBets";
 import { useLeagueDashboard } from "./useLeagueDashboard";
 import { useLevelMatchedLessons } from "./useLevelMatchedLessons";
 import { isHomeV2Enabled, isLeagueCoachingPromptsEnabled } from "../../utils/featureFlags";
@@ -101,6 +102,7 @@ const LeagueDashboardPage = () => {
   // Home v2: the page is Schedule · Standings · Results (LeagueSectionsV2), on both branches.
   const scheduleOn = isHomeV2Enabled();
   const [schedSection, setSchedSection] = useState<ScheduleSectionKey>("schedule");
+  const bestBets = useBestBets(data?.summary.id, scheduleOn && Boolean(data) && !data?.summary.archived);
 
   // "See full standings" (mobile Overview preview) switches to the Standings
   // section AND moves focus into the panel for keyboard/AT users. The panel only
@@ -318,6 +320,7 @@ const LeagueDashboardPage = () => {
                       onSection={setSchedSection}
                       actionSlot={actionSlotFor(showPending)}
                       looking={lookingAndLessons}
+                      bestBets={bestBets}
                       panel={panelProps}
                     />
                     <div className="mobile-foot">{data.summary.sub}</div>
@@ -423,6 +426,7 @@ const LeagueDashboardPage = () => {
                       showTabs
                       actionSlot={actionSlotFor(showPending)}
                       looking={lookingAndLessons}
+                      bestBets={bestBets}
                       panel={panelProps}
                     />
                   ) : (
