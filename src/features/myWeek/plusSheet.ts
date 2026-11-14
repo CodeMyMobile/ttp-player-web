@@ -46,6 +46,33 @@ export const planSheetActions = ({ onLadder }: { onLadder: boolean }): PlusActio
     : []),
 ];
 
+export type NewMatchType = "friendly" | "league";
+
+export interface NewMatchOption {
+  key: string;
+  type: NewMatchType;
+  label: string;
+  subtitle: string;
+  path: string;
+}
+
+/**
+ * New match's first step (home v2, §5): what kind. Friendly is the existing create flow; there's
+ * one League match row per running league (utils/leagueSeason.activeSeasons), opening that
+ * league. There's no Rated option: every confirmed result already counts toward the rating.
+ * With no running league, Friendly is the only choice and the picker is skipped.
+ */
+export const newMatchOptions = (leagues: { id: number | string; name?: string | null }[]): NewMatchOption[] => [
+  { key: "friendly", type: "friendly", label: "Friendly", subtitle: "Post a time and invite players", path: "/create" },
+  ...leagues.map((league) => ({
+    key: `league-${league.id}`,
+    type: "league" as const,
+    label: "League match",
+    subtitle: league.name?.trim() || "Your league",
+    path: `/leagues/${league.id}/dashboard`,
+  })),
+];
+
 /** The + button's name for screen readers once its visible label is gone (home v2). */
 export const PLAN_BUTTON_LABEL = "Plan: new match, book a lesson, book a restring, log a score, add a workout";
 

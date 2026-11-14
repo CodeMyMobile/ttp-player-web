@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ArrowLeft,
   CalendarDays,
   CalendarPlus,
   ClipboardList,
   Dumbbell,
   GraduationCap,
+  Handshake,
   Home,
   Plus,
   Search,
@@ -27,14 +29,17 @@ import { isPlaySectionsEnabled } from "../utils/playSections";
 import { badgeLabel, useMyWeekBadge } from "../features/myWeek/useMyWeek";
 import {
   bookLessonDestination,
+  newMatchOptions,
   PLAN_BUTTON_LABEL,
   planSheetActions,
   plusSheetActions,
   PLUS_ACTION_PATHS,
   workoutDestination,
+  type NewMatchOption,
   type PlusAction,
   type PlusActionKey,
 } from "../features/myWeek/plusSheet";
+import { activeSeasons } from "../utils/leagueSeason";
 import { readPlanProgress } from "../features/myWeek/trainingPlanProgress";
 import { WEEK_TYPE_COLORS } from "../features/myWeek/typeColors";
 import { getPlayerCoaches } from "../api/playerCalendar";
@@ -74,17 +79,27 @@ const ACTION_ICONS: Record<PlusActionKey, LucideIcon> = {
   ladderChallenge: Swords,
 };
 
+/** A row of the Plan sheet's later steps, which aren't + actions (New match's type picker). */
+type SheetRow = { key: string; label: string; subtitle: string; icon: LucideIcon; onClick: () => void };
+
 const QuickActionSheet = ({
   actions,
   onClose,
   onAction,
   plan = false,
+  title = "Plan",
+  rows,
+  onBack,
 }: {
   actions: PlusAction[];
   onClose: () => void;
   onAction: (key: PlusActionKey) => void;
   /** Home v2's Plan sheet: a "Plan" title with a close button, and list rows with subtitles. */
   plan?: boolean;
+  /** Plan sheet only: a later step's title, its rows in place of `actions`, and a way back. */
+  title?: string;
+  rows?: SheetRow[];
+  onBack?: () => void;
 }) => {
   const sheetRef = useRef<HTMLDivElement>(null);
   const touchStartY = useRef<number | null>(null);
@@ -92,10 +107,12 @@ const QuickActionSheet = ({
   // Focus-trap: focus the first action on open, restore to the opener on close.
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
-    const first = sheetRef.current?.querySelector<HTMLElement>(".mbn-sheet__action");
-    first?.focus();
     return () => opener?.focus?.();
   }, []);
+  // ...and the first row again whenever the sheet moves to another step.
+  useEffect(() => {
+    sheetRef.current?.querySelector<HTMLElement>(".mbn-sheet__action")?.focus();
+  }, [title]);
 
   const onKeyDown = (event: React.KeyboardEvent) => {
     if (event.key === "Escape") {
@@ -147,7 +164,7 @@ const QuickActionSheet = ({
         className={`mbn-sheet${plan ? " mbn-sheet--plan" : ""}`}
         role="dialog"
         aria-modal="true"
-        aria-label={plan ? "Plan" : "Quick actions"}
+        aria-label={plan ? title : "Quick actions"}
         onKeyDown={onKeyDown}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
@@ -155,7 +172,12 @@ const QuickActionSheet = ({
         <div className="mbn-sheet__handle" aria-hidden="true" />
         {plan ? (
           <div className="mbn-sheet__head">
-            <h2 className="mbn-sheet__heading">Plan</h2>
+            {onBack ? (
+              <button type="button" className="mbn-sheet__close mbn-sheet__back" aria-label="Back to Plan" onClick={onBack}>
+                <ArrowLeft size={20} aria-hidden="true" />
+              </button>
+            ) : null}
+            <h2 className="mbn-sheet__heading">{title}</h2>
             <button type="button" className="mbn-sheet__close" aria-label="Close" onClick={onClose}>
               <X size={20} aria-hidden="true" />
             </button>
@@ -163,7 +185,18 @@ const QuickActionSheet = ({
         ) : (
           <p className="mbn-sheet__title">Quick actions</p>
         )}
-        {actions.map((action) => {
+        {rows?.map((row) => (
+          <button key={row.key} type="button" className="mbn-sheet__action" onClick={row.onClick}>
+            <span className="mbn-sheet__action-icon">
+              <row.icon size={22} />
+            </span>
+            <span className="mbn-sheet__action-text">
+              <span className="mbn-sheet__action-label">{row.label}</span>
+              <span className="mbn-sheet__action-sub">{row.subtitle}</span>
+            </span>
+          </button>
+        ))}
+        {(rows ? [] : actions).map((action) => {
           const Icon = ACTION_ICONS[action.key];
           const color = action.type ? WEEK_TYPE_COLORS[action.type] : null;
           return (
@@ -196,20 +229,72 @@ const QuickActionSheet = ({
  */
 const PlanSheet = ({
   viewerId,
+  token,
   onClose,
   onAction,
+  onNewMatch,
 }: {
   viewerId: number | null;
+  token: string | undefined;
   onClose: () => void;
   onAction: (key: PlusActionKey) => void;
+  onNewMatch: (option: NewMatchOption) => void;
 }) => {
   const { ratingState } = useLadderStanding(viewerId);
+  const [step, setStep] = useState<"plan" | "newMatch">("plan");
+  // The player's running leagues, asked for when the sheet opens so New match can tell at
+  // once whether there's a choice to make. Null while loading; a failure counts as none.
+  const leaguesRef = useRef<Promise<NewMatchOption[]> | null>(null);
+  const [options, setOptions] = useState<NewMatchOption[] | null>(null);
+  useEffect(() => {
+    const pending = listMyLeagues({ token })
+      .then((res) => newMatchOptions(activeSeasons(res?.sections?.mine ?? [])))
+      .catch(() => newMatchOptions([]));
+    leaguesRef.current = pending;
+    let live = true;
+    void pending.then((next) => live && setOptions(next));
+    return () => {
+      live = false;
+    };
+  }, [token]);
+
+  const chooseAction = async (key: PlusActionKey) => {
+    if (key !== "newMatch") {
+      onAction(key);
+      return;
+    }
+    track(ANALYTICS_EVENTS.planSheetTap, { item: key });
+    const choices = options ?? (await leaguesRef.current) ?? newMatchOptions([]);
+    // Only Friendly: nothing to choose, so go straight to it.
+    if (choices.length === 1) onNewMatch(choices[0]);
+    else setStep("newMatch");
+  };
+
+  if (step === "newMatch" && options) {
+    return (
+      <QuickActionSheet
+        plan
+        title="New match"
+        actions={[]}
+        rows={options.map((option) => ({
+          key: option.key,
+          label: option.label,
+          subtitle: option.subtitle,
+          icon: option.type === "league" ? Trophy : Handshake,
+          onClick: () => onNewMatch(option),
+        }))}
+        onBack={() => setStep("plan")}
+        onClose={onClose}
+        onAction={onAction}
+      />
+    );
+  }
   return (
     <QuickActionSheet
       plan
       actions={planSheetActions({ onLadder: ratingState === "rated" })}
       onClose={onClose}
-      onAction={onAction}
+      onAction={(key) => void chooseAction(key)}
     />
   );
 };
@@ -273,6 +358,16 @@ const MobileHomeBottomNav = () => {
       }
       const path = PLUS_ACTION_PATHS[key];
       if (path) navigate(path);
+    },
+    [navigate],
+  );
+
+  // New match's type picker (Plan sheet): Friendly opens the create flow, League match the league.
+  const onNewMatch = useCallback(
+    (option: NewMatchOption) => {
+      setSheetOpen(false);
+      track(ANALYTICS_EVENTS.newMatchType, { type: option.type });
+      navigate(option.path);
     },
     [navigate],
   );
@@ -352,8 +447,10 @@ const MobileHomeBottomNav = () => {
       {sheetOpen && planOn ? (
         <PlanSheet
           viewerId={readViewerId(user)}
+          token={token}
           onClose={() => setSheetOpen(false)}
           onAction={(key) => void onPlusAction(key)}
+          onNewMatch={onNewMatch}
         />
       ) : sheetOpen ? (
         <QuickActionSheet

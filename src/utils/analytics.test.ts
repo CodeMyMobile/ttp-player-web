@@ -81,6 +81,7 @@ test("event names are the agreed strings", () => {
     myWeekWatch: "my_week_watch",
     planSheetOpen: "plan_sheet_open",
     planSheetTap: "plan_sheet_tap",
+    newMatchType: "new_match_type",
     circleAdd: "circle_add",
     appCrashed: "app_crashed",
   });

@@ -63,6 +63,8 @@ export const ANALYTICS_EVENTS = {
   // The + sheet: opened, and which item was tapped ({ item }). Was plus_sheet_action.
   planSheetOpen: "plan_sheet_open",
   planSheetTap: "plan_sheet_tap",
+  // New match's type picker: { type: "friendly" | "league" }.
+  newMatchType: "new_match_type",
   // Someone added to a circle: from search, a suggestion or their profile. Never who.
   circleAdd: "circle_add",
   // The crash screen (components/AppErrorBoundary). The error, the route pattern and the
