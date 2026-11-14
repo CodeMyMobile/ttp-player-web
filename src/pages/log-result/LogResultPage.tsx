@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import { CalendarCheck, Info } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
@@ -12,6 +12,7 @@ import { ScoreGrid } from "./ScoreGrid";
 import { deciderKind } from "./scoreGridRules";
 import type { FormatChip } from "./scoreGridRules";
 import { isHomeV2Enabled } from "../../utils/featureFlags";
+import { ANALYTICS_EVENTS, track } from "../../utils/analytics";
 import type { ScoreControls } from "./Scoreboard";
 import { ReviewCard } from "./ReviewCard";
 import { SentCard } from "./SentCard";
@@ -186,7 +187,19 @@ export default function LogResultPage() {
   // Preselect from nav-state when arriving from a specific league (the league
   // page's "Add Score" or the dashboard's "Log a Score") so this page opens
   // straight into League mode with that league chosen — mirroring the flow.
+  // The "Log the score" reminder text links to ?league=…&fixture=… (ttp-api #459): open League
+  // mode on that league, and choose the fixture once its list has loaded.
+  const pendingFixtureId = useRef<string | null>(null);
   useEffect(() => {
+    const params = new URLSearchParams(routerLocation.search);
+    const linkedLeague = params.get("league");
+    const linkedFixture = params.get("fixture");
+    if (linkedLeague) {
+      setMatchType("league");
+      setSelectedLeagueId(linkedLeague);
+      pendingFixtureId.current = linkedFixture;
+      return;
+    }
     const preset = routerLocation.state as { matchType?: MatchType; leagueId?: string | number } | null;
     if (!preset) return;
     if (preset.matchType) setMatchType(preset.matchType);
@@ -201,6 +214,13 @@ export default function LogResultPage() {
   useEffect(() => {
     setSelectedFixtureId("");
   }, [selectedLeagueId]);
+
+  useEffect(() => {
+    const wanted = pendingFixtureId.current;
+    if (!wanted || !leagueFixtures.some((fixture) => String(fixture.id) === wanted)) return;
+    pendingFixtureId.current = null;
+    setSelectedFixtureId(wanted);
+  }, [leagueFixtures]);
 
   const selectedFixture = useMemo(
     () => leagueFixtures.find((fixture) => fixture.id === selectedFixtureId) || null,
@@ -268,6 +288,7 @@ export default function LogResultPage() {
       const response = matchType === "league" && selectedLeagueId && selectedFixtureId
         ? (await submitLeagueMatchResult(selectedLeagueId, selectedFixtureId, payload)).match_result || {}
         : await submitMatchResult(payload);
+      if (matchType === "league") track(ANALYTICS_EVENTS.leagueScoreSubmitted);
       setSentMatch({
         id: response.match_id || null,
         status: response.status || "pending",

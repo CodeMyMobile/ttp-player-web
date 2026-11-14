@@ -6,6 +6,8 @@ import { Avatar, PrimaryButton } from "./ui";
 import { Shell } from "./Shell";
 import { confirmMatchResult, getMatchResult, rejectMatchResult, useCurrentUser } from "./data";
 import type { MatchResultDetail } from "./data";
+import { ANALYTICS_EVENTS, track } from "../../utils/analytics";
+import { isHomeV2Enabled } from "../../utils/featureFlags";
 
 const formatDate = (value?: string | null) => {
   if (!value) return "Match date";
@@ -71,6 +73,11 @@ export default function ConfirmResultPage() {
         ? await confirmMatchResult(id)
         : await rejectMatchResult(id);
       setMatchResult(response.match_result);
+      // Home v2: a confirmed score goes straight to the result screen (rating change, standings).
+      if (action === "confirm" && response.match_result?.status === "confirmed") {
+        if (response.match_result.context === "league") track(ANALYTICS_EVENTS.leagueScoreConfirmed);
+        if (isHomeV2Enabled()) navigate(`/log-result/result/${id}`, { replace: true });
+      }
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
