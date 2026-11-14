@@ -308,7 +308,7 @@ export default function LogResultPage() {
 
   return (
     <Shell
-      title="Log a result"
+      title="Log a score"
       me={me}
       footer={
         <>

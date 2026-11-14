@@ -97,7 +97,7 @@ function MyGroupsPage({ onBack, onCreateGroup, onOpenGroup }) {
         className="mb-[18px] inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-200"
       >
         <ChevronLeft className="h-3.5 w-3.5" />
-        Back to Match Play
+        Back to Match play
       </button>
 
       <section className="mb-6 flex flex-wrap items-end justify-between gap-5">

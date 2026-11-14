@@ -2,22 +2,22 @@
    affect the existing DashboardPage while both are in the tree. */
 
 .home-v2 {
-  --home-bg: #f5f6fa;
-  --home-surface: #ffffff;
-  --home-border: #e5e7ef;
-  --home-divider: #eef0f5;
-  --home-ink: #0f172a;
-  --home-ink-2: #475569;
-  --home-primary: #6d28d9;
-  --home-primary-border: #c4b5fd;
+  --home-bg: var(--v2-bg);
+  --home-surface: var(--v2-surface);
+  --home-border: var(--v2-border);
+  --home-divider: var(--v2-divider);
+  --home-ink: var(--v2-ink);
+  --home-ink-2: var(--v2-ink-2);
+  --home-primary: var(--v2-primary);
+  --home-primary-border: var(--v2-primary-border);
   --home-primary-soft: #ede9fe;
   /* Icon tiles (shortcut row, Plan sheet). */
-  --home-primary-tint: #f5f3ff;
+  --home-primary-tint: var(--v2-primary-tint);
   --home-primary-soft-ink: #5b21b6;
-  --home-urgent: #c2410c;
-  --home-urgent-bg: #fff7ed;
-  --home-success: #15803d;
-  --home-success-bg: #ecfdf3;
+  --home-urgent: var(--v2-urgent);
+  --home-urgent-bg: var(--v2-urgent-bg);
+  --home-success: var(--v2-success);
+  --home-success-bg: var(--v2-success-bg);
   --home-success-border: #bbf7d0;
 
   min-height: 100vh;
@@ -333,7 +333,7 @@
 
 .home-v2 .home-upnext__chevron {
   flex-shrink: 0;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .home-v2 .home-upnext__empty {
@@ -1133,5 +1133,5 @@
 
 .home-v2 .home-offcourt__plan-chevron {
   flex-shrink: 0;
-  color: #94a3b8;
+  color: #64748b;
 }

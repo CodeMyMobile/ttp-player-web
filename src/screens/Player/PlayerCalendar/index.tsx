@@ -232,7 +232,7 @@ const buildMatchItem = (record: unknown): ScheduleItem | null => {
   return {
     id: `match-${match.id}`,
     type: "match",
-    title: match.format ? `${match.format} Match` : "Match Play",
+    title: match.format ? `${match.format} Match` : "Match play",
     startsAt: startsAt.toISOString(),
     endsAt: null,
     location: match.location || "Location TBD",

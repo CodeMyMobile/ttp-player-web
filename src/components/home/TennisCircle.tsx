@@ -71,6 +71,8 @@ export function TennisCircle({ rows, loading = false, bookedKeys }: TennisCircle
   }
 
   const shown = expanded ? rows : rows.slice(0, PREVIEW_COUNT);
+  // One filled button per section (§7): the first class still to book; the rest are outline.
+  const firstBookKey = shown.find((row) => row.classCard && !bookedKeys?.has(row.bookedKey))?.key;
   const hidden = rows.length - shown.length;
 
   return (
@@ -111,7 +113,11 @@ export function TennisCircle({ rows, loading = false, bookedKeys }: TennisCircle
                   {isIn ? (
                     <YoureIn href={row.href} className="home-circle__book" />
                   ) : (
-                    <Link className="home-btn home-btn--fill home-circle__book" to={row.href} onClick={onClick}>
+                    <Link
+                      className={`home-btn ${row.key === firstBookKey ? "home-btn--fill" : "home-btn--outline"} home-circle__book`}
+                      to={row.href}
+                      onClick={onClick}
+                    >
                       {row.cta}
                     </Link>
                   )}

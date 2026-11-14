@@ -189,7 +189,7 @@ const BrowseScreen = ({
             <section className="mb-6 flex items-start justify-between gap-3">
               <div>
                 <h1 className="text-[22px] font-extrabold leading-tight tracking-[-0.02em] text-slate-900">
-                  Match Play
+                  Match play
                 </h1>
                 <p className="mt-0.5 text-[13px] font-bold text-emerald-700">
                   {allWeekMatchCount} open near you this week

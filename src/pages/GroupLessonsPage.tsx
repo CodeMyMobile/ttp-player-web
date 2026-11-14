@@ -965,7 +965,7 @@ const GroupLessonsPage = () => {
           <PlaySectionTabs />
           <div className="group-lessons-desktop-shell">
             <ResultsHeader
-              title="Group Lessons"
+              title="Group lessons"
               description="Dial in your game with trusted coaches"
             />
 
@@ -974,8 +974,8 @@ const GroupLessonsPage = () => {
                 <label className="group-lessons-desktop-search">
                   <Search size={16} aria-hidden="true" />
                   <input
-                    aria-label="Search classes"
-                    placeholder="Search classes"
+                    aria-label="Search group lessons"
+                    placeholder="Search group lessons"
                     value={searchTerm}
                     onChange={(event) => setSearchTerm(event.target.value)}
                   />
@@ -1004,8 +1004,8 @@ const GroupLessonsPage = () => {
                     <Target size={18} />
                   </span>
                   <span className="group-lessons-level-prompt__text">
-                    <strong>Not sure which classes are right for you?</strong>
-                    <span>Answer 5 quick questions to find your level, and we&apos;ll show the classes that fit.</span>
+                    <strong>Not sure which group lessons are right for you?</strong>
+                    <span>Answer 5 quick questions to find your level, and we&apos;ll show the group lessons that fit.</span>
                   </span>
                   <span className="group-lessons-level-prompt__cta">
                     Find my level
@@ -1091,7 +1091,7 @@ const GroupLessonsPage = () => {
 
           <div className="group-lessons-mobile-shell">
             <section className="group-lessons-mobile-hero">
-              <h1>Group Lessons</h1>
+              <h1>Group lessons</h1>
               <p>Dial in your game with trusted coaches</p>
             </section>
 
@@ -1099,8 +1099,8 @@ const GroupLessonsPage = () => {
               <label className="group-lessons-mobile-search">
                 <Search size={14} aria-hidden="true" />
                 <input
-                  aria-label="Search classes"
-                  placeholder="Search classes"
+                  aria-label="Search group lessons"
+                  placeholder="Search group lessons"
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
                 />
@@ -1113,8 +1113,8 @@ const GroupLessonsPage = () => {
                   <Target size={18} />
                 </span>
                 <span className="group-lessons-level-prompt__text">
-                  <strong>Not sure which classes are right for you?</strong>
-                  <span>Answer 5 quick questions to find your level, and we&apos;ll show the classes that fit.</span>
+                  <strong>Not sure which group lessons are right for you?</strong>
+                  <span>Answer 5 quick questions to find your level, and we&apos;ll show the group lessons that fit.</span>
                 </span>
                 <span className="group-lessons-level-prompt__cta">
                   Find my level
@@ -1444,7 +1444,7 @@ const GroupLessonsPage = () => {
               <div className="empty-state">
                 {levelFilter === YOUR_LEVEL ? (
                   <>
-                    <p>No classes at your level on these days.</p>
+                    <p>No group lessons at your level on these days.</p>
                     <button type="button" onClick={() => setLevelFilter("All levels")}>
                       Show all levels
                     </button>

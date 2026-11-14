@@ -25,7 +25,7 @@ test("with My Week on: New match, Find players, Book a lesson, Add a workout", (
 });
 
 test("with it off, the sheet is today's", () => {
-  assert.deepEqual(plusSheetActions(false).map((action) => action.label), ["Create a Match", "Log a Score", "Find a Match"]);
+  assert.deepEqual(plusSheetActions(false).map((action) => action.label), ["Create a match", "Log a score", "Find a match"]);
 });
 
 test("the Plan sheet (home v2) holds only things you start, in order, with subtitles", () => {

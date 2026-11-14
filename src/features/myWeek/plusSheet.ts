@@ -58,9 +58,9 @@ export const plusSheetActions = (myWeek: boolean): PlusAction[] =>
         { key: "addWorkout", label: "Add a workout", type: "workout" },
       ]
     : [
-        { key: "createMatch", label: "Create a Match", type: null },
-        { key: "logScore", label: "Log a Score", type: null },
-        { key: "findMatch", label: "Find a Match", type: null },
+        { key: "createMatch", label: "Create a match", type: null },
+        { key: "logScore", label: "Log a score", type: null },
+        { key: "findMatch", label: "Find a match", type: null },
       ];
 
 /** Fixed destinations; Book a lesson and Add a workout are worked out when tapped. */

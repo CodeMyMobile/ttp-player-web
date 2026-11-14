@@ -118,7 +118,7 @@ const steps: QuestionnaireStep[] = [
     options: [
       { value: "private", label: "Private (1-on-1)", description: "Individual attention" },
       { value: "semi_private", label: "Semi-Private (2-3)", description: "Share with friends" },
-      { value: "group", label: "Group Classes", description: "Social learning" },
+      { value: "group", label: "Group lessons", description: "Social learning" },
       { value: "flexible", label: "Flexible", description: "Mix of formats" },
     ],
   },

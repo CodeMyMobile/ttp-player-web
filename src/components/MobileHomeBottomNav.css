@@ -110,6 +110,20 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Home v2 (§7): the redesign primary, and inactive tabs dark enough for 4.5:1 on white. */
+.mbn--v2 .mbn__tab {
+  color: var(--v2-ink-2);
+}
+
+.mbn--v2 .mbn__tab.is-active {
+  color: var(--v2-primary);
+}
+
+.mbn--v2 .mbn__fab {
+  background: var(--v2-primary);
+  box-shadow: 0 10px 22px rgba(109, 40, 217, 0.32);
+}
+
 /* With its "Plan" label (home v2 off), the + sits higher to clear it. */
 .mbn__fab-slot--labeled .mbn__fab {
   bottom: 18px;
@@ -231,7 +245,7 @@
   margin: 0;
   font-size: 22px;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--v2-ink);
 }
 
 .mbn-sheet__close {
@@ -244,7 +258,7 @@
   border: 0;
   border-radius: 999px;
   background: transparent;
-  color: #475569;
+  color: var(--v2-ink-2);
   cursor: pointer;
 }
 
@@ -257,10 +271,10 @@
   padding: 10px 0;
   margin: 0;
   border: 0;
-  border-bottom: 1px solid #eef0f5;
+  border-bottom: 1px solid var(--v2-divider);
   border-radius: 0;
   background: transparent;
-  color: #0f172a;
+  color: var(--v2-ink);
 }
 
 .mbn-sheet--plan .mbn-sheet__action:last-child {
@@ -271,8 +285,8 @@
   width: 48px;
   height: 48px;
   border-radius: 14px;
-  background: #f5f3ff;
-  color: #6d28d9;
+  background: var(--v2-primary-tint);
+  color: var(--v2-primary);
 }
 
 .mbn-sheet__action-text {
@@ -290,7 +304,7 @@
 .mbn-sheet__action-sub {
   font-size: 14px;
   font-weight: 400;
-  color: #475569;
+  color: var(--v2-ink-2);
 }
 
 @keyframes mbn-fade-in {
