@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   choicesFromWindows,
+  courtChips,
   fixtureAgainst,
   formatProposedTime,
   initialSelection,
@@ -76,4 +77,19 @@ test("proposal rows: waiting on them, or theirs to pick; picked ones are left to
       ["2", "30", "Ana", false, 1],
     ],
   );
+});
+
+test("court chips: shared courts first, then the opponent's, then yours, four at most", () => {
+  const court = (id: number) => ({ id, name: `Court ${id}`, area: null, latitude: null, longitude: null, matches_played: 1 });
+  const chips = courtChips([court(1), court(2), court(5), court(6)], [court(2), court(3), court(4)], "Ana");
+  assert.deepEqual(
+    chips.map((c) => [c.id, c.note]),
+    [
+      ["2", "You both play here"],
+      ["3", "Ana plays here"],
+      ["4", "Ana plays here"],
+      ["1", "You play here"],
+    ],
+  );
+  assert.deepEqual(courtChips([], [], "Ana"), []);
 });

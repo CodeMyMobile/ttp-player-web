@@ -23,6 +23,7 @@ import {
   useLadderStanding,
   usePlayerCircle,
 } from "../hooks/useHomeStatus";
+import { useRestringActivity } from "../hooks/useRestringActivity";
 import { isHomeFindPlayersEnabled, isMyWeekEnabled } from "../utils/featureFlags";
 import { useMyWeek } from "../features/myWeek/useMyWeek";
 import { buildActionRows } from "../utils/homeActionNeeded";
@@ -55,11 +56,12 @@ export default function HomePage() {
   );
 
   const { alerts, restringOrders, loading: alertsLoading } = useHomeAlerts();
+  const playedSinceRestring = useRestringActivity(restringOrders);
   const { items: invites, loading: invitesLoading } = useHomeInvites();
   const { seasons, loading: seasonsLoading } = useActiveSeasons(user);
   const actionRows = useMemo(
-    () => buildActionRows({ invites, alerts, restringOrders }),
-    [invites, alerts, restringOrders],
+    () => buildActionRows({ invites, alerts, restringOrders, playedSinceRestring }),
+    [invites, alerts, restringOrders, playedSinceRestring],
   );
 
   const { rows: circleRows, loading: circleLoading } = usePlayerCircle(viewerId);

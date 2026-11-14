@@ -4,19 +4,27 @@ import { Check, Plus } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
 import { getAvailabilityOverlap, viewerTimeZone } from "../api/availability";
-import { getLeagueFixtures, proposeFixtureTimes, type LeagueFixture } from "../api/leagues";
+import {
+  getLeagueFixtures,
+  getLeaguePlayerCourts,
+  getMyPlayedCourts,
+  proposeFixtureTimes,
+  type LeagueFixture,
+} from "../api/leagues";
 import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
 import { ANALYTICS_EVENTS, track } from "../utils/analytics";
 import {
   MAX_PROPOSED_TIMES,
   choicesFromWindows,
+  courtChips,
   fixtureAgainst,
   formatProposedTime,
   initialSelection,
   localInputToIso,
   timesToSend,
   windowLabel,
+  type CourtChip,
   type TimeChoice,
 } from "../utils/leagueArrange";
 import { useCourtsApi } from "./log-result/data";
@@ -53,6 +61,7 @@ const LeagueArrangePage = () => {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [custom, setCustom] = useState("");
   const [courtId, setCourtId] = useState("");
+  const [chips, setChips] = useState<CourtChip[]>([]);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [sent, setSent] = useState<{ texted: boolean } | null>(null);
@@ -63,8 +72,11 @@ const LeagueArrangePage = () => {
     Promise.all([
       getLeagueFixtures({ leagueId, token, mine: true, signal: controller.signal }),
       getAvailabilityOverlap({ playerId: opponentId, token, signal: controller.signal }).catch(() => null),
+      // Where each of you plays, for the court chips; either failing just means fewer chips.
+      getMyPlayedCourts({ token, signal: controller.signal }).catch(() => ({ courts: [] })),
+      getLeaguePlayerCourts({ leagueId, playerId: opponentId, token, signal: controller.signal }).catch(() => ({ courts: [] })),
     ])
-      .then(([fixturesRes, overlap]) => {
+      .then(([fixturesRes, overlap, mineRes, theirsRes]) => {
         if (controller.signal.aborted) return;
         const fixture = fixtureAgainst(fixturesRes.fixtures ?? [], opponentId);
         const opponentName = fixture
@@ -73,6 +85,7 @@ const LeagueArrangePage = () => {
             : fixture.player2_name
           : null;
         const suggestions = choicesFromWindows(overlap?.windows ?? []);
+        setChips(courtChips(mineRes.courts ?? [], theirsRes.courts ?? [], String(opponentName || "Your opponent").split(" ")[0]));
         setChoices(suggestions);
         setSelected(initialSelection(suggestions));
         if (fixture) track(ANALYTICS_EVENTS.leagueArrangeStart);
@@ -93,7 +106,8 @@ const LeagueArrangePage = () => {
   }, [leagueId, opponentId, token]);
 
   const times = timesToSend(choices, selected);
-  const court = courts.find((item) => String(item.id) === courtId) ?? null;
+  const chosenChip = chips.find((chip) => chip.id === courtId) ?? null;
+  const court = chosenChip ?? courts.find((item) => String(item.id) === courtId) ?? null;
   const full = selected.size >= MAX_PROPOSED_TIMES;
 
   const addCustom = () => {
@@ -245,9 +259,31 @@ const LeagueArrangePage = () => {
 
         <section className="arrange-block" aria-labelledby="arrange-where">
           <h2 className="arrange-h" id="arrange-where">Where</h2>
-          <label className="sr-only" htmlFor="arrange-court">Court</label>
-          <select id="arrange-court" className="arrange-select" value={courtId} onChange={(event) => setCourtId(event.target.value)} disabled={courtsLoading}>
-            <option value="">{courtsLoading ? "Loading courts..." : "Choose a court"}</option>
+          {chips.length ? (
+            <div className="arrange-chips" role="group" aria-label="Courts you play at">
+              {chips.map((chip) => (
+                <button
+                  key={chip.id}
+                  type="button"
+                  aria-pressed={courtId === chip.id}
+                  className={`arrange-chip${courtId === chip.id ? " is-on" : ""}`}
+                  onClick={() => setCourtId(chip.id)}
+                >
+                  <span className="arrange-chip__name">{chip.name}</span>
+                  <span className="arrange-chip__note">{chip.note}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+          <label className="sr-only" htmlFor="arrange-court">{chips.length ? "Another court" : "Court"}</label>
+          <select
+            id="arrange-court"
+            className="arrange-select"
+            value={chosenChip ? "" : courtId}
+            onChange={(event) => setCourtId(event.target.value)}
+            disabled={courtsLoading}
+          >
+            <option value="">{courtsLoading ? "Loading courts..." : chips.length ? "Another court" : "Choose a court"}</option>
             {courts.map((item) => (
               <option key={item.id} value={String(item.id)}>
                 {item.area ? `${item.name} · ${item.area}` : item.name}

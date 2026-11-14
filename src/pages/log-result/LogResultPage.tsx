@@ -12,6 +12,7 @@ import { ScoreGrid } from "./ScoreGrid";
 import { deciderKind } from "./scoreGridRules";
 import type { FormatChip } from "./scoreGridRules";
 import { isHomeV2Enabled } from "../../utils/featureFlags";
+import { getAwaitingScores } from "../../api/awaitingScores";
 import { ANALYTICS_EVENTS, track } from "../../utils/analytics";
 import type { ScoreControls } from "./Scoreboard";
 import { ReviewCard } from "./ReviewCard";
@@ -190,8 +191,28 @@ export default function LogResultPage() {
   // The "Log the score" reminder text links to ?league=…&fixture=… (ttp-api #459): open League
   // mode on that league, and choose the fixture once its list has loaded.
   const pendingFixtureId = useRef<string | null>(null);
+  // ?match=… (the Plan sheet's waiting match): casual, against that match's opponent on its day,
+  // and the score is saved against the match (ttp-api match_results.match_id).
+  const [linkedMatch, setLinkedMatch] = useState<{ id: number; opponentId: string } | null>(null);
   useEffect(() => {
     const params = new URLSearchParams(routerLocation.search);
+    const linkedMatch = Number(params.get("match"));
+    if (Number.isInteger(linkedMatch) && linkedMatch > 0) {
+      setMatchType("recreational");
+      getAwaitingScores()
+        .then((res) => {
+          const match = (res.matches ?? []).find((item) => item.match_id === linkedMatch);
+          if (!match) return;
+          setLinkedMatch({ id: match.match_id, opponentId: String(match.opponent.id) });
+          setOpponent({ id: String(match.opponent.id), name: match.opponent.name || "Opponent", ntrp: "" });
+          const start = new Date(match.start_date_time);
+          if (!Number.isNaN(start.getTime())) {
+            setDate(new Date(start.getTime() - start.getTimezoneOffset() * 60000).toISOString().slice(0, 10));
+          }
+        })
+        .catch(() => undefined);
+      return;
+    }
     const linkedLeague = params.get("league");
     const linkedFixture = params.get("fixture");
     if (linkedLeague) {
@@ -284,7 +305,13 @@ export default function LogResultPage() {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const payload = buildSubmitPayload({ me, opponent: effectiveOpponent, date, court, format, sets, dnf, dnfWinner });
+      const payload = {
+        ...buildSubmitPayload({ me, opponent: effectiveOpponent, date, court, format, sets, dnf, dnfWinner }),
+        // Only while the opponent is still the linked match's.
+        ...(matchType === "recreational" && linkedMatch && effectiveOpponent.id === linkedMatch.opponentId
+          ? { match_id: linkedMatch.id }
+          : {}),
+      };
       const response = matchType === "league" && selectedLeagueId && selectedFixtureId
         ? (await submitLeagueMatchResult(selectedLeagueId, selectedFixtureId, payload)).match_result || {}
         : await submitMatchResult(payload);
@@ -382,6 +409,7 @@ export default function LogResultPage() {
             value={matchType}
             onChange={(nextType) => {
               setMatchType(nextType);
+              setLinkedMatch(null);
               setOpponent(null);
               setSelectedFixtureId("");
             }}

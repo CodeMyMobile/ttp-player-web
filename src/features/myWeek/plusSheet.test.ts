@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 import {
   bookLessonDestination,
   newMatchOptions,
+  logScoreAction,
+  logScoreDestination,
   PLAN_BUTTON_LABEL,
   planSheetActions,
   plusSheetActions,
@@ -87,4 +89,31 @@ test("New match offers Friendly, then one League match per running league", () =
     ],
   );
   assert.ok(!options.some((option) => /rated/i.test(option.label)));
+});
+
+const waiting = (match_id: number, name: string, league?: { league_id: number; league_match_id: number }) => ({
+  match_id,
+  start_date_time: "2026-11-14T17:00:00Z",
+  timezone: null,
+  location_text: null,
+  league_id: league?.league_id ?? null,
+  league_match_id: league?.league_match_id ?? null,
+  opponent: { id: 2, name },
+});
+
+test("Log a score names the match waiting for a score, with a green count", () => {
+  assert.deepEqual(logScoreAction([]), { key: "logScore", label: "Log a score", subtitle: "Enter a result", type: null });
+  const one = logScoreAction([waiting(5, "Ana Lopez")]);
+  assert.equal(one.subtitle, "Your match vs Ana is waiting");
+  assert.equal(one.badge, 1);
+  assert.equal(one.tone, "success");
+  assert.equal(logScoreAction([waiting(5, "Ana"), waiting(6, "Ben")]).subtitle, "2 matches are waiting for a score");
+  assert.equal(planSheetActions({ onLadder: false, awaiting: [waiting(5, "Ana")] })[3].subtitle, "Your match vs Ana is waiting");
+});
+
+test("Log a score goes straight into the one waiting match", () => {
+  assert.equal(logScoreDestination([waiting(5, "Ana")]), "/log-result?match=5");
+  assert.equal(logScoreDestination([waiting(5, "Ana", { league_id: 4, league_match_id: 31 })]), "/log-result?league=4&fixture=31");
+  assert.equal(logScoreDestination([]), "/log-result");
+  assert.equal(logScoreDestination([waiting(5, "Ana"), waiting(6, "Ben")]), "/log-result");
 });

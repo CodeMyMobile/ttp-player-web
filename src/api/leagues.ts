@@ -706,3 +706,30 @@ export const proposeFixtureTimes = ({
     `/leagues/${leagueId}/matches/${fixtureId}/propose`,
     { method: "POST", token, body },
   );
+
+/** A court someone has logged results at (ttp-api). */
+export interface PlayedCourt {
+  id: number;
+  name: string;
+  area: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  matches_played: number;
+}
+
+/** Where a fellow league member plays, most recent first (members only; ttp-api #463). */
+export const getLeaguePlayerCourts = ({
+  leagueId,
+  playerId,
+  token,
+  signal,
+}: {
+  leagueId: number | string;
+  playerId: number | string;
+  token?: string;
+  signal?: AbortSignal;
+}) => request<{ courts: PlayedCourt[] }>(`/leagues/${leagueId}/players/${playerId}/courts`, { token, signal });
+
+/** Courts the viewer has logged results at. */
+export const getMyPlayedCourts = ({ token, signal }: { token?: string; signal?: AbortSignal } = {}) =>
+  request<{ courts: PlayedCourt[] }>("/match-results/my-courts", { token, signal });

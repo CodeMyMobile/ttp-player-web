@@ -21,6 +21,7 @@ import {
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { listMyLeagues } from "../api/leagues";
+import { getAwaitingScores, type AwaitingScore } from "../api/awaitingScores";
 import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
 import { isHomeV2Enabled, isMyWeekEnabled } from "../utils/featureFlags";
@@ -29,6 +30,7 @@ import { isPlaySectionsEnabled } from "../utils/playSections";
 import { badgeLabel, useMyWeekBadge } from "../features/myWeek/useMyWeek";
 import {
   bookLessonDestination,
+  logScoreDestination,
   newMatchOptions,
   PLAN_BUTTON_LABEL,
   planSheetActions,
@@ -202,7 +204,7 @@ const QuickActionSheet = ({
           return (
             <button key={action.key} type="button" className="mbn-sheet__action" onClick={() => onAction(action.key)}>
               <span
-                className="mbn-sheet__action-icon"
+                className={`mbn-sheet__action-icon${action.tone === "success" ? " mbn-sheet__action-icon--success" : ""}`}
                 style={color ? { background: color.soft, color: color.solid } : undefined}
               >
                 <Icon size={plan ? 22 : 20} />
@@ -215,6 +217,11 @@ const QuickActionSheet = ({
               ) : (
                 action.label
               )}
+              {plan && action.badge ? (
+                <span className="mbn-sheet__badge" aria-label={`${action.badge} waiting`}>
+                  {action.badge}
+                </span>
+              ) : null}
             </button>
           );
         })}
@@ -233,14 +240,28 @@ const PlanSheet = ({
   onClose,
   onAction,
   onNewMatch,
+  onLogScore,
 }: {
   viewerId: number | null;
   token: string | undefined;
   onClose: () => void;
   onAction: (key: PlusActionKey) => void;
   onNewMatch: (option: NewMatchOption) => void;
+  /** Log a score, sent straight into the one waiting match when there is one. */
+  onLogScore: (path: string) => void;
 }) => {
   const { ratingState } = useLadderStanding(viewerId);
+  // Played matches nobody has scored: "Your match vs Ana is waiting" (ttp-api /match-results/awaiting).
+  const [awaiting, setAwaiting] = useState<AwaitingScore[]>([]);
+  useEffect(() => {
+    const controller = new AbortController();
+    getAwaitingScores({ token, signal: controller.signal })
+      .then((res) => {
+        if (!controller.signal.aborted) setAwaiting(res.matches ?? []);
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [token]);
   const [step, setStep] = useState<"plan" | "newMatch">("plan");
   // The player's running leagues, asked for when the sheet opens so New match can tell at
   // once whether there's a choice to make. Null while loading; a failure counts as none.
@@ -259,6 +280,11 @@ const PlanSheet = ({
   }, [token]);
 
   const chooseAction = async (key: PlusActionKey) => {
+    if (key === "logScore") {
+      track(ANALYTICS_EVENTS.planSheetTap, { item: key });
+      onLogScore(logScoreDestination(awaiting));
+      return;
+    }
     if (key !== "newMatch") {
       onAction(key);
       return;
@@ -292,7 +318,7 @@ const PlanSheet = ({
   return (
     <QuickActionSheet
       plan
-      actions={planSheetActions({ onLadder: ratingState === "rated" })}
+      actions={planSheetActions({ onLadder: ratingState === "rated", awaiting })}
       onClose={onClose}
       onAction={(key) => void chooseAction(key)}
     />
@@ -451,6 +477,10 @@ const MobileHomeBottomNav = () => {
           onClose={() => setSheetOpen(false)}
           onAction={(key) => void onPlusAction(key)}
           onNewMatch={onNewMatch}
+          onLogScore={(path) => {
+            setSheetOpen(false);
+            navigate(path);
+          }}
         />
       ) : sheetOpen ? (
         <QuickActionSheet
