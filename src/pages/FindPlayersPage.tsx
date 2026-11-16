@@ -44,7 +44,6 @@ import { ensureStringArray, toCanonicalAvailability } from "../utils/matchProfil
 import { isNearLevel, toCourtList } from "../utils/homePlayerSuggestions";
 
 import { isHomeV2Enabled } from "../utils/featureFlags";
-import PlaySectionTabs from "../components/PlaySectionTabs";
 import "../components/coaches/coaches.css";
 import "../components/players/players.css";
 
@@ -1540,10 +1539,9 @@ const FindPlayersPage = () => {
   })();
 
   return (
-    <MainLayout mobileChrome="home" desktopChrome="home" hideMobileNewMatch pageClassName="dashboard-page--find-players">
+    <MainLayout mobileChrome="home" desktopChrome="home" hideMobileNewMatch pageClassName="dashboard-page--find-players" playSections>
       <div className="find-players-page" style={themeVars}>
         <div className="find-players-page__inner">
-          <PlaySectionTabs />
           <ResultsHeader
             title="Find Players"
             description="Connect with local players who match your level and style."

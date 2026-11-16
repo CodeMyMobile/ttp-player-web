@@ -38,9 +38,27 @@
   outline-offset: 2px;
 }
 
-/* Match play's shell spaces its children 32px apart and runs edge to edge; line the switcher up
-   with the match list's own 16px inset instead. */
-.dashboard-page--tab-bar > .main-layout__content > .play-sections {
+/* MainLayout draws the switcher as the first thing in the content (and match play does the same in
+   its own shell), so it sits in one place on every section: 12px under the header, inset 16px.
+   Pages showing it drop the header-to-content gap, which only some of them had above 600px.
+   Below 601px home chrome runs the content with no gap; wider, the content spaces its children
+   32px apart, which the bottom margin takes back to 16px. */
+.dashboard-page.dashboard-page--play-sections {
+  gap: 0;
+}
+
+.main-layout__content > .play-sections {
   width: calc(100% - 32px);
-  margin: 0 auto -8px;
+  margin: 12px auto 16px;
+}
+
+@media (min-width: 601px) {
+  .main-layout__content > .play-sections {
+    margin-bottom: -16px;
+  }
+}
+
+/* Match play's shell keeps a 32px gap above and below the content at every width. */
+.dashboard-page--tab-bar > .main-layout__content > .play-sections {
+  margin: -20px auto -16px;
 }
