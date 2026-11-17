@@ -39,7 +39,7 @@ import {
   track,
 } from "../utils/analytics";
 import { levelNumber, nearLevelRange, rankableLevelOptions } from "../utils/levelScope";
-import { handleImageTransformError, sizedImageUrl } from "../utils/playerImage";
+import { handleImageTransformError, photoSource, sizedImageUrl } from "../utils/playerImage";
 import { ensureStringArray, toCanonicalAvailability } from "../utils/matchProfile";
 import { isNearLevel, toCourtList } from "../utils/homePlayerSuggestions";
 
@@ -269,7 +269,7 @@ const renderAvatar = (
   size: string,
   borderWidth: string,
 ) => {
-  if (avatarUrl) {
+  if (photoSource(avatarUrl)) {
     return (
       <img
         src={sizedImageUrl(avatarUrl, { size: Number.parseInt(size, 10) || 48 })}
