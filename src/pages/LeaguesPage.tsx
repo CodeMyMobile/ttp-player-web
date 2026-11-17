@@ -59,7 +59,6 @@ import {
 } from "./leagueBrowse";
 
 import "./LeaguesPage.css";
-import PlaySectionTabs from "../components/PlaySectionTabs";
 import { isPlaySectionsEnabled } from "../utils/playSections";
 
 type BrowseTopFilter = "all" | "available" | "mine" | "archived";
@@ -957,9 +956,8 @@ const LeaguesPage = () => {
   const archivedGroups = groupArchivedBySeason(pastSeasonLeagues);
 
   return (
-    <MainLayout pageClassName="leagues-shell" mobileChrome="home" hideMobileNewMatch>
+    <MainLayout pageClassName="leagues-shell" mobileChrome="home" hideMobileNewMatch playSections>
       <div className="leagues-redesign tpl">
-        <PlaySectionTabs />
         {/* Play › Leagues: the ladder is a league of its own, pinned above the seasons. */}
         {isPlaySectionsEnabled() ? (
           <Link to="/ladder" className="leagues-ladder-pin">
