@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, MapPin, Navigation, RefreshCw, RotateCcw, Star } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileDown, MapPin, Navigation, RefreshCw, RotateCcw, Share2, Star } from "lucide-react";
 import {
   directionsUrl,
   displayAddress,
@@ -14,6 +14,7 @@ import {
   orderPaymentNote,
   orderProgressSteps,
   orderReceipt,
+  orderReceiptText,
   orderStatusChip,
   readyLine,
   restringAgainHref,
@@ -265,6 +266,7 @@ const money = (value) => `${value < 0 ? "−" : ""}${formatOrderTotal(Math.abs(v
 /** One order in full: progress, each item and its price, the receipt and how it was paid. */
 export function OrderDetailScreen({ order, loading, onBack, onCancel }) {
   const [cancelling, setCancelling] = useState(false);
+  const [shareNote, setShareNote] = useState("");
   if (!order) {
     return (
       <div className="mo-screen mo-detail">
@@ -282,6 +284,27 @@ export function OrderDetailScreen({ order, loading, onBack, onCancel }) {
   const ready = isActiveOrder(order) ? readyLine(order) : "";
   const directions = directionsUrl(order.vendor_address);
   const placed = formatShopDate(order.created_at);
+
+  // The share sheet with the receipt as text; where there's none, the receipt is copied.
+  const share = async () => {
+    setShareNote("");
+    const text = orderReceiptText(order);
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: `Order #${order.id}`, text });
+      } catch {
+        // Share sheet dismissed.
+      }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      setShareNote("Receipt copied. Paste it into a message or email.");
+    } catch {
+      setShareNote("Couldn’t share from this browser. Try Save as PDF.");
+    }
+  };
+
   return (
     <div className="mo-screen mo-detail">
       <header className="mo-head">
@@ -357,6 +380,12 @@ export function OrderDetailScreen({ order, loading, onBack, onCancel }) {
           </div>
         </dl>
         {payment ? <p className={`mo-receipt-paid mo-pay--${payment.tone}`}>{payment.label}</p> : null}
+        <div className="mo-detail-actions">
+          <button type="button" className="mo-btn" onClick={share}><Share2 size={16} /> Share</button>
+          {/* The print dialog, whose destination includes Save as PDF; the print styles keep just the receipt. */}
+          <button type="button" className="mo-btn" onClick={() => window.print()}><FileDown size={16} /> Save as PDF</button>
+        </div>
+        {shareNote ? <p className="mo-muted mo-detail-note" role="status">{shareNote}</p> : null}
       </section>
 
       {order.vendor_name ? (
