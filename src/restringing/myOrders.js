@@ -277,6 +277,36 @@ export function orderReceipt(order) {
   };
 }
 
+/** The receipt as plain text, to share or copy: the shop and order, each item, the totals and the payment. */
+export function orderReceiptText(order) {
+  if (!order) return "";
+  const signed = (value) => `${value < 0 ? "−" : ""}${formatOrderTotal(Math.abs(value))}`;
+  const receipt = orderReceipt(order);
+  const payment = orderPaymentLine(order);
+  const placed = formatShopDate(order.created_at);
+  const items = (Array.isArray(order.items) ? order.items : []).flatMap((item) => {
+    const line = orderItemLine(item);
+    // A custom item's title already says how many.
+    const qty = item?.item_type === "custom" ? 1 : Number(item?.item_qty) || 1;
+    return [
+      `${line.title}${qty > 1 ? ` × ${qty}` : ""}: ${formatOrderTotal(orderItemCents(item))}`,
+      ...(line.detail ? [`  ${line.detail}`] : []),
+    ];
+  });
+  return [
+    [clean(order.vendor_name), `Order #${order.id}`].filter(Boolean).join(" · "),
+    ...(placed ? [`Placed ${placed}`] : []),
+    "",
+    ...items,
+    "",
+    `Subtotal: ${formatOrderTotal(receipt.subtotal)}`,
+    ...receipt.adjustments.map((line) => `${line.label}: ${signed(line.cents)}`),
+    ...(receipt.tax > 0 ? [`Sales tax: ${formatOrderTotal(receipt.tax)}`] : []),
+    `Total: ${formatOrderTotal(receipt.total)}`,
+    ...(payment ? [payment.label] : []),
+  ].join("\n");
+}
+
 /** How the order was paid, for the receipt: "Paid by card · Fri, Oct 3", or what's still owed. */
 export function orderPaymentLine(order) {
   const payment = clean(order?.payment_status).toLowerCase();

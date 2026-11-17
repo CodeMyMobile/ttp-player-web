@@ -62,3 +62,30 @@ test("the payment line says how it was paid, or what's still owed", () => {
   assert.equal(orderPaymentLine({ ...ORDER, payment_status: "unpaid", fulfillment_status: "pending" }).label, "Not paid yet · pay at drop-off");
   assert.equal(orderPaymentLine({ ...ORDER, payment_status: "unpaid", fulfillment_status: "cancelled" }).label, "Not charged");
 });
+
+test("the receipt as text: shop and order, items, totals and payment", async () => {
+  const { orderReceiptText } = await import("./myOrders.js");
+  const order = {
+    ...ORDER,
+    vendor_name: "The Tennis Garage",
+    created_at: "2026-10-03T18:00:00Z",
+    items: [
+      { id: 1, item_type: "restring", racket_make_model: "Babolat Pure Aero", string_brand: "Solinco", string_name: "Hyper-G", gauge: "16L", tension_lbs_mains: 52, tension_lbs_crosses: 52, unit_price_cents: 4000, taxable_unit_cents: 2200, item_qty: 2 },
+      { id: 2, item_type: "custom", label: "Overgrip 3-pack", unit_price_cents: 1500, item_qty: 1 },
+    ],
+  };
+  assert.equal(orderReceiptText(order), [
+    "The Tennis Garage · Order #142",
+    "Placed Sat, Oct 3",
+    "",
+    "Babolat Pure Aero × 2: $80.00",
+    "  Solinco Hyper-G · 16L · 52 lbs",
+    "Overgrip 3-pack: $15.00",
+    "",
+    "Subtotal: $95.00",
+    "FALL10: −$9.50",
+    "Sales tax: $4.12",
+    "Total: $89.62",
+    "Paid by card · Sat, Oct 3",
+  ].join("\n"));
+});
