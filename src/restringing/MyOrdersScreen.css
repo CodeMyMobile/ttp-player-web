@@ -989,3 +989,204 @@
   }
 }
 
+
+/* ===== Opening an order: the whole card or row is a button; its links and buttons sit above it. ===== */
+
+.mo-card.is-openable,
+.mo-row.is-openable {
+  position: relative;
+}
+
+.mo-open {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.mo-open:focus-visible {
+  outline: 2px solid var(--mo-purple);
+  outline-offset: 2px;
+}
+
+.is-openable a,
+.is-openable button:not(.mo-open) {
+  position: relative;
+  z-index: 1;
+}
+
+.mo-card.is-openable:hover {
+  border-color: #ddd6fe;
+}
+
+.mo-row.is-openable:hover .mo-row-title b {
+  color: var(--mo-purple);
+}
+
+.mo-card-head-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.mo-details-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--mo-purple);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mo-row-chevron {
+  flex-shrink: 0;
+  align-self: center;
+  color: #9ca3af;
+}
+
+/* ===== One order ===== */
+
+.mo-detail {
+  max-width: 640px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.mo-detail-status {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.mo-detail-h {
+  margin-bottom: 12px !important;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.mo-detail-items {
+  list-style: none;
+  padding: 0;
+}
+
+.mo-detail-items li {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 12px 0;
+  border-top: 1px solid #f1f2f4;
+}
+
+.mo-detail-items li:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
+.mo-detail-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mo-detail-item-text b {
+  font-size: 15px;
+}
+
+.mo-detail-item-text span {
+  color: var(--mo-muted);
+  font-size: 13.5px;
+}
+
+.mo-detail .is-struck {
+  text-decoration: line-through;
+  color: var(--mo-muted);
+}
+
+.mo-receipt {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14.5px;
+}
+
+.mo-receipt-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.mo-receipt-line dt {
+  color: #374151;
+}
+
+.mo-receipt-line dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.mo-receipt-line--sub {
+  padding-top: 10px;
+  border-top: 1px solid #f1f2f4;
+}
+
+.mo-receipt-line--discount dd {
+  color: #15803d;
+}
+
+.mo-receipt-line--total {
+  padding-top: 10px;
+  border-top: 1px solid #e5e7eb;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.mo-receipt-line--total dt {
+  color: var(--mo-ink);
+}
+
+.mo-receipt-paid {
+  margin-top: 14px !important;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.mo-pay--green {
+  color: #15803d;
+}
+
+.mo-detail-shop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.mo-detail-cancel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+@media (min-width: 821px) {
+  .mo-detail-phone-meta {
+    visibility: hidden;
+  }
+}
+
+/* Phones: the row stacks, so the arrow would sit on a line of its own. The row is still the button. */
+@media (max-width: 860px) {
+  .mo-row-chevron {
+    display: none;
+  }
+}

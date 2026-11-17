@@ -100,7 +100,7 @@ const reverseGeocodeDeviceLocation = async ({ latitude, longitude }) => {
 
 const userMenuItems = [
   { label: "Restring", to: "/restring", icon: RefreshCw },
-  { label: "Restring orders", to: "/restring?screen=orders", icon: ClipboardList },
+  { label: "My orders", to: "/restring?screen=orders", icon: ClipboardList },
   { label: "My Leagues", to: "/leagues", icon: Trophy },
   { label: "Player profile", to: "/settings/profile", icon: UserRound },
   { label: "Player match profile", to: "/settings/match-profile", icon: Target },

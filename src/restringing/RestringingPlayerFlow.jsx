@@ -81,7 +81,7 @@ import {
 import { ratingBody } from "./stringFeedback.js";
 import { vendorHoursSummary } from "./vendorPage.js";
 import { findVendorBySlug, vendorProfilePath } from "./vendorProfileRoutes.js";
-import MyOrdersScreen, { RateStringScreen } from "./MyOrdersScreen.jsx";
+import MyOrdersScreen, { OrderDetailScreen, RateStringScreen } from "./MyOrdersScreen.jsx";
 import { formatOrderTotal, ordersSummaryLine, usualSetup } from "./myOrders.js";
 import RestringEntryV2 from "./RestringEntryV2.jsx";
 import RestringStringPicker from "./RestringStringPicker.jsx";
@@ -303,6 +303,8 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   const [myStrings, setMyStrings] = useState(null);
   // The racket a rating text links to (?screen=rate&item=…).
   const [rateItemId, setRateItemId] = useState(null);
+  // The order open in full (?screen=order&order=…, or tapped on My orders).
+  const [detailOrderId, setDetailOrderId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -561,6 +563,11 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
       setRateItemId(params.get("item"));
       setScreen("rate");
       // Back goes to My orders, where the rest of their strings are.
+      setHistory((items) => (items.length ? items : ["home", "orders"]));
+      void refreshOrders();
+    } else if (params.get("screen") === "order") {
+      setDetailOrderId(params.get("order"));
+      setScreen("order");
       setHistory((items) => (items.length ? items : ["home", "orders"]));
       void refreshOrders();
     }
@@ -1502,11 +1509,13 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
         }
       : screen === "rate"
         ? { backLabel: "My orders", onBack: back, title: "Rate your string" }
+      : screen === "order"
+        ? { backLabel: "My orders", onBack: back, title: detailOrderId ? `Order #${detailOrderId}` : "Order" }
       : screen === "confirmation"
         ? { backLabel: "Restring", onBack: goHome, title: STEP_TITLES.confirmation }
         : { backLabel: "Back", onBack: back, title: STEP_TITLES[screen] || "" };
   // Booking and checkout are task flows: no tab bar until they're done.
-  const showTabBar = !checkoutHandoff && ["home", "orders", "confirmation"].includes(screen);
+  const showTabBar = !checkoutHandoff && ["home", "orders", "order", "confirmation"].includes(screen);
   const usual = usualSetup(orders);
   const usualPrice = usual ? Number(usual.item?.unit_price_cents || usual.order?.total_cents || 0) : 0;
 
@@ -1515,7 +1524,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
       <div className="rsg-desktop-nav"><AppNav /></div>
       <FeatureNavBar {...featureNav} />
       <main className={`rsg-shell ${screen === "orders" ? "rsg-shell--wide" : ""} ${showTabBar ? "rsg-shell--tabbar" : ""}`}>
-        {screen !== "home" && screen !== "orders" ? (
+        {screen !== "home" && screen !== "orders" && screen !== "order" ? (
           <button type="button" className="rsg-back rsg-desktop-only" onClick={back}>
             <ChevronLeft size={18} /> Back
           </button>
@@ -2272,6 +2281,16 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
             myStrings={myStrings}
             onRateString={rateString}
             onSaveProfile={saveProfile}
+            onOpenOrder={(orderId) => { setDetailOrderId(String(orderId)); go("order"); window.scrollTo(0, 0); }}
+          />
+        ) : null}
+
+        {screen === "order" ? (
+          <OrderDetailScreen
+            order={orders.find((order) => String(order.id) === String(detailOrderId)) || null}
+            loading={authLoading || ordersRefreshing || (isAuthenticated && !ordersUpdatedAt)}
+            onBack={back}
+            onCancel={async (orderId) => { await cancelOrder(orderId); await refreshOrders(); }}
           />
         ) : null}
       </main>
