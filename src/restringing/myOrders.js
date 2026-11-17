@@ -1,6 +1,7 @@
 // Pure helpers for the My orders screen (/restring?screen=orders).
 import { DAY_KEYS, VENDOR_TIME_ZONE, parseVendorHours, vendorOpenStatus, vendorPagePrefillSearch } from "./vendorPage.js";
 import { vendorSlug } from "./vendorProfileRoutes.js";
+import { payLinkCostLines } from "../api/restringingPayLinks";
 
 const clean = (value) => String(value || "").trim();
 
@@ -241,6 +242,60 @@ export function orderItemLine(item) {
 // ----- Money, links, shop -----
 
 export const formatOrderTotal = (cents) => `$${(Number(cents || 0) / 100).toFixed(2)}`;
+
+const cents = (value) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
+};
+
+/** One item's price on the order: its unit price times how many. */
+export const orderItemCents = (item) => cents(item?.unit_price_cents) * (Number(item?.item_qty) || 1);
+
+/**
+ * The receipt under the items, as the pay link shows it: stringing and string for the
+ * restrings, then every other item (no lines when the API didn't say each restring's
+ * string part), the subtotal, any discounts, sales tax and the total.
+ */
+export function orderReceipt(order) {
+  const adjustments = [];
+  const discount = cents(order?.discount_amount_cents);
+  if (discount > 0) adjustments.push({ label: clean(order.discount_label) || "Discount", cents: -discount });
+  const coachDiscount = cents(order?.coach_discount_cents);
+  if (coachDiscount > 0) {
+    const pct = cents(order.coach_purchase_discount_pct);
+    adjustments.push({
+      label: order.is_coach_purchase ? `Coach discount${pct ? ` (${pct}%)` : ""}` : "Discount from your coach",
+      cents: -coachDiscount,
+    });
+  }
+  return {
+    lines: payLinkCostLines(Array.isArray(order?.items) ? order.items : []),
+    subtotal: cents(order?.subtotal_cents),
+    adjustments,
+    tax: cents(order?.tax_cents),
+    total: cents(order?.total_cents),
+  };
+}
+
+/** How the order was paid, for the receipt: "Paid by card · Fri, Oct 3", or what's still owed. */
+export function orderPaymentLine(order) {
+  const payment = clean(order?.payment_status).toLowerCase();
+  const method = clean(order?.payment_method).toLowerCase();
+  const on = (value) => (formatShopDate(value) ? ` · ${formatShopDate(value)}` : "");
+  if (payment === "refunded") return { label: "Refunded", tone: "grey" };
+  if (payment === "payment_failed") return { label: "Payment failed", tone: "red" };
+  if (payment === "paid") {
+    if (method === "comp" || cents(order.total_cents) === 0) return { label: "No payment needed", tone: "grey" };
+    if (method === "in_person") return { label: `Paid at the shop${on(order.paid_at)}`, tone: "green" };
+    if (order.stripe_payment_intent_id) return { label: `Paid by card${on(order.paid_at)}`, tone: "green" };
+    return { label: `Paid${on(order.paid_at)}`, tone: "green" };
+  }
+  if (isCancelledOrder(order)) return { label: "Not charged", tone: "grey" };
+  if (payment === "unpaid") {
+    return { label: isRacketSaleOrder(order) ? "Not paid yet · pay before pickup" : "Not paid yet · pay at drop-off", tone: "amber" };
+  }
+  return null;
+}
 
 export function directionsUrl(address) {
   const text = clean(address);

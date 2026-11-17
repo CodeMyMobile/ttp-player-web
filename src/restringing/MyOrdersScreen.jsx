@@ -1,15 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, MapPin, Navigation, RefreshCw, RotateCcw, Star } from "lucide-react";
+import { ChevronLeft, ChevronRight, MapPin, Navigation, RefreshCw, RotateCcw, Star } from "lucide-react";
 import {
   directionsUrl,
   displayAddress,
   formatOrderTotal,
   formatShopDate,
+  isActiveOrder,
   isCancelledOrder,
   isRacketSaleOrder,
+  orderItemCents,
   orderItemLine,
+  orderPaymentLine,
   orderPaymentNote,
   orderProgressSteps,
+  orderReceipt,
   orderStatusChip,
   readyLine,
   restringAgainHref,
@@ -99,17 +103,29 @@ function Progress({ order }) {
 const orderMeta = (order, showVendor, when) =>
   [showVendor ? order.vendor_name : "", `#${order.id}`, formatShopDate(when)].filter(Boolean).join(" · ");
 
-function ActiveOrderCard({ order, showVendor, onCancel }) {
+// The whole card or row opens the order; its own links and buttons sit above that.
+function OpenOrderButton({ order, onOpen }) {
+  if (!onOpen) return null;
+  return (
+    <button type="button" className="mo-open" aria-label={`View order #${order.id}: items, prices and total`} onClick={() => onOpen(order.id)} />
+  );
+}
+
+function ActiveOrderCard({ order, showVendor, onCancel, onOpen }) {
   const directions = directionsUrl(order.vendor_address);
   const ready = readyLine(order);
   const [cancelling, setCancelling] = useState(false);
   return (
-    <article className="mo-card mo-card--active">
+    <article className={`mo-card mo-card--active ${onOpen ? "is-openable" : ""}`}>
+      <OpenOrderButton order={order} onOpen={onOpen} />
       <header className="mo-card-head">
         <div>
           <span className="mo-meta">{orderMeta(order, showVendor, order.created_at)}</span>
         </div>
-        <StatusChip order={order} />
+        <span className="mo-card-head-side">
+          <StatusChip order={order} />
+          {onOpen ? <span className="mo-details-hint" aria-hidden="true">Details <ChevronRight size={14} /></span> : null}
+        </span>
       </header>
       <ItemLines order={order} />
       <Progress order={order} />
@@ -152,7 +168,7 @@ function ActiveOrderCard({ order, showVendor, onCancel }) {
 
 // Line 1: racket + chip, price on the right. Line 2: string · gauge · tension. Line 3: #id · date.
 // Restring again sits under the price on desktop and on its own line on phones.
-function PastOrderRow({ order, showVendor }) {
+function PastOrderRow({ order, showVendor, onOpen }) {
   const cancelled = isCancelledOrder(order);
   const again = cancelled ? "" : restringAgainHref(order);
   const when = order.picked_up_at || order.fulfilled_at || order.cancelled_at || order.created_at;
@@ -162,7 +178,8 @@ function PastOrderRow({ order, showVendor }) {
     again ? <a className={`mo-link ${className}`} href={again}><RotateCcw size={14} /> Restring again</a> : null
   );
   return (
-    <li className={`mo-row ${cancelled ? "is-cancelled" : ""}`}>
+    <li className={`mo-row ${cancelled ? "is-cancelled" : ""} ${onOpen ? "is-openable" : ""}`}>
+      <OpenOrderButton order={order} onOpen={onOpen} />
       <div className="mo-row-main">
         <div className="mo-row-title">
           <b>{first.title}</b>
@@ -189,6 +206,7 @@ function PastOrderRow({ order, showVendor }) {
         <Price order={order} />
         {againLink("mo-row-again--lg")}
       </div>
+      {onOpen ? <ChevronRight className="mo-row-chevron" size={18} aria-hidden="true" /> : null}
     </li>
   );
 }
@@ -237,6 +255,147 @@ function ShopCard({ order }) {
         {slug ? <a className="mo-btn mo-btn--quiet" href={`/${slug}`}>View shop</a> : null}
       </div>
     </section>
+  );
+}
+
+// ----- One order: everything on it, as a receipt -----
+
+const money = (value) => `${value < 0 ? "−" : ""}${formatOrderTotal(Math.abs(value))}`;
+
+/** One order in full: progress, each item and its price, the receipt and how it was paid. */
+export function OrderDetailScreen({ order, loading, onBack, onCancel }) {
+  const [cancelling, setCancelling] = useState(false);
+  if (!order) {
+    return (
+      <div className="mo-screen mo-detail">
+        <section className="mo-card mo-empty">
+          {loading ? "Loading your order…" : "We couldn’t find that order on your account."}
+        </section>
+        {!loading ? <button type="button" className="mo-btn" onClick={onBack}>See my orders</button> : null}
+      </div>
+    );
+  }
+  const cancelled = isCancelledOrder(order);
+  const items = Array.isArray(order.items) ? order.items : [];
+  const receipt = orderReceipt(order);
+  const payment = orderPaymentLine(order);
+  const ready = isActiveOrder(order) ? readyLine(order) : "";
+  const directions = directionsUrl(order.vendor_address);
+  const placed = formatShopDate(order.created_at);
+  return (
+    <div className="mo-screen mo-detail">
+      <header className="mo-head">
+        <button type="button" className="mo-icon-btn mo-icon-btn--bare" aria-label="Back to my orders" onClick={onBack}><ChevronLeft size={26} /></button>
+        <div className="mo-title">
+          <h1>Order #{order.id}</h1>
+          <span className="mo-muted">{[order.vendor_name, placed ? `Placed ${placed}` : ""].filter(Boolean).join(" · ")}</span>
+        </div>
+      </header>
+
+      <section className="mo-card mo-detail-status">
+        <div className="mo-card-head">
+          {/* Phones: the nav bar carries "Order #…", so the shop and date go here. */}
+          <span className="mo-meta mo-detail-phone-meta">{[order.vendor_name, placed ? `Placed ${placed}` : ""].filter(Boolean).join(" · ")}</span>
+          <StatusChip order={order} />
+        </div>
+        {cancelled ? null : <Progress order={order} />}
+        {ready ? <p className="mo-ready">{ready}</p> : null}
+      </section>
+
+      <section className="mo-card" aria-label="Items">
+        <h2 className="mo-detail-h">Items</h2>
+        <ul className="mo-detail-items">
+          {items.map((item) => {
+            const line = orderItemLine(item);
+            // A custom item's title already says how many.
+            const qty = item.item_type === "custom" ? 1 : Number(item.item_qty) || 1;
+            return (
+              <li key={item.id}>
+                <span className="mo-detail-item-text">
+                  <b>{line.title}{qty > 1 ? ` × ${qty}` : ""}</b>
+                  {/* The service, unless the string line already says it ("Own string: …"). */}
+                  {item.service_tier_name && item.item_type !== "custom" && item.item_type !== "racket" && !line.detail.startsWith(item.service_tier_name)
+                    ? <span>{item.service_tier_name}</span>
+                    : null}
+                  {line.detail ? <span>{line.detail}</span> : null}
+                </span>
+                <b className={cancelled ? "is-struck" : ""}>{formatOrderTotal(orderItemCents(item))}</b>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+
+      <section className="mo-card" aria-label="Receipt">
+        <h2 className="mo-detail-h">Receipt</h2>
+        <dl className="mo-receipt">
+          {receipt.lines.map((line) => (
+            <div key={line.label} className="mo-receipt-line">
+              <dt>{line.label}</dt>
+              <dd>{line.cents === 0 && line.label.startsWith("Stringing") ? "Free" : formatOrderTotal(line.cents)}</dd>
+            </div>
+          ))}
+          <div className="mo-receipt-line mo-receipt-line--sub">
+            <dt>Subtotal</dt>
+            <dd>{formatOrderTotal(receipt.subtotal)}</dd>
+          </div>
+          {receipt.adjustments.map((line) => (
+            <div key={line.label} className="mo-receipt-line mo-receipt-line--discount">
+              <dt>{line.label}</dt>
+              <dd>{money(line.cents)}</dd>
+            </div>
+          ))}
+          {receipt.tax > 0 ? (
+            <div className="mo-receipt-line">
+              <dt>Sales tax</dt>
+              <dd>{formatOrderTotal(receipt.tax)}</dd>
+            </div>
+          ) : null}
+          <div className="mo-receipt-line mo-receipt-line--total">
+            <dt>Total</dt>
+            <dd className={cancelled ? "is-struck" : ""}>{formatOrderTotal(receipt.total)}</dd>
+          </div>
+        </dl>
+        {payment ? <p className={`mo-receipt-paid mo-pay--${payment.tone}`}>{payment.label}</p> : null}
+      </section>
+
+      {order.vendor_name ? (
+        <section className="mo-card mo-detail-shop">
+          <div className="mo-shop">
+            <b>{order.vendor_name}</b>
+            {order.vendor_address ? <span><MapPin size={14} /> {displayAddress(order.vendor_address)}</span> : null}
+          </div>
+          {directions ? (
+            <a className="mo-btn" href={directions} target="_blank" rel="noreferrer"><Navigation size={16} /> Get directions</a>
+          ) : null}
+        </section>
+      ) : null}
+
+      {order.fulfillment_status === "pending" && onCancel ? (
+        <div className="mo-detail-cancel">
+          <button
+            type="button"
+            className="mo-btn mo-btn--quiet"
+            disabled={cancelling}
+            onClick={async () => {
+              setCancelling(true);
+              try {
+                await onCancel(order.id);
+              } finally {
+                setCancelling(false);
+              }
+            }}
+          >
+            {cancelling ? "Cancelling…" : "Cancel order"}
+          </button>
+          <p className="mo-fine">
+            {isRacketSaleOrder(order)
+              ? "Free cancellation, with a full refund, until the shop starts on it."
+              : "Free cancellation, with a full refund, until your racket is dropped off."}
+          </p>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -559,6 +718,7 @@ export default function MyOrdersScreen({
   myStrings = null,
   onRateString,
   onSaveProfile,
+  onOpenOrder,
 }) {
   const [tab, setTab] = useState("all");
   const { pull, handlers: pullHandlers } = usePullToRefresh(onRefresh, refreshing);
@@ -662,20 +822,20 @@ export default function MyOrdersScreen({
           {showActive ? (
             <section className="mo-section" aria-label="Active orders">
               {tab === "all" ? <h2 className="mo-section-h">Active</h2> : null}
-              {active.map((order) => <ActiveOrderCard key={order.id} order={order} showVendor={showVendor} onCancel={onCancel} />)}
+              {active.map((order) => <ActiveOrderCard key={order.id} order={order} showVendor={showVendor} onCancel={onCancel} onOpen={onOpenOrder} />)}
             </section>
           ) : null}
           {showPast ? (
             <section className="mo-section" aria-label="Past orders">
               {tab === "all" ? <h2 className="mo-section-h">Past</h2> : null}
               <ul className="mo-card mo-rows">
-                {past.map((order) => <PastOrderRow key={order.id} order={order} showVendor={showVendor} />)}
+                {past.map((order) => <PastOrderRow key={order.id} order={order} showVendor={showVendor} onOpen={onOpenOrder} />)}
               </ul>
             </section>
           ) : null}
           {empty ? (
             <section className="mo-card mo-empty">
-              {tab === "active" ? "No restrings in progress." : tab === "past" ? "No past orders yet." : "No restringing orders yet."}
+              {tab === "active" ? "No orders in progress." : tab === "past" ? "No past orders yet." : "No orders yet."}
             </section>
           ) : null}
         </div>
