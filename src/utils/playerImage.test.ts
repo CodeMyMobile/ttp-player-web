@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { handleImageTransformError, originalImageUrl, sizedImageUrl } from "./playerImage";
+import { handleImageTransformError, originalImageUrl, photoSource, sizedImageUrl } from "./playerImage";
 
 // import.meta.env.PROD is false under the test runner, so these cover the dev
 // pass-through path — the transform itself is asserted by shape below.
@@ -51,4 +51,15 @@ test("the fallback is a no-op when there is nothing to fall back to", () => {
   const node = { src: "x", dataset: {} } as unknown as HTMLImageElement;
   handleImageTransformError({ currentTarget: node }, null);
   assert.equal(node.src, "x");
+});
+
+test("a bare bucket address with no file is no photo", () => {
+  const bucket = "https://ttp-avatars-production.s3.amazonaws.com/";
+  assert.equal(photoSource(bucket), "");
+  assert.equal(photoSource("https://ttp-avatars-production.s3.amazonaws.com"), "");
+  assert.equal(sizedImageUrl(bucket, { size: 48 }), "");
+  assert.equal(originalImageUrl(bucket), "");
+  const file = "https://ttp-avatars-production.s3.amazonaws.com/26.jpeg";
+  assert.equal(photoSource(` ${file} `), file);
+  assert.equal(photoSource("/og-image.png"), "/og-image.png");
 });

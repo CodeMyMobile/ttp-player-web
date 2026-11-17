@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { handleImageTransformError, sizedImageUrl } from "../../utils/playerImage";
+import { handleImageTransformError, photoSource, sizedImageUrl } from "../../utils/playerImage";
 import type { DirectoryPlayer } from "../../utils/suggestedPlayer";
 
 /**
@@ -18,7 +18,7 @@ export function PlayerPhoto({
   className?: string;
 }) {
   const [failed, setFailed] = useState(false);
-  const src = player.profileImageUrl;
+  const src = photoSource(player.profileImageUrl);
 
   if (!src || failed) {
     return (

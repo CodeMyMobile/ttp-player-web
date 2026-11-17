@@ -33,7 +33,7 @@ import {
   tprLabel,
   viewerGapLabel,
 } from "./ladderRow";
-import { sizedImageUrl } from "../../utils/playerImage";
+import { photoSource, sizedImageUrl } from "../../utils/playerImage";
 import { usePointerCoarse } from "./usePointerCoarse";
 import type { LeagueData, RosterPlayer, StandingRow, TabKey } from "./types";
 
@@ -401,7 +401,7 @@ const LeagueTabs = ({
 
             return (
               <div className="pcard" key={player.playerId}>
-                {player.profileImageUrl ? (
+                {photoSource(player.profileImageUrl) ? (
                   <img
                     className="av av-photo"
                     src={sizedImageUrl(player.profileImageUrl, { size: 40 })}

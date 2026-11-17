@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { handleImageTransformError, sizedImageUrl } from "../../utils/playerImage";
+import { handleImageTransformError, photoSource, sizedImageUrl } from "../../utils/playerImage";
 import { isMeaningfulBio, levelEvidenceLabel, type LevelSource } from "../../utils/suggestedPlayer";
 import { CheckCircle2, MapPin } from "lucide-react";
 import type { Player } from "../../data/mockPlayers";
@@ -35,8 +35,7 @@ const formatCourtLocation = (court: string) => {
 };
 
 const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCardProps) => {
-  const hasProfileImage =
-    typeof player.profileImageUrl === "string" && player.profileImageUrl.trim().length > 0;
+  const hasProfileImage = photoSource(player.profileImageUrl).length > 0;
   const [imageFailedToLoad, setImageFailedToLoad] = useState(false);
 
   useEffect(() => {

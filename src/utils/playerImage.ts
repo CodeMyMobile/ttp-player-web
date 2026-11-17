@@ -18,6 +18,23 @@
 
 const NETLIFY_IMAGE_ENDPOINT = "/.netlify/images";
 
+/**
+ * The photo's URL, or "" when there's no photo to show. Some API responses carry the
+ * bare bucket address (`https://ttp-avatars-production.s3.amazonaws.com/`) for a player
+ * with no picture; it names no file, S3 answers 403, and the page would show a broken
+ * request twice (the resized one, then the original) before falling back to initials.
+ */
+export const photoSource = (src: string | null | undefined): string => {
+  const source = typeof src === "string" ? src.trim() : "";
+  if (!/^https?:\/\//i.test(source)) return source;
+  try {
+    const { pathname } = new URL(source);
+    return pathname === "" || pathname === "/" ? "" : source;
+  } catch {
+    return "";
+  }
+};
+
 /** Only Netlify serves this endpoint; locally it 404s, so pass the source through. */
 const canTransform = () => Boolean(import.meta.env?.PROD);
 
@@ -33,7 +50,7 @@ export const sizedImageUrl = (
   src: string | null | undefined,
   { size, dpr = 2, fit = "cover" }: SizedImageOptions,
 ): string => {
-  const source = typeof src === "string" ? src.trim() : "";
+  const source = photoSource(src);
   if (!source) return "";
 
   // Anything we are not certain the transform can handle is returned untouched:
@@ -58,8 +75,7 @@ export const sizedImageUrl = (
  * allow-list entry, a transform outage, an unreachable origin — the browser retries
  * this and the avatar still renders.
  */
-export const originalImageUrl = (src: string | null | undefined): string =>
-  typeof src === "string" ? src.trim() : "";
+export const originalImageUrl = (src: string | null | undefined): string => photoSource(src);
 
 /** Swap a failed transform for the original exactly once, then stop. */
 export const handleImageTransformError = (
