@@ -643,6 +643,12 @@
   border-radius: 18px;
   background: #fff;
   box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+  /* The nav is sticky, so scrolling the page never brings a menu taller than the window
+     (Log Out last) into view: fit it below the nav and scroll inside it. Phones tighten this below. */
+  max-height: calc(100vh - 112px);
+  max-height: calc(100dvh - 112px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .app-nav__dropdown a,
@@ -723,13 +729,10 @@
     display: flex;
   }
 
-  /* The profile menu is taller than a small phone, and the nav is sticky, so scrolling the page
-     never brings its last items (Log Out) into view. Fit it to the screen and scroll inside it. */
+  /* Phones: the nav is shorter, so the menu can start higher. */
   .app-nav__dropdown {
     max-height: calc(100vh - 88px);
     max-height: calc(100dvh - 88px);
-    overflow-y: auto;
-    overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
   }
 }
