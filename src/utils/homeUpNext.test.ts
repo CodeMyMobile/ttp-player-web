@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { WeekDayItems, WeekItem } from "../features/myWeek/types";
-import { buildUpNext, directionsUrl } from "./homeUpNext";
+import { buildUpNext, directionsUrl, matchLineup, playersLabel } from "./homeUpNext";
 
 const at = (dayKey: string, hour: number) => new Date(`${dayKey}T${String(hour).padStart(2, "0")}:00:00`).getTime();
 
@@ -73,4 +73,45 @@ test("directions only when there's a venue", () => {
   assert.equal(directionsUrl(null), null);
   assert.equal(directionsUrl("  "), null);
   assert.equal(directionsUrl("Penmar Park"), "https://www.google.com/maps/search/?api=1&query=Penmar%20Park");
+});
+
+const person = (name: string) => ({ id: name, name, photoUrl: null });
+
+test("a match's hero says who's in and how many spots are left", () => {
+  const { hero } = buildUpNext(
+    week([
+      item({
+        dayKey: "2026-11-13",
+        hour: 18,
+        subtitle: "doubles",
+        people: [person("Alex Kim"), person("Sam Lee")],
+        raw: { id: 1, match_format: "doubles", player_limit: 4, location_text: "Penmar Park, Venice, CA" },
+      }),
+    ]),
+    MORNING,
+  );
+  assert.equal(hero?.playersLabel, "With Alex and Sam");
+  assert.equal(hero?.lineup, "Doubles · 3 of 4 in · 1 spot open");
+  // A friendly match's subtitle is its format: the venue and directions use its address.
+  assert.equal(hero?.directionsUrl, directionsUrl("Penmar Park, Venice, CA"));
+  assert.equal(hero?.title, "Match at Penmar Park");
+  assert.equal(hero?.venue, null, "the title already names it");
+});
+
+test("players label and lineup", () => {
+  assert.equal(playersLabel([]), "No one else is in yet");
+  assert.equal(playersLabel([person("Alex Kim")]), "With Alex Kim");
+  assert.equal(playersLabel([person("Alex Kim"), person("Sam Lee"), person("Jo Park"), person("Ty Ng")]), "With Alex, Sam +2");
+  assert.equal(matchLineup({ match_format: "singles", player_limit: 2 }, [person("Alex Kim")]), "Singles · 2 of 2 in");
+  assert.equal(matchLineup({}, []), null);
+  assert.equal(matchLineup({ is_league_match: true, match_format: "singles" }, []), null);
+});
+
+test("lessons get no players line", () => {
+  const { hero } = buildUpNext(
+    week([item({ id: "lesson:7", source: "lesson", type: "lesson", dayKey: "2026-11-13", hour: 18, people: [person("Alex Kim")] })]),
+    MORNING,
+  );
+  assert.equal(hero?.playersLabel, null);
+  assert.deepEqual(hero?.players, []);
 });
