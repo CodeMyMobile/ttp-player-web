@@ -813,10 +813,10 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
         <AppNav hideMobileNewMatch />
       ) : (
         <header className="pay-link-header">
-          <div className="pay-link-brand">
+          <a className="pay-link-brand" href="/" aria-label="The Tennis Plan home">
             <div className="pay-link-brand__mark">🎾</div>
             <div className="pay-link-brand__name">The Tennis <span>Plan</span></div>
-          </div>
+          </a>
           <span className="pay-link-pill pay-link-pill--gray"><ShieldCheck size={14} aria-hidden /> Secure checkout</span>
         </header>
       )}
