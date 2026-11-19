@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 
 import type { WeekDayItems } from "../../features/myWeek/types";
 import { buildUpNext } from "../../utils/homeUpNext";
+import { toInitials } from "../../utils/suggestedPlayer";
+import { PlayerPhoto } from "./PlayerPhoto";
 
 interface UpNextProps {
   days: WeekDayItems[];
@@ -53,9 +55,28 @@ export function UpNext({ days, loading, weekHref, weekLabel, onFindSomething }: 
             </div>
             <Link className="home-upnext__main" to={hero.item.href ?? weekHref}>
               <span className="home-upnext__when">{hero.when}</span>
-              <span className="home-upnext__title">{hero.item.title}</span>
+              <span className="home-upnext__title">{hero.title}</span>
               {hero.venue ? <span className="home-upnext__venue">{hero.venue}</span> : null}
             </Link>
+            {hero.playersLabel ? (
+              <div className="home-upnext__players">
+                {hero.players.length ? (
+                  <span className="home-upnext__faces" aria-hidden="true">
+                    {hero.players.slice(0, 3).map((person, index) => (
+                      <PlayerPhoto
+                        key={person.id ?? `${person.name}-${index}`}
+                        player={{ name: person.name, initials: toInitials(person.name), profileImageUrl: person.photoUrl ?? "" }}
+                        size={28}
+                      />
+                    ))}
+                  </span>
+                ) : null}
+                <span className="home-upnext__players-copy">
+                  <span className="home-upnext__with">{hero.playersLabel}</span>
+                  {hero.lineup ? <span className="home-upnext__lineup">{hero.lineup}</span> : null}
+                </span>
+              </div>
+            ) : null}
             {hero.directionsUrl ? (
               <div className="home-upnext__actions">
                 <a className="home-btn home-btn--outline" href={hero.directionsUrl} target="_blank" rel="noreferrer">
@@ -75,7 +96,7 @@ export function UpNext({ days, loading, weekHref, weekLabel, onFindSomething }: 
                       <span className="home-upnext__dom">{entry.dayNumber}</span>
                     </span>
                     <span className="home-upnext__row-copy">
-                      <span className="home-upnext__row-title">{entry.item.title}</span>
+                      <span className="home-upnext__row-title">{entry.title}</span>
                       <span className="home-upnext__row-when">{entry.when}</span>
                     </span>
                     <ChevronRight className="home-upnext__chevron" size={18} aria-hidden="true" />

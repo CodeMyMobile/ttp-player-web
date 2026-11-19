@@ -264,6 +264,42 @@
   color: var(--home-ink-2);
 }
 
+.home-v2 .home-upnext__players {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.home-v2 .home-upnext__faces {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.home-v2 .home-upnext__faces .home-photo {
+  border: 2px solid #fff;
+}
+
+.home-v2 .home-upnext__faces .home-photo + .home-photo {
+  margin-left: -8px;
+}
+
+.home-v2 .home-upnext__players-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.home-v2 .home-upnext__with {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.home-v2 .home-upnext__lineup {
+  font-size: 13px;
+  color: var(--home-ink-2);
+}
+
 .home-v2 .home-upnext__actions {
   display: flex;
   gap: 10px;
