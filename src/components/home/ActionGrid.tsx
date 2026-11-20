@@ -1,19 +1,20 @@
-import { GraduationCap, Trophy, UserSearch, Wrench } from "lucide-react";
+import { GraduationCap, Trophy, Users, UserSearch, Wrench } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { ANALYTICS_EVENTS, track } from "../../utils/analytics";
 
 interface Shortcut {
-  key: "lessons" | "leagues" | "players" | "restring";
+  key: "coaches" | "lessons" | "leagues" | "players" | "restring";
   label: string;
   to: string;
   icon: LucideIcon;
 }
 
-// Exactly four, one word each. Lessons, Leagues and Players open that section of the Play tab
+// Five, one word each. Coaches goes to coach search, not the Coaches tab, which lists the
+// coaches you already have. Lessons, Leagues and Players open that section of the Play tab
 // (each section is its own page, utils/playSections); Restring is a service with no tab.
-// Coaches isn't here: it's a tab.
 const SHORTCUTS: Shortcut[] = [
+  { key: "coaches", label: "Coaches", to: "/find-coaches", icon: Users },
   { key: "lessons", label: "Lessons", to: "/group-lessons", icon: GraduationCap },
   { key: "leagues", label: "Leagues", to: "/leagues", icon: Trophy },
   { key: "players", label: "Players", to: "/find-players", icon: UserSearch },
