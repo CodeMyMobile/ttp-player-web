@@ -6,10 +6,17 @@
 
 .my-coaches__header {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 20px;
+}
+
+/* On a phone the actions drop under the title rather than squeezing it. */
+.my-coaches__header > div:first-child {
+  flex: 1 1 260px;
+  min-width: 0;
 }
 
 .my-coaches__eyebrow {
@@ -31,6 +38,33 @@
   margin: 6px 0 0;
   color: #475569;
   max-width: 640px;
+}
+
+.my-coaches__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.my-coaches__find {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 16px;
+  background: #8b5cf6;
+  color: #fff;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.2s ease;
+}
+
+.my-coaches__find:hover {
+  background: #7c3aed;
 }
 
 .my-coaches__icon-button {
