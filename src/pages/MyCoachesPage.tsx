@@ -1,4 +1,4 @@
-import { Check, MapPin, RefreshCcw, Search } from "lucide-react";
+import { Check, MapPin, RefreshCcw, Search, UserPlus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -304,14 +304,23 @@ const MyCoachesPage = () => {
               Keep track of the coaches you are working with and jump to their profiles quickly.
             </p>
           </div>
-          <button
-            type="button"
-            className="my-coaches__icon-button"
-            onClick={fetchCoaches}
-            aria-label="Refresh coaches"
-          >
-            <RefreshCcw size={18} />
-          </button>
+          <div className="my-coaches__actions">
+            {/* The Coaches tab is the way in to coach search; the empty state below has its own button. */}
+            {showEmpty && !hasFilters ? null : (
+              <Link className="my-coaches__find" to="/find-coaches">
+                <UserPlus size={16} aria-hidden="true" />
+                Find a coach
+              </Link>
+            )}
+            <button
+              type="button"
+              className="my-coaches__icon-button"
+              onClick={fetchCoaches}
+              aria-label="Refresh coaches"
+            >
+              <RefreshCcw size={18} />
+            </button>
+          </div>
         </header>
 
         <div className="my-coaches__filters">
