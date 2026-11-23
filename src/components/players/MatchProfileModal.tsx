@@ -946,7 +946,7 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile, connec
                 </button>
                 {isIntro ? (
                   <button type="button" className="fc-button fc-button--primary" onClick={() => setStep(0)}>
-                    {initialProfile ? "Review my answers" : "Let's go"}
+                    {connectingTo || !initialProfile ? "Let's go" : "Edit my answers"}
                   </button>
                 ) : reviewOpen ? (
                   <button
