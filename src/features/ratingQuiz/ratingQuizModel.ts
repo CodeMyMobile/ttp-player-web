@@ -226,9 +226,17 @@ export const explain = (answers: RatingQuizAnswers): string => {
   return "Rally consistency and a reliable second serve are what move players up from here, and they tend to arrive in that order.";
 };
 
-/** The questions this player is asked: the USTA question only once they say they have one. */
-export const activeRatingQuizQuestions = (answers: RatingQuizAnswers) =>
-  ratingQuizQuestions.filter((question) => !question.branch || answers.bg === "usta");
+/**
+ * The questions this player is asked. The USTA question is asked only once they say
+ * they have a rating, and it is then the last one: a declared rating is the result, and
+ * scoring never reads the frequency, serve or rally answers on that path. They used to
+ * be asked anyway, so "I already know my level" led straight back into the quiz.
+ */
+export const activeRatingQuizQuestions = (answers: RatingQuizAnswers) => {
+  if (answers.bg !== "usta") return ratingQuizQuestions.filter((question) => !question.branch);
+  const usta = ratingQuizQuestions.findIndex((question) => question.key === "usta");
+  return ratingQuizQuestions.slice(0, usta + 1);
+};
 
 /**
  * Where a question sits in this player's active list, or -1. Looked up, never written

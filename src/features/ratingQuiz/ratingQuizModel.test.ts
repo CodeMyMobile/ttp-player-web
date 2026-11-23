@@ -105,8 +105,15 @@ test("explains the four combinations of the two stroke answers", () => {
 test("the USTA question is only asked, and found by key, on the declared branch", () => {
   assert.equal(activeQuestionIndex({ bg: "lessons" }, "usta"), -1);
   assert.equal(activeQuestionIndex({ pool: "m", bg: "usta" }, "usta"), 2);
-  assert.equal(activeRatingQuizQuestions({ bg: "usta" }).length, 6);
   assert.equal(activeRatingQuizQuestions({ bg: "lessons" }).length, 5);
+});
+
+test("a declared USTA rating ends the quiz instead of going on to the scored questions", () => {
+  const keys = activeRatingQuizQuestions({ pool: "m", bg: "usta" }).map((question) => question.key);
+  assert.deepEqual(keys, ["pool", "bg", "usta"]);
+  // Answering the rating question is the last step, so every quiz shows its result next.
+  const answers = { pool: "m", bg: "usta", usta: "u40" };
+  assert.equal(activeQuestionIndex(answers, "usta") + 1, activeRatingQuizQuestions(answers).length);
 });
 
 test("a declared USTA rating writes only usta_rating and doesn't count questions", () => {
