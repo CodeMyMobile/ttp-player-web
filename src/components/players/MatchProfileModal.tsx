@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useState, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, CheckCircle2, Loader2, Target, UploadCloud, X } from "lucide-react";
+import { AlertTriangle, CalendarClock, CheckCircle2, Loader2, MapPin, Target, Trophy, UploadCloud, X } from "lucide-react";
 
 import {
   getAllSurveyQuestionAnswered,
@@ -34,6 +34,8 @@ type MatchProfileModalProps = {
   onClose: () => void;
   onComplete: (profile: MatchProfileDetails) => void;
   initialProfile?: MatchProfileDetails | null;
+  /** First name of the player the viewer tapped Connect on, when that is what opened the form. */
+  connectingTo?: string | null;
 };
 
 type AuthUser = {
@@ -170,7 +172,11 @@ const buildSubmissionAnswers = (
       const question = questions.find(
         (item) => String(getQuestionKey(item)) === String(answer.questionId ?? ""),
       );
-      if (!question || question.questionType === "Info") {
+      // Nothing answered (a deselected option, a cleared number) is left out rather than
+      // sent as null or "". The API saves answers one by one with no transaction, and a
+      // null option or an empty number threw partway through, so the questions after it
+      // were never saved and the profile kept coming back incomplete.
+      if (!question || question.questionType === "Info" || !hasAnswerValue(answer.value)) {
         return null;
       }
 
@@ -333,7 +339,7 @@ const SurveyMultiAddressField = ({
   );
 };
 
-const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile }: MatchProfileModalProps) => {
+const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile, connectingTo }: MatchProfileModalProps) => {
   const titleId = useId();
   const descriptionId = useId();
   const { user } = useAuth() as { user?: AuthUser | null };
@@ -350,6 +356,8 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile }: Matc
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
+  // -1 is the intro ("why we ask"), then one question per step, then the review.
+  const [step, setStep] = useState(-1);
 
   const loadSurvey = useCallback(async () => {
     if (!playerToken) {
@@ -362,6 +370,7 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile }: Matc
     setLoading(true);
     setError(null);
     setReviewOpen(false);
+    setStep(-1);
     setPendingAnswers([]);
     setAnswersByQuestionId({});
 
@@ -421,12 +430,6 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile }: Matc
     () => questions.filter((question) => question.questionType !== "Info"),
     [questions],
   );
-  const answeredCount = useMemo(
-    () =>
-      contentQuestions.filter((question) => hasAnswerValue(answersByQuestionId[getAnswerKey(question)]?.value)).length,
-    [answersByQuestionId, contentQuestions],
-  );
-  const progress = contentQuestions.length > 0 ? Math.round((answeredCount / contentQuestions.length) * 100) : 0;
   const validationErrors = useMemo(
     () =>
       Object.fromEntries(
@@ -438,18 +441,6 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile }: Matc
     [answersByQuestionId, questions],
   );
   const hasValidationErrors = Object.keys(validationErrors).length > 0;
-
-  const questionsMissingOptions = useMemo(
-    () =>
-      questions.filter(
-        (question) =>
-          (question.questionType === "SelectionGroup" ||
-            question.questionType === "MultipleSelectionGroup" ||
-            question.questionType === "ConditionalSelectionWithText") &&
-          question.options.length === 0,
-      ),
-    [questions],
-  );
 
   const updateAnswer = useCallback<UpdateSurveyAnswer>((question, patch) => {
     setAnswersByQuestionId((current) => ({
@@ -472,6 +463,44 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile }: Matc
     setReviewOpen(true);
   };
 
+  const currentQuestion = step >= 0 ? contentQuestions[step] ?? null : null;
+  const currentError = currentQuestion ? validationErrors[getAnswerKey(currentQuestion)] : undefined;
+  const currentAnswered = currentQuestion
+    ? hasAnswerValue(answersByQuestionId[getAnswerKey(currentQuestion)]?.value)
+    : false;
+
+  const goNext = () => {
+    if (step >= contentQuestions.length - 1) {
+      handleReviewAnswers();
+      return;
+    }
+    setError(null);
+    setStep((current) => current + 1);
+  };
+
+  const goBack = () => {
+    setError(null);
+    if (reviewOpen) {
+      setReviewOpen(false);
+      setStep(contentQuestions.length - 1);
+      return;
+    }
+    if (step <= -1) {
+      onClose();
+      return;
+    }
+    setStep((current) => current - 1);
+  };
+
+  // A single choice moves on by itself, like the rating quiz. "Other" waits for its text.
+  const chooseAndAdvance = (question: NormalizedSurveyQuestion, option: NormalizedSurveyOption) => {
+    updateAnswer(question, { value: option });
+    if (isOtherOption(option)) return;
+    window.setTimeout(() => {
+      setStep((current) => (contentQuestions[current] === question ? current + 1 : current));
+    }, 180);
+  };
+
   const handleSubmit = async () => {
     if (!playerToken || pendingAnswers.length === 0) {
       return;
@@ -484,7 +513,6 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile }: Matc
         token: playerToken,
         surveyAnswers: pendingAnswers,
       });
-      await loadSurvey();
       onComplete(buildMatchProfileDetails(pendingAnswers, initialProfile));
     } catch (requestError) {
       setError(
@@ -533,9 +561,6 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile }: Matc
               }}
             />
           </label>
-          <p className="match-profile-upload__note">
-            Image upload is stored with the survey answer. Server-side upload can be added here if the API exposes a survey image endpoint.
-          </p>
           {imageUrl ? <img className="match-profile-image-preview" src={imageUrl} alt="Selected upload preview" /> : null}
         </div>
       );
@@ -623,7 +648,13 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile }: Matc
                 selected,
                 () => {
                   const allowDeselect = question.questionSettings?.allowDeselect !== false;
-                  updateAnswer(question, { value: allowDeselect && selected ? null : option });
+                  if (allowDeselect && selected) {
+                    updateAnswer(question, { value: null });
+                  } else if (step === contentQuestions.length - 1) {
+                    updateAnswer(question, { value: option });
+                  } else {
+                    chooseAndAdvance(question, option);
+                  }
                 },
               );
             })}
@@ -770,6 +801,15 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile }: Matc
     return null;
   }
 
+  const isIntro = !reviewOpen && step === -1;
+  const total = contentQuestions.length;
+  const stepProgress = reviewOpen ? 100 : total > 0 && step >= 0 ? Math.round(((step + 1) / total) * 100) : 0;
+  const title = initialProfile && !connectingTo
+    ? "Edit your match profile"
+    : connectingTo
+      ? `Before you connect with ${connectingTo}`
+      : "Set up your match profile";
+
   return createPortal(
     <div
       className="match-profile-form-modal-overlay"
@@ -780,12 +820,18 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile }: Matc
       onMouseDown={handleOverlayClick}
     >
       <div className="match-profile-form-modal" role="document">
+        <span className="match-profile-form-modal__grabber" aria-hidden="true" />
         <header className="match-profile-form-modal__header">
           <div className="match-profile-form-modal__heading">
-            <h2 id={titleId}>{initialProfile ? "Edit player match profile" : "Build your player match profile"}</h2>
-            <p id={descriptionId}>
-              Answer the player matching questionnaire so nearby players can understand your level, style, courts, and availability.
-            </p>
+            <h2 id={titleId}>{title}</h2>
+            {!isIntro && total > 0 && !loading ? (
+              <div className="match-profile-survey-progress" aria-label="Progress">
+                <div className="match-profile-survey-progress__track">
+                  <div className="match-profile-survey-progress__bar" style={{ width: `${stepProgress}%` }} />
+                </div>
+                <span>{reviewOpen ? "Review" : `${step + 1} of ${total}`}</span>
+              </div>
+            ) : null}
           </div>
           <button type="button" className="match-profile-form-modal__close" onClick={onClose} aria-label="Close profile form">
             <X size={20} strokeWidth={2} />
@@ -793,35 +839,13 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile }: Matc
         </header>
 
         <div className="match-profile-form-modal__form">
-          <div className="match-profile-form-modal__body">
-            {questions.length > 0 && !reviewOpen ? (
-              <div className="match-profile-survey-progress" aria-label="Survey progress">
-                <div>
-                  <span>{answeredCount} of {contentQuestions.length} answered</span>
-                  <strong>{progress}% complete</strong>
-                </div>
-                <div className="match-profile-survey-progress__track">
-                  <div className="match-profile-survey-progress__bar" style={{ width: `${progress}%` }} />
-                </div>
-              </div>
-            ) : null}
-
-            {questionsMissingOptions.length > 0 && !reviewOpen ? (
-              <div className="match-profile-survey-banner match-profile-survey-banner--warning">
-                <AlertTriangle size={18} aria-hidden="true" />
-                <div>
-                  <strong>Some selection questions are missing option data.</strong>
-                  <p>{questionsMissingOptions.map((question) => question.questionText).join(", ")}</p>
-                </div>
-              </div>
-            ) : null}
-
+          <div className="match-profile-form-modal__body" id={descriptionId}>
             {loading ? (
               <div className="match-profile-survey-state">
                 <Loader2 className="match-profile-survey-state__spinner" size={30} aria-hidden="true" />
-                <h3>Loading match profile questions</h3>
+                <h3>Loading your match profile</h3>
               </div>
-            ) : error && !reviewOpen ? (
+            ) : error && !reviewOpen && questions.length === 0 ? (
               <div className="match-profile-survey-state match-profile-survey-state--error">
                 <AlertTriangle size={30} aria-hidden="true" />
                 <h3>Unable to load match profile</h3>
@@ -830,16 +854,42 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile }: Matc
                   Try again
                 </button>
               </div>
+            ) : total === 0 ? (
+              <div className="match-profile-survey-state">
+                <Target size={30} aria-hidden="true" />
+                <h3>No match profile questions yet</h3>
+              </div>
+            ) : isIntro ? (
+              <div className="match-profile-intro">
+                <p className="match-profile-intro__lead">
+                  {connectingTo
+                    ? `Players see a short match profile before they say yes to a game. ${connectingTo} will see yours with your request.`
+                    : "Your match profile is how players near you decide whether you'd be a good game."}
+                </p>
+                <ul className="match-profile-intro__list">
+                  <li>
+                    <Trophy size={18} aria-hidden="true" />
+                    <span><b>Your level</b> so you're matched with players who suit your game</span>
+                  </li>
+                  <li>
+                    <MapPin size={18} aria-hidden="true" />
+                    <span><b>Where you play</b> so games are at courts that work for both of you</span>
+                  </li>
+                  <li>
+                    <CalendarClock size={18} aria-hidden="true" />
+                    <span><b>When you're free</b> so it's easy to agree on a time</span>
+                  </li>
+                </ul>
+                <p className="match-profile-intro__note">
+                  {total} quick questions, one at a time. You only do this once and can change it anytime.
+                </p>
+              </div>
             ) : reviewOpen ? (
               <div className="match-profile-review">
                 <div className="match-profile-review__icon">
                   <CheckCircle2 size={26} aria-hidden="true" />
                 </div>
-                <h3>Review before saving</h3>
-                <p>
-                  Your answers will update your player match profile. By saving, you agree to share your contact details with
-                  other Matchplay members and accept the terms of use.
-                </p>
+                <h3>Check your answers</h3>
                 {pendingAnswers.length > 0 ? (
                   <dl className="match-profile-review__list">
                     {pendingAnswers.map((answer) => (
@@ -850,92 +900,76 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile }: Matc
                     ))}
                   </dl>
                 ) : (
-                  <p className="match-profile-helper">No publishable answers were collected.</p>
+                  <p className="match-profile-helper">No answers yet.</p>
                 )}
-                {error ? <p className="match-profile-error">{error}</p> : null}
+                <p className="match-profile-review__consent">
+                  By saving, you agree to share your contact details with other members you connect with and accept the
+                  terms of use. You can remove yourself from player matching anytime in settings.
+                </p>
+                {error ? <p className="match-profile-error" role="alert">{error}</p> : null}
               </div>
-            ) : questions.length > 0 ? (
-              <div className="match-profile-survey-list">
-                {error ? <p className="match-profile-error">{error}</p> : null}
-                {questions.map((question, index) => {
-                  const errorMessage = validationErrors[getAnswerKey(question)];
-                  const isInfo = question.questionType === "Info";
-
-                  return (
-                    <section
-                      key={getAnswerKey(question)}
-                      className={`match-profile-survey-question${
-                        isInfo ? " match-profile-survey-question--info" : ""
-                      }`}
-                    >
-                      <div className="match-profile-survey-question__header">
-                        <span className="match-profile-survey-question__eyebrow">
-                          {isInfo ? "Info" : `Question ${index + 1}`}
-                        </span>
-                        <h3>{question.questionText}</h3>
-                        {question.subText ? <p>{question.subText}</p> : null}
-                        {question.answerRequired && !isInfo ? (
-                          <span className="match-profile-survey-question__required">Required</span>
-                        ) : null}
-                      </div>
-                      {isInfo ? null : renderQuestionInput(question)}
-                      {errorMessage ? <p className="match-profile-error">{errorMessage}</p> : null}
-                    </section>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="match-profile-survey-state">
-                <Target size={30} aria-hidden="true" />
-                <h3>No match profile questions yet</h3>
-                <p>Once the survey API returns questions, they will appear here.</p>
-              </div>
-            )}
+            ) : currentQuestion ? (
+              <section className="match-profile-survey-question" key={getAnswerKey(currentQuestion)}>
+                <div className="match-profile-survey-question__header">
+                  <h3>{currentQuestion.questionText}</h3>
+                  {currentQuestion.subText ? <p>{currentQuestion.subText}</p> : null}
+                  {!currentQuestion.answerRequired ? (
+                    <span className="match-profile-survey-question__optional">Optional</span>
+                  ) : null}
+                </div>
+                {currentQuestion.options.length === 0 &&
+                (currentQuestion.questionType === "SelectionGroup" ||
+                  currentQuestion.questionType === "MultipleSelectionGroup" ||
+                  currentQuestion.questionType === "ConditionalSelectionWithText") ? (
+                  <p className="match-profile-error">This question has no options to choose from.</p>
+                ) : (
+                  renderQuestionInput(currentQuestion)
+                )}
+                {currentQuestion.questionType === "MultipleSelectionGroup" ? (
+                  <p className="match-profile-helper">Choose all that apply.</p>
+                ) : null}
+                {error ? <p className="match-profile-error" role="alert">{error}</p> : null}
+              </section>
+            ) : null}
           </div>
 
-          <footer className="match-profile-form-modal__footer">
-            <p className="match-profile-form-modal__disclaimer">
-              You can update your match profile anytime. Info-only survey screens are not submitted as answers.
-            </p>
-            <div className="match-profile-form-modal__actions">
+          {!loading && total > 0 ? (
+            <footer className="match-profile-form-modal__footer">
               <div className="match-profile-form-modal__buttons">
-                {reviewOpen ? (
-                  <button
-                    type="button"
-                    className="fc-button fc-button--secondary"
-                    onClick={() => setReviewOpen(false)}
-                    disabled={saving}
-                  >
-                    Back
+                <button
+                  type="button"
+                  className="fc-button fc-button--secondary"
+                  onClick={goBack}
+                  disabled={saving}
+                >
+                  {isIntro ? "Not now" : "Back"}
+                </button>
+                {isIntro ? (
+                  <button type="button" className="fc-button fc-button--primary" onClick={() => setStep(0)}>
+                    {initialProfile ? "Review my answers" : "Let's go"}
                   </button>
-                ) : (
-                  <button type="button" className="fc-button fc-button--secondary" onClick={onClose}>
-                    Cancel
-                  </button>
-                )}
-                {reviewOpen ? (
+                ) : reviewOpen ? (
                   <button
                     type="button"
                     className="fc-button fc-button--primary"
                     onClick={handleSubmit}
                     disabled={saving || pendingAnswers.length === 0}
                   >
-                    {saving ? "Saving..." : "Agree & Save"}
+                    {saving ? "Saving..." : "Agree & save"}
                   </button>
-                ) : null}
-                {!reviewOpen && questions.length > 0 && !loading ? (
+                ) : (
                   <button
                     type="button"
                     className="fc-button fc-button--primary"
-                    onClick={handleReviewAnswers}
-                    disabled={hasValidationErrors}
+                    onClick={goNext}
+                    disabled={Boolean(currentError)}
                   >
-                    Review answers
+                    {!currentAnswered && !currentError ? "Skip" : step >= total - 1 ? "Review" : "Next"}
                   </button>
-                ) : null}
+                )}
               </div>
-            </div>
-          </footer>
+            </footer>
+          ) : null}
         </div>
       </div>
     </div>,

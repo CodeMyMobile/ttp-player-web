@@ -20,6 +20,13 @@ import type { DirectoryPlayer } from "../utils/suggestedPlayer";
 
 export type ConnectMethod = "hit_request" | "match_invite";
 
+/** "Sam" for the profile form's "Before you connect with Sam"; null for an email or placeholder name. */
+const connectFirstName = (player: DirectoryPlayer | null) => {
+  const name = player?.name.trim() ?? "";
+  if (!name || name.includes("@") || name === "TTP Player") return null;
+  return name.split(/\s+/)[0];
+};
+
 interface UsePlayerConnectOptions {
   /** False skips loading the match profile, so an unused hook costs no request. */
   enabled?: boolean;
@@ -61,6 +68,8 @@ export default function usePlayerConnect({
   const [isConnectModalOpen, setConnectModalOpen] = useState(false);
   const [isProfileModalOpen, setProfileModalOpen] = useState(false);
   const [promptTrigger, setPromptTrigger] = useState<string | null>(null);
+  // The player whose Connect opened the profile form; Connect carries on with them once it's saved.
+  const [gatedPlayer, setGatedPlayer] = useState<DirectoryPlayer | null>(null);
   const hitRequest = useHitRequest();
   const resetHitRequest = hitRequest.reset;
   const sendHitRequest = hitRequest.send;
@@ -117,8 +126,9 @@ export default function usePlayerConnect({
     setConnectModalPlayer(null);
   }, []);
 
-  const openProfileModal = useCallback((trigger: string) => {
+  const openProfileModal = useCallback((trigger: string, player: DirectoryPlayer | null = null) => {
     setPromptTrigger(trigger);
+    setGatedPlayer(player);
     setProfileModalOpen(true);
   }, []);
 
@@ -131,7 +141,7 @@ export default function usePlayerConnect({
           return;
         }
         onConnectGated?.(player);
-        openProfileModal("connect_gate");
+        openProfileModal("connect_gate", player);
         return;
       }
       resetHitRequest();
@@ -219,8 +229,12 @@ export default function usePlayerConnect({
 
       <MatchProfileModal
         isOpen={isProfileModalOpen}
-        onClose={() => setProfileModalOpen(false)}
+        onClose={() => {
+          setProfileModalOpen(false);
+          setGatedPlayer(null);
+        }}
         initialProfile={matchProfile}
+        connectingTo={connectFirstName(gatedPlayer)}
         onComplete={(profileDetails) => {
           const normalizedProfile = sanitizeMatchProfile(profileDetails) ?? profileDetails;
           setMatchProfile(normalizedProfile);
@@ -230,9 +244,14 @@ export default function usePlayerConnect({
           onProfileCompleted?.(promptTrigger);
           setPromptTrigger(null);
           setProfileModalOpen(false);
-          window.alert(
-            "Your match profile is live! You agree to share your contact details with other members and accept our terms. You can remove yourself from player matching anytime in settings.",
-          );
+          // The terms were agreed on the form's last step, so no alert here. Someone who
+          // came from Connect goes straight on to choosing how to reach that player.
+          if (gatedPlayer) {
+            resetHitRequest();
+            setConnectModalPlayer(gatedPlayer);
+            setConnectModalOpen(true);
+            setGatedPlayer(null);
+          }
         }}
       />
     </>
