@@ -6,6 +6,7 @@ import {
   getAllSurveyQuestionAnswered,
   submitSurveyAnswers,
 } from "../../api/playerHome";
+import { getPlayerAWSUrl, putPlayerAWSUrl } from "../../api/player";
 import AddressPicker from "../questionnaire/AddressPicker";
 import TennisCourtPicker from "../questionnaire/TennisCourtPicker";
 import { useAuth } from "../../context/AuthContext";
@@ -356,6 +357,8 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile, connec
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   // -1 is the intro ("why we ask"), then one question per step, then the review.
   const [step, setStep] = useState(-1);
 
@@ -525,47 +528,63 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile, connec
     }
   };
 
+  /**
+   * The photo goes to S3 through the profile avatar endpoint (which also makes it the
+   * profile picture), and the answer saves only its public link. The answer used to be
+   * the whole image as a data URL, which the API's 255-character answer_file column
+   * rejected with a 500, so the profile never saved for anyone who added a photo.
+   */
   const renderImageUpload = useCallback(
     (
       onChange: (value: unknown) => void,
       value: unknown,
       placeholderText?: string,
     ) => {
-      const imageValue = isRecord(value) ? value : null;
-      const imageUrl = toText(imageValue?.url ?? value);
-      const imageName = toText(imageValue?.name);
+      const imageUrl = toText(isRecord(value) ? value.url : value);
 
       return (
         <div className="match-profile-upload">
           <label className="match-profile-upload__button">
-            <UploadCloud size={18} strokeWidth={2} />
-            <span>{imageName || placeholderText || "Select an image"}</span>
+            {uploading ? <Loader2 className="match-profile-survey-state__spinner" size={18} /> : <UploadCloud size={18} strokeWidth={2} />}
+            <span>{uploading ? "Uploading..." : imageUrl ? "Choose a different photo" : placeholderText || "Choose a photo"}</span>
             <input
               type="file"
-              accept="image/*"
+              accept="image/jpeg,image/png"
               className="match-profile-upload__input"
-              onChange={(event) => {
+              disabled={uploading}
+              onChange={async (event) => {
                 const file = event.target.files?.[0];
+                event.target.value = "";
                 if (!file) return;
-
-                const reader = new FileReader();
-                reader.onload = () => {
-                  onChange({
-                    name: file.name,
-                    size: file.size,
-                    type: file.type,
-                    url: typeof reader.result === "string" ? reader.result : "",
-                  });
-                };
-                reader.readAsDataURL(file);
+                const fileType = file.type === "image/png" ? "png" : file.type === "image/jpeg" ? "jpeg" : null;
+                if (!fileType) {
+                  setUploadError("Choose a JPEG or PNG photo.");
+                  return;
+                }
+                if (!playerToken) {
+                  setUploadError("Please sign in to add a photo.");
+                  return;
+                }
+                setUploading(true);
+                setUploadError(null);
+                try {
+                  const { uploadURL } = await getPlayerAWSUrl(playerToken, fileType);
+                  await putPlayerAWSUrl(uploadURL, file, fileType);
+                  onChange(uploadURL.split("?")[0]);
+                } catch {
+                  setUploadError("We couldn't upload that photo. Try again.");
+                } finally {
+                  setUploading(false);
+                }
               }}
             />
           </label>
-          {imageUrl ? <img className="match-profile-image-preview" src={imageUrl} alt="Selected upload preview" /> : null}
+          {uploadError ? <p className="match-profile-error" role="alert">{uploadError}</p> : null}
+          {imageUrl ? <img className="match-profile-image-preview" src={imageUrl} alt="Your profile photo" /> : null}
         </div>
       );
     },
-    [],
+    [playerToken, uploadError, uploading],
   );
 
   const renderOptionButton = (
@@ -962,7 +981,7 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile, connec
                     type="button"
                     className="fc-button fc-button--primary"
                     onClick={goNext}
-                    disabled={Boolean(currentError)}
+                    disabled={Boolean(currentError) || uploading}
                   >
                     {!currentAnswered && !currentError ? "Skip" : step >= total - 1 ? "Review" : "Next"}
                   </button>
