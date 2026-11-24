@@ -293,14 +293,14 @@ export default function RatingQuizPage() {
               <p>Where to go next</p>
               {(result.beginner
                 ? [
-                    ["CO", "Start with a coach", "Beginner-friendly coaches near you", "/my-coaches"],
+                    ["CO", "Start with a coach", "Beginner-friendly coaches near you", "/find-coaches"],
                     ["GL", "Adult beginner clinic", "Group lessons built for first rallies", "/group-lessons"],
                     ["MP", "Others starting out", "Low-pressure hitting sessions", "/matches"],
                   ]
                 : [
                     ["LG", `Fall Flex League ${settled.seed.toFixed(1)}`, "12 weeks with players near your level", "/leagues"],
                     ["GL", `${settled.seed.toFixed(1)} group lessons`, "Weekly clinics at your level", "/group-lessons"],
-                    ["CO", `Coaches for ${settled.seed.toFixed(1)} players`, "Sharpen what holds you back", "/my-coaches"],
+                    ["CO", `Coaches for ${settled.seed.toFixed(1)} players`, "Sharpen what holds you back", "/find-coaches"],
                   ]
               ).map(([icon, title, subtitle, to]) => (
                 <Link className="rq-rec" to={to} key={title}>
