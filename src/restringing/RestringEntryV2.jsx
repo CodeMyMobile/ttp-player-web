@@ -1,27 +1,43 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ChevronRight, ClipboardList, Lightbulb, MapPin, Navigation, RotateCcw, Target } from "lucide-react";
 import { formatMoneyCents, isPresetCompositionTier, vendorImageSrc } from "./playerFlow.js";
 import { directionsUrl, displayAddress } from "./myOrders.js";
-import { distanceLabel, lastRestring, nearbyStringers, orderAgainCard, stringerTags } from "./entryV2.js";
+import { distanceLabel, lastRestring, orderAgainCard, stringerListing, stringerTags } from "./entryV2.js";
 import { listVendorStrings, listVendors } from "./restringingService.js";
-import { DEFAULT_RADIUS_MILES, getStoredLocation, getStoredLocationRadius } from "../utils/userLocation";
+import {
+  DEFAULT_RADIUS_MILES,
+  getStoredLocation,
+  getStoredLocationRadius,
+  requestLocationPicker,
+  USER_LOCATION_CHANGED_EVENT,
+} from "../utils/userLocation";
 import "./RestringEntryV2.css";
 
 const takesOwnString = (tiers) =>
   (Array.isArray(tiers) ? tiers : []).some((tier) => tier.string_category == null && !isPresetCompositionTier(tier));
 
 /**
- * Shops within the player's Home location radius (every shop when they haven't set one),
- * each with how many strings it has in stock.
+ * The shops to list (see stringerListing for which, and why), each with how many strings it
+ * has in stock. Loads again when the player changes their location, and on retry.
  */
 function useNearbyStringers() {
-  const [state, setState] = useState({ loading: true, vendors: [], stringCounts: {} });
+  const [state, setState] = useState({ loading: true, error: false, mode: "all", radius: null, vendors: [], stringCounts: {} });
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => setAttempt((count) => count + 1), []);
+
+  useEffect(() => {
+    window.addEventListener(USER_LOCATION_CHANGED_EVENT, retry);
+    return () => window.removeEventListener(USER_LOCATION_CHANGED_EVENT, retry);
+  }, [retry]);
+
   useEffect(() => {
     let cancelled = false;
     const position = getStoredLocation();
+    const radius = position ? getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES : null;
+    setState((previous) => ({ ...previous, loading: true, error: false }));
     listVendors(position ? { lat: position.latitude, lng: position.longitude } : {})
       .then(async (rows) => {
-        const vendors = nearbyStringers(rows, position ? getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES : null);
+        const { mode, vendors } = stringerListing(rows, { hasLocation: Boolean(position), radiusMiles: radius });
         const counts = await Promise.all(
           vendors.map((vendor) =>
             listVendorStrings({ vendorId: vendor.id })
@@ -32,18 +48,22 @@ function useNearbyStringers() {
         if (cancelled) return;
         setState({
           loading: false,
+          error: false,
+          mode,
+          radius,
           vendors,
           stringCounts: Object.fromEntries(vendors.map((vendor, index) => [vendor.id, counts[index]])),
         });
       })
       .catch(() => {
-        if (!cancelled) setState({ loading: false, vendors: [], stringCounts: {} });
+        // Not "no stringers nearby": we don't know, so say so and offer to try again.
+        if (!cancelled) setState({ loading: false, error: true, mode: "all", radius, vendors: [], stringCounts: {} });
       });
     return () => {
       cancelled = true;
     };
-  }, []);
-  return state;
+  }, [attempt]);
+  return { ...state, retry };
 }
 
 // The last order's shop's strings for its service, so the Order again price includes a
@@ -122,12 +142,46 @@ export default function RestringEntryV2({ tiers, orders, isAuthenticated, orders
         </button>
       </div>
 
-      <section className="rsx-section" aria-label="Stringers near you">
-        <h2>Stringers near you</h2>
+      <section className="rsx-section" aria-label={nearby.mode === "all" ? "Stringers" : "Stringers near you"}>
+        <h2>{nearby.mode === "all" && !nearby.loading ? "Stringers" : "Stringers near you"}</h2>
+        {!nearby.loading && !nearby.error && nearby.mode === "all" ? (
+          <div className="rsx-note">
+            <MapPin size={18} aria-hidden="true" />
+            <p>
+              <b>Where do you play?</b>
+              <span>Set your location to see stringers near you.</span>
+            </p>
+            <button type="button" className="rsx-note__btn" onClick={requestLocationPicker}>
+              Set location
+            </button>
+          </div>
+        ) : null}
+        {!nearby.loading && nearby.mode === "nearest" ? (
+          <div className="rsx-note">
+            <MapPin size={18} aria-hidden="true" />
+            <p>
+              <b>No stringers within {nearby.radius} mi</b>
+              <span>{nearby.vendors.length === 1 ? "Here’s the nearest one." : "Here are the nearest."}</span>
+            </p>
+            <button type="button" className="rsx-note__btn" onClick={requestLocationPicker}>
+              Change area
+            </button>
+          </div>
+        ) : null}
         {nearby.loading ? (
           <p className="rsx-muted">Finding stringers…</p>
+        ) : nearby.error ? (
+          <div className="rsx-note rsx-note--error" role="alert">
+            <p>
+              <b>Couldn’t load stringers</b>
+              <span>Check your connection and try again.</span>
+            </p>
+            <button type="button" className="rsx-note__btn" onClick={nearby.retry}>
+              Try again
+            </button>
+          </div>
         ) : nearby.vendors.length === 0 ? (
-          <p className="rsx-muted">No stringers within your area yet.</p>
+          <p className="rsx-muted">No stringers on The Tennis Plan yet.</p>
         ) : (
           nearby.vendors.map((vendor) => {
             const tags = stringerTags(vendor, { stringCount: nearby.stringCounts[vendor.id], takesOwnString: ownString });

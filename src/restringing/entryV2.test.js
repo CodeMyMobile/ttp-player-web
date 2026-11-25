@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { distanceLabel, lastRestring, nearbyStringers, orderAgainCard, reorderPlan, stringerTags } from "./entryV2.js";
+import { distanceLabel, lastRestring, nearbyStringers, orderAgainCard, reorderPlan, stringerListing, stringerTags } from "./entryV2.js";
 
 const tiers = [
   { id: 1, name: "Restringing Only", price_cents: 2999, string_category: null },
@@ -135,4 +135,20 @@ test("the card's price is the shop's price for that string when it has one", () 
   // Not priced, or another string: the service's price.
   assert.equal(orderAgainCard(entry, tiers, [{ id: stringId, string_price_cents: null, restring_price_cents: null }]).priceCents, 4999);
   assert.equal(orderAgainCard(entry, tiers, [{ id: -1, string_price_cents: 2000, restring_price_cents: 5000 }]).priceCents, 4999);
+});
+
+test("stringer listing: every shop without a location, the nearest few when none are in range", () => {
+  const garage = { id: 1, distance_miles: 4.9 };
+  const valley = { id: 2, distance_miles: 18 };
+  const oc = { id: 3, distance_miles: 41 };
+  const sd = { id: 4, distance_miles: 120 };
+  const far = [sd, garage, oc, valley];
+
+  assert.deepEqual(stringerListing(far, { hasLocation: true, radiusMiles: 10 }), { mode: "nearby", vendors: [garage] });
+  assert.deepEqual(stringerListing(far, { hasLocation: true, radiusMiles: 3 }), { mode: "nearest", vendors: [garage, valley, oc] });
+  assert.deepEqual(stringerListing(far, { hasLocation: false, radiusMiles: null }), { mode: "all", vendors: far });
+  assert.deepEqual(stringerListing([], { hasLocation: true, radiusMiles: 10 }), { mode: "none", vendors: [] });
+  // Shops without coordinates can't be ruled out, so they still show.
+  const unplaced = [{ id: 5, distance_miles: null }];
+  assert.deepEqual(stringerListing(unplaced, { hasLocation: true, radiusMiles: 3 }), { mode: "nearby", vendors: unplaced });
 });

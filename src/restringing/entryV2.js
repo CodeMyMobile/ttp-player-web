@@ -106,6 +106,28 @@ export function nearbyStringers(vendors, radiusMiles) {
   return rows.filter((vendor) => vendor?.distance_miles !== null && Number(vendor.distance_miles) <= radius);
 }
 
+const NEAREST_FALLBACK = 3;
+
+/**
+ * What "Stringers near you" shows, and why:
+ * - "all": we don't know where the player is, so every shop (and a prompt to set a location);
+ * - "nearby": the shops within their radius;
+ * - "nearest": none within it, so the closest few with their distance, rather than nothing;
+ * - "none": no shops at all.
+ */
+export function stringerListing(vendors, { hasLocation, radiusMiles }) {
+  const rows = Array.isArray(vendors) ? vendors : [];
+  if (!rows.length) return { mode: "none", vendors: [] };
+  if (!hasLocation) return { mode: "all", vendors: rows };
+  const nearby = nearbyStringers(rows, radiusMiles);
+  if (nearby.length) return { mode: "nearby", vendors: nearby };
+  const nearest = rows
+    .filter((vendor) => vendor?.distance_miles !== null && Number.isFinite(Number(vendor?.distance_miles)))
+    .sort((left, right) => Number(left.distance_miles) - Number(right.distance_miles))
+    .slice(0, NEAREST_FALLBACK);
+  return { mode: "nearest", vendors: nearest };
+}
+
 /**
  * A shop's tags, only from what we know about it: turnaround, strings in stock, whether it
  * restrings a string you bring, and whether it's open right now.
