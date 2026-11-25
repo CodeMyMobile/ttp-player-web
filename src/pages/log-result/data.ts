@@ -60,6 +60,8 @@ interface ApiLeagueFixture {
   player2_name?: string | null;
   status?: string | null;
   score?: string | null;
+  stage?: string | null;
+  playoff_round?: number | null;
 }
 
 interface LeagueState {
@@ -89,6 +91,8 @@ export interface LeagueFixture {
   player2Name: string;
   status: string;
   score: string | null;
+  /** Set on a playoff match: 1 quarter-final, 2 semi-final, 3 final. */
+  playoffRound: number | null;
 }
 
 export interface MatchResultDetail {
@@ -229,7 +233,14 @@ const normalizeFixture = (fixture: ApiLeagueFixture): LeagueFixture => ({
   player2Name: fixture.player2_name || `Player ${fixture.player2_id || ""}`,
   status: fixture.status || "scheduled",
   score: fixture.score || null,
+  playoffRound: fixture.stage === "playoff" ? Number(fixture.playoff_round) || null : null,
 });
+
+// A playoff match can take a score once both players are known, and not after a walkover or
+// bye has decided it. Regular-season fixtures are always listed.
+export const isScoreableFixture = (fixture: ApiLeagueFixture) =>
+  fixture.stage !== "playoff" ||
+  (Boolean(fixture.player1_id && fixture.player2_id) && !["walkover", "bye"].includes(String(fixture.status)));
 
 // Given a league fixture and the current user, return the *other* player — the opponent.
 // This is drift-prone correctness logic (it was previously duplicated and got the wrong
@@ -370,6 +381,7 @@ export function useLeagueFixtures(selectedLeagueId: string): LeagueState {
         setState({
           leagues,
           fixtures: ((fixtureData as { fixtures?: ApiLeagueFixture[] }).fixtures || [])
+            .filter(isScoreableFixture)
             .map(normalizeFixture)
             .filter((fixture) => fixture.id),
           loading: false,

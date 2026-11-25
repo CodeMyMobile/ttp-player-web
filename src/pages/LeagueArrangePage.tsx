@@ -14,6 +14,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
 import { ANALYTICS_EVENTS, track } from "../utils/analytics";
+import { roundName } from "../utils/leaguePlayoffs";
 import {
   MAX_PROPOSED_TIMES,
   choicesFromWindows,
@@ -70,7 +71,8 @@ const LeagueArrangePage = () => {
     const controller = new AbortController();
     setLoad({ status: "loading" });
     Promise.all([
-      getLeagueFixtures({ leagueId, token, mine: true, signal: controller.signal }),
+      // Playoff matches too: an arranged playoff match goes through this page as well.
+      getLeagueFixtures({ leagueId, token, mine: true, stage: "all", signal: controller.signal }),
       getAvailabilityOverlap({ playerId: opponentId, token, signal: controller.signal }).catch(() => null),
       // Where each of you plays, for the court chips; either failing just means fewer chips.
       getMyPlayedCourts({ token, signal: controller.signal }).catch(() => ({ courts: [] })),
@@ -193,7 +195,10 @@ const LeagueArrangePage = () => {
     <MainLayout>
       <div className="arrange-page">
         <h1 className="arrange-page__title">You vs {opponentName}</h1>
-        <p className="arrange-page__lede">{leagueName}</p>
+        <p className="arrange-page__lede">
+          {leagueName}
+          {fixture.stage === "playoff" ? ` · Playoff ${roundName(fixture.playoff_round).toLowerCase()}` : ""}
+        </p>
 
         {fixture.scheduled_match?.picked ? (
           <p className="arrange-page__warn">

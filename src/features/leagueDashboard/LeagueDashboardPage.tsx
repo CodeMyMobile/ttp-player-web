@@ -20,6 +20,7 @@ import LeagueSectionsV2, { SCHEDULE_SECTIONS, type ScheduleSectionKey } from "./
 import LeagueTabs from "./LeagueTabs";
 import LessonsAtYourLevel from "./LessonsAtYourLevel";
 import PlayersLooking from "./PlayersLooking";
+import PlayoffsCard from "./PlayoffsCard";
 import ResultsTicker from "./ResultsTicker";
 import SeasonProgress from "./SeasonProgress";
 import SectionNav, { type SectionKey } from "./SectionNav";
@@ -253,6 +254,14 @@ const LeagueDashboardPage = () => {
         onViewAll={() => navigate(`/leagues/${id}/match-browser`)}
       />
     ) : null;
+  const playoffsCard = data?.playoffs ? (
+    <PlayoffsCard
+      leagueId={String(data.summary.id)}
+      bracket={data.playoffs.bracket}
+      viewer={data.playoffs.viewer}
+      viewerId={data.playoffs.viewerId}
+    />
+  ) : null;
   const lookingAndLessons = data ? (
     <>
       <PlayersLooking
@@ -330,6 +339,7 @@ const LeagueDashboardPage = () => {
                       actionSlot={actionSlotFor(showPending)}
                       looking={lookingAndLessons}
                       bestBets={bestBets}
+                      playoffs={playoffsCard}
                       panel={panelProps}
                     />
                     <div className="mobile-foot">{data.summary.sub}</div>
@@ -356,6 +366,7 @@ const LeagueDashboardPage = () => {
                         onSeeLooking={() => navigate(`/leagues/${id}/match-browser`)}
                         onViewAll={() => navigate(`/leagues/${id}/match-browser`)}
                       />
+                      {playoffsCard}
                       <Hero
                         hero={hero}
                         onCta={() => handleNextMove(nextMove.cta.target)}
@@ -436,6 +447,7 @@ const LeagueDashboardPage = () => {
                       actionSlot={actionSlotFor(showPending)}
                       looking={lookingAndLessons}
                       bestBets={bestBets}
+                      playoffs={playoffsCard}
                       panel={panelProps}
                     />
                   ) : (
@@ -454,6 +466,8 @@ const LeagueDashboardPage = () => {
                     onSeeLooking={() => navigate(`/leagues/${id}/match-browser`)}
                     onViewAll={() => navigate(`/leagues/${id}/match-browser`)}
                   />
+
+                  {playoffsCard}
 
                   <Hero hero={hero} onCta={() => handleNextMove(nextMove.cta.target)} clinic={heroClinic} />
 

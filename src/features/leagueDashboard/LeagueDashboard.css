@@ -726,3 +726,43 @@
 .lgd .sched-proposal__state{font-size:14px;color:var(--v2-ink-2)}
 .lgd .sched-proposal__cta{flex:none;display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border:1.5px solid var(--v2-primary-border);border-radius:12px;color:var(--v2-primary);font-size:14px;font-weight:700;text-decoration:none;white-space:nowrap}
 .lgd .sched-proposal__cta.is-primary{border-color:var(--v2-primary);background:var(--v2-primary);color:#fff}
+
+/* Playoffs (ttp-api #475): the viewer's match, then the bracket by round. The rounds
+   scroll sideways on a phone rather than squeezing three columns into the width. */
+.lgd .lgd-playoffs{padding:18px 20px;display:flex;flex-direction:column;gap:14px;margin-bottom:16px}
+.lgd .lgd-playoffs__head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.lgd .lgd-playoffs__head h2{margin:0;font-size:18px;font-weight:700}
+.lgd .lgd-playoffs__champion{font-size:13.5px;font-weight:600;color:var(--amber-ink);background:var(--amber-bg);
+  border:1px solid var(--amber-line);border-radius:999px;padding:3px 10px}
+.lgd .lgd-playoffs__mine{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  border:1px solid var(--line);background:var(--page);border-radius:10px;padding:12px 14px}
+.lgd .lgd-playoffs__mine.is-live{border-color:var(--violet);background:var(--violet-softer)}
+.lgd .lgd-playoffs__mine.is-quiet{color:var(--ink-2)}
+.lgd .lgd-playoffs__mine-text{display:flex;flex-direction:column;gap:2px;min-width:0}
+.lgd .lgd-playoffs__mine-text strong{font-size:15px;font-weight:600}
+.lgd .lgd-playoffs__mine-text span{font-size:13px;color:var(--ink-2)}
+.lgd .lgd-playoffs__mine-actions{display:flex;gap:8px}
+.lgd .lgd-bracket{display:grid;grid-template-columns:repeat(3,minmax(170px,1fr));gap:14px;overflow-x:auto;
+  padding-bottom:4px;-webkit-overflow-scrolling:touch}
+.lgd .lgd-bracket__round{display:flex;flex-direction:column;gap:8px;min-width:0}
+.lgd .lgd-bracket__round h3{margin:0;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3)}
+.lgd .lgd-bracket__matches{display:flex;flex-direction:column;justify-content:space-around;gap:10px;flex:1}
+.lgd .lgd-bracket__match{border:1px solid var(--line);border-radius:10px;background:#fff;padding:8px 10px;
+  display:flex;flex-direction:column;gap:2px}
+.lgd .lgd-bracket__label{font-size:11px;color:var(--ink-3);font-weight:500}
+.lgd .lgd-bracket__side{display:flex;align-items:center;gap:7px;font-size:13.5px;padding:2px 0;min-width:0}
+.lgd .lgd-bracket__side.is-won{font-weight:700}
+.lgd .lgd-bracket__side.is-empty{color:var(--ink-3);font-style:italic}
+.lgd .lgd-bracket__side.is-me .lgd-bracket__name{color:var(--violet)}
+.lgd .lgd-bracket__seed{flex:none;width:18px;height:18px;border-radius:50%;background:var(--page);color:var(--ink-2);
+  font-size:11px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;font-style:normal}
+.lgd .lgd-bracket__name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lgd .lgd-bracket__score{font-size:12px;color:var(--ink-2);margin-top:2px}
+@media (max-width:640px){
+  .lgd .lgd-playoffs{padding:16px}
+  .lgd .lgd-bracket{grid-template-columns:repeat(3,minmax(160px,72vw));scroll-snap-type:x mandatory}
+  .lgd .lgd-bracket__round{scroll-snap-align:start}
+  .lgd .lgd-playoffs__mine-actions{width:100%}
+  .lgd .lgd-playoffs__mine-actions .btn{flex:1;justify-content:center}
+}
+.lgd .sched-note{margin:0;font-size:13px;color:var(--ink-2)}

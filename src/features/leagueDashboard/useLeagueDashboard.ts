@@ -19,8 +19,11 @@ import {
   type LeagueMatchSuggestion,
   type LeaguePlayer,
   type LeagueStanding,
+  type PlayoffBracket,
+  fixturesInStage,
   getLeagueFixtures,
   getLeagueMatchNeeds,
+  getLeaguePlayoffs,
   getLeaguePlayers,
   getLeagueStandings,
   listMyLeagues,
@@ -37,6 +40,7 @@ import { buildScheduledLeagueMatches } from "../../utils/scheduledLeagueMatches"
 import { buildLeagueLadderRows } from "../../pages/leagueLadder";
 import { orientScore } from "../../pages/leagueScore";
 import { deriveNtrp, deriveUtr } from "../../utils/ratingConversions";
+import { viewerPlayoffState } from "../../utils/leaguePlayoffs";
 import { byNewestPlayed, playedAtMs } from "./resultRows"
 import { computeNextMove } from "./nextMove";
 import { deriveSeasonEnrichment, weeksRemaining } from "../../utils/leagueSeason";
@@ -225,6 +229,9 @@ interface RawBundle {
   players: LeaguePlayer[];
   completed: LeagueFixture[];
   pending: LeagueFixture[];
+  /** The viewer's open playoff matches; only their arranging rows (proposals) use them. */
+  playoffPending?: LeagueFixture[];
+  bracket?: PlayoffBracket | null;
   myNeeds: LeagueMatchNeed[];
   suggestions: LeagueMatchSuggestion[];
   allNeeds: LeagueMatchNeed[];
@@ -662,7 +669,10 @@ const buildDashboard = (
   const arrangeableOpponentIds = players
     .map((player) => String(player.player_id))
     .filter((pid) => pid !== viewerId && fixtureAgainst(pending, pid) !== null);
-  const proposals = proposalRows(pending, viewerId || null);
+  const proposals = proposalRows([...pending, ...(raw.playoffPending ?? [])], viewerId || null);
+  const playoffs = raw.bracket
+    ? { bracket: raw.bracket, viewer: viewerPlayoffState(raw.bracket, viewerId || null), viewerId: viewerId || null }
+    : undefined;
 
   const data: LeagueData = {
     summary,
@@ -684,6 +694,7 @@ const buildDashboard = (
     progress,
     arrangeableOpponentIds,
     proposals,
+    playoffs,
     hero,
     nextMoveContext,
     pendingScoreCount: pending.length,
@@ -763,7 +774,7 @@ export const useLeagueDashboard = (leagueId?: string): UseLeagueDashboardResult 
       getLeagueStandings({ leagueId, token, signal: controller.signal }),
       getLeaguePlayers({ leagueId, token, signal: controller.signal }),
       getLeagueFixtures({ leagueId, token, status: "confirmed", signal: controller.signal }),
-      getLeagueFixtures({ leagueId, token, status: "scheduled", mine: true, signal: controller.signal }),
+      getLeagueFixtures({ leagueId, token, status: "scheduled", mine: true, stage: "all", signal: controller.signal }),
       getLeagueMatchNeeds({ leagueId, token, signal: controller.signal }),
       getLeagueMatchNeeds({ leagueId, token, scope: "all", signal: controller.signal }),
       listMyLeagues({ token, signal: controller.signal }),
@@ -774,8 +785,12 @@ export const useLeagueDashboard = (leagueId?: string): UseLeagueDashboardResult 
       listMatches({ token, filter: "my", status: "confirmed", signal: controller.signal })
         .then((res) => res.matches)
         .catch(() => [] as unknown[]),
+      // The bracket; null until the playoffs start, and on failure (it must not blank the page).
+      getLeaguePlayoffs({ leagueId, token, signal: controller.signal })
+        .then((res) => res?.bracket ?? null)
+        .catch(() => null),
     ])
-      .then(([standingsRes, playersRes, completedRes, pendingRes, needsRes, allNeedsRes, leaguesRes, scheduledRaw]) => {
+      .then(([standingsRes, playersRes, completedRes, pendingRes, needsRes, allNeedsRes, leaguesRes, scheduledRaw, bracket]) => {
         if (controller.signal.aborted) return;
         const league = standingsRes.league ?? playersRes.league;
         const raw: RawBundle = {
@@ -783,7 +798,9 @@ export const useLeagueDashboard = (leagueId?: string): UseLeagueDashboardResult 
           standings: standingsRes.standings ?? [],
           players: playersRes.players ?? [],
           completed: completedRes.fixtures ?? [],
-          pending: pendingRes.fixtures ?? [],
+          pending: fixturesInStage(pendingRes.fixtures ?? [], "regular"),
+          playoffPending: fixturesInStage(pendingRes.fixtures ?? [], "playoff"),
+          bracket,
           myNeeds: needsRes.myNeeds ?? [],
           suggestions: needsRes.suggestions ?? [],
           allNeeds: allNeedsRes.needs ?? [],
