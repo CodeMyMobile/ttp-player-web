@@ -20,6 +20,55 @@
   font-size: 14.5px;
 }
 
+.rsp-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 6px 0 14px;
+  border: 1px solid var(--coach-color-border);
+  border-radius: 9999px;
+  background: var(--coach-color-surface);
+  color: var(--coach-color-subtle);
+}
+
+.rsp-search:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+}
+
+.rsp-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--coach-color-heading);
+  font: inherit;
+  /* 16px keeps iOS Safari from zooming in on focus. */
+  font-size: 16px;
+}
+
+.rsp-search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.rsp-search__clear {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--coach-color-subtle);
+  cursor: pointer;
+}
+
+.rsp-search__clear:hover {
+  background: var(--coach-color-surface-muted);
+}
+
 /* Chips wrap onto a second line rather than run off the edge. */
 .rsp-chips {
   display: flex;

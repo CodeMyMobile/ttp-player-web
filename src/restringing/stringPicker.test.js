@@ -97,3 +97,24 @@ test("a category's strings carry their own prices, and the header says 'from' wh
   assert.equal(multi.varies, false);
   assert.deepEqual(pickSummary({ kind: "string", tierId: 6, stringId: "1" }, groups, tiers), { title: "Luxilon ALU Power", priceCents: 5499 });
 });
+
+test("search finds strings by brand, name or gauge, across every category", async () => {
+  const { searchGroups } = await import("./stringPicker.js");
+  const groups = stringGroups(tiers, [
+    ...catalog,
+    { id: 14, brand: "Babolat", name: "RPM Blast", category: "prem_poly", gauges_stocked: ["1.25", "1.30"] },
+  ]);
+  const ids = (query) => searchGroups(groups, query).flatMap((group) => (group.strings || []).map((s) => s.id));
+
+  assert.deepEqual(ids("rpm"), [14]);
+  assert.deepEqual(ids("babolat 1.25"), [14]);
+  assert.deepEqual(ids("HYPER G"), [12]);
+  assert.deepEqual(ids("hyperg"), [12]);
+  assert.deepEqual(ids("alu power"), [13]);
+  assert.deepEqual(ids("synthetic"), [10]);
+  assert.deepEqual(ids("gone"), []); // out of stock
+  assert.deepEqual(ids("nothing like this"), []);
+  assert.equal(searchGroups(groups, "  ").length, groups.length);
+  // A shop's-choice group stays only when its name matches.
+  assert.deepEqual(searchGroups(groups, "natural").map((group) => group.key), ["natural_gut"]);
+});

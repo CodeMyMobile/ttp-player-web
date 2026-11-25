@@ -101,6 +101,38 @@ export function filterGroups(groups, filterKey) {
   return groups.filter((group) => filter.categories.includes(group.key));
 }
 
+const normalizeSearch = (value) =>
+  String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9.]+/g, " ")
+    .trim();
+
+/**
+ * The groups with only the strings matching what the player typed: every word has to appear
+ * in the brand, name or gauges ("alu 1.25", "solinco hyper"), ignoring case, accents and
+ * hyphens. Groups left empty drop out; a shop's-choice group stays only if its name matches.
+ */
+export function searchGroups(groups, query) {
+  const words = normalizeSearch(query).split(" ").filter(Boolean);
+  if (!words.length) return groups;
+  const matches = (text) => {
+    const haystack = ` ${normalizeSearch(text)} `;
+    const compact = haystack.replace(/ /g, "");
+    return words.every((word) => haystack.includes(word) || compact.includes(word));
+  };
+  return groups
+    .map((group) => {
+      if (group.kind === "preset") return matches(group.label) ? group : null;
+      const strings = group.strings.filter((string) =>
+        matches([string.brand, string.name, ...(Array.isArray(string.gauges_stocked) ? string.gauges_stocked : [])].join(" ")),
+      );
+      return strings.length ? { ...group, strings } : null;
+    })
+    .filter(Boolean);
+}
+
 /** Only the chips that would show something, "All" always. */
 export const availableFilters = (groups) =>
   STRING_FILTERS.filter((filter) => !filter.categories || filterGroups(groups, filter.key).length > 0);
