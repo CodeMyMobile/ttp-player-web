@@ -1,21 +1,24 @@
 import { useState } from "react";
-import { Check } from "lucide-react";
+import { Check, Search, X } from "lucide-react";
 import { formatMoneyCents } from "./playerFlow.js";
-import { availableFilters, filterGroups, ownStringTier, pickSummary, stringGroups } from "./stringPicker.js";
+import { availableFilters, filterGroups, ownStringTier, pickSummary, searchGroups, stringGroups } from "./stringPicker.js";
 import "./RestringStringPicker.css";
 
 const sameTier = (left, right) => Number(left) === Number(right);
 
 /**
- * "I know what I want" (VITE_RESTRING_V2): the shop's strings by category, a chip per type,
- * Bring my own string, and a sticky bar with the pick, its price and Continue. `catalog` is
+ * "I know what I want" (VITE_RESTRING_V2): Bring my own string first, a search box, the shop's
+ * strings by category with a chip per type, and a sticky bar with the pick, its price and Continue. `catalog` is
  * the shop's whole in-stock list; `initialPick` restores a pick when coming back.
  */
 export default function RestringStringPicker({ tiers, catalog, vendor, initialPick = null, racketLabel = "", onContinue }) {
   const [filter, setFilter] = useState("all");
   const [pick, setPick] = useState(initialPick);
+  const [query, setQuery] = useState("");
   const groups = stringGroups(tiers, catalog);
-  const shown = filterGroups(groups, filter);
+  const searching = query.trim().length > 0;
+  // A search looks through every string, whichever chip is on.
+  const shown = searching ? searchGroups(groups, query) : filterGroups(groups, filter);
   const ownTier = ownStringTier(tiers);
   const summary = pickSummary(pick, groups, tiers);
 
@@ -33,6 +36,36 @@ export default function RestringStringPicker({ tiers, catalog, vendor, initialPi
         <p>{vendor?.name ? `In stock at ${vendor.name}. Price includes stringing.` : "Price includes stringing."}</p>
       </header>
 
+      {ownTier ? (
+        <section className="rsp-group" aria-label="Bring my own string">
+          <PickRow
+            title="Bring my own string"
+            detail={`You supply it; you pay for stringing only · ${formatMoneyCents(ownTier.price_cents)}`}
+            picked={isPicked({ kind: "own", tierId: ownTier.id })}
+            onPick={() => setPick({ kind: "own", tierId: ownTier.id })}
+          />
+        </section>
+      ) : null}
+
+      <label className="rsp-search">
+        <Search size={17} aria-hidden="true" />
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search strings, e.g. RPM Blast"
+          aria-label="Search strings"
+          autoComplete="off"
+          enterKeyHint="search"
+        />
+        {searching ? (
+          <button type="button" className="rsp-search__clear" aria-label="Clear search" onClick={() => setQuery("")}>
+            <X size={16} />
+          </button>
+        ) : null}
+      </label>
+
+      {searching ? null : (
       <div className="rsp-chips" role="group" aria-label="String type">
         {availableFilters(groups).map((chip) => (
           <button
@@ -46,8 +79,14 @@ export default function RestringStringPicker({ tiers, catalog, vendor, initialPi
           </button>
         ))}
       </div>
+      )}
 
-      {shown.length === 0 && !ownTier ? <p className="rsp-empty">No strings in stock here right now.</p> : null}
+      {searching && shown.length === 0 ? (
+        <p className="rsp-empty">
+          No strings here match “{query.trim()}”.{ownTier ? " Bring your own and pay for stringing only." : ""}
+        </p>
+      ) : null}
+      {!searching && shown.length === 0 && !ownTier ? <p className="rsp-empty">No strings in stock here right now.</p> : null}
 
       {shown.map((group) => (
         <section key={group.key} className="rsp-group" aria-label={group.label}>
@@ -82,23 +121,6 @@ export default function RestringStringPicker({ tiers, catalog, vendor, initialPi
         </section>
       ))}
 
-      {ownTier && filter === "all" ? (
-        <section className="rsp-group" aria-label="Bring my own string">
-          <header className="rsp-group__head">
-            <div>
-              <h2>Bring my own string</h2>
-              <p>You supply the string; you pay for stringing only.</p>
-            </div>
-            <strong>{formatMoneyCents(ownTier.price_cents)}</strong>
-          </header>
-          <PickRow
-            title="I’ll bring my string"
-            detail="Tell us which one on the next step"
-            picked={isPicked({ kind: "own", tierId: ownTier.id })}
-            onPick={() => setPick({ kind: "own", tierId: ownTier.id })}
-          />
-        </section>
-      ) : null}
 
       <div className="rsp-bar">
         <div className="rsp-bar__pick">
