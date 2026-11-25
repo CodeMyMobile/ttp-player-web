@@ -93,6 +93,19 @@ const endOfSeasonDay = (value: string): number | null => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+/**
+ * "Dec 15": the day the season ends. That's end_date; deadline is the last day to join, which
+ * for a fall league is in September. Dates are calendar days stamped midnight UTC, so they're
+ * read in UTC; read in Pacific time, "2026-12-15T00:00:00Z" is Dec 14.
+ */
+export const seasonEndLabel = (league: Pick<League, "end_date" | "deadline">): string | null => {
+  const value = league.end_date || league.deadline;
+  if (!value) return null;
+  const date = new Date(String(value));
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+};
+
 export const isPastLeague = (league: League, now: Date = new Date()): boolean => {
   const status = String(league.status ?? "").trim().toLowerCase();
   if (FINISHED_LEAGUE_STATUSES.has(status)) return true;

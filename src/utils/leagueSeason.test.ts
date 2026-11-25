@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { computeSeasonProgress, paceLine, weeksRemaining, LEAGUE_MIN_MATCHES } from "./leagueSeason.ts";
+import { computeSeasonProgress, paceLine, seasonEndLabel, weeksRemaining, LEAGUE_MIN_MATCHES } from "./leagueSeason.ts";
 
 test("season progress mirrors the dashboard math (played/minimum)", () => {
   const p = computeSeasonProgress(4);
@@ -49,4 +49,12 @@ test("pace line: done, or nothing honest to say", () => {
   assert.equal(paceLine({ played: 2, total: 8, weeksLeft: null }), null);
   assert.equal(paceLine({ played: 2, total: 8, weeksLeft: 0 }), null);
   assert.equal(paceLine({ played: 0, total: 0, weeksLeft: 5 }), null);
+});
+
+test("the season ends on end_date, not the join deadline, read as a calendar day", () => {
+  // Women's Intermediate (3.5-4.0) Fall Flex League, as the API sends it.
+  const fall = { deadline: "2026-09-14T00:00:00.000Z", end_date: "2026-12-15T00:00:00.000Z" };
+  assert.equal(seasonEndLabel(fall), "Dec 15");
+  assert.equal(seasonEndLabel({ deadline: "2026-08-31T00:00:00.000Z", end_date: null }), "Aug 31");
+  assert.equal(seasonEndLabel({ end_date: null }), null);
 });
