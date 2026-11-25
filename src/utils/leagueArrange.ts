@@ -56,13 +56,19 @@ export const timesToSend = (choices: TimeChoice[], selected: Set<string>, now: D
     .sort((a, b) => Date.parse(a) - Date.parse(b));
 
 /** The viewer's unplayed fixture against this opponent, or null (flex leagues may have none). */
-export const fixtureAgainst = (fixtures: LeagueFixture[], opponentId: string | number): LeagueFixture | null =>
-  fixtures.find(
+/**
+ * The open fixture against this opponent. A playoff match comes first: once the playoffs
+ * start, that's the match the two of them are arranging.
+ */
+export const fixtureAgainst = (fixtures: LeagueFixture[], opponentId: string | number): LeagueFixture | null => {
+  const open = fixtures.filter(
     (fixture) =>
       (sameId(fixture.player1_id, opponentId) || sameId(fixture.player2_id, opponentId)) &&
       (fixture.status ?? "scheduled") === "scheduled" &&
       !(typeof fixture.score === "string" && fixture.score.trim()),
-  ) ?? null;
+  );
+  return open.find((fixture) => fixture.stage === "playoff") ?? open[0] ?? null;
+};
 
 export interface ProposalRow {
   fixtureId: string;

@@ -4,7 +4,8 @@
 //   Schedule  = the summary card, the page's action prompt, best bets this week, Still to play (the roster cut to
 //               the opponents the viewer hasn't played, with its contact and propose actions),
 //               Scheduled, players looking, then the viewer's unplayed fixtures.
-//   Standings = the table, with a Table / Ladder switch for the rated ladder.
+//   Standings = the table, with a Table / Ladder switch for the rated ladder, and the playoff line.
+//   Once the playoffs start, the bracket (PlayoffsCard) heads the Schedule.
 //   Results   = results.
 
 import React, { useState, type ReactNode } from "react";
@@ -15,6 +16,7 @@ import LeagueTabs, { type LeagueTabsProps } from "./LeagueTabs";
 import ScheduleSummary from "./ScheduleSummary";
 import type { LeagueData } from "./types";
 import type { BestBetsState } from "./useBestBets";
+import { PLAYOFF_MIN_MATCHES, PLAYOFF_SIZE } from "../../utils/leaguePlayoffs";
 
 export type ScheduleSectionKey = "schedule" | "standings" | "results";
 
@@ -44,10 +46,12 @@ interface LeagueSectionsV2Props {
   looking?: ReactNode;
   /** Best bets this week (useBestBets); left out when absent. */
   bestBets?: BestBetsState;
+  /** The playoff bracket, once the playoffs have started. */
+  playoffs?: ReactNode;
   panel: PanelProps;
 }
 
-const LeagueSectionsV2 = ({ data, section, onSection, showTabs, actionSlot, looking, bestBets, panel }: LeagueSectionsV2Props) => {
+const LeagueSectionsV2 = ({ data, section, onSection, showTabs, actionSlot, looking, bestBets, playoffs, panel }: LeagueSectionsV2Props) => {
   const [standingsView, setStandingsView] = useState<"standings" | "ladder">("standings");
   const opponents = stillToPlay(data);
   const noop = () => {};
@@ -73,6 +77,7 @@ const LeagueSectionsV2 = ({ data, section, onSection, showTabs, actionSlot, look
 
       {section === "schedule" ? (
         <div className="sched">
+          {playoffs}
           {data.progress ? <ScheduleSummary progress={data.progress} /> : null}
           {actionSlot}
 
@@ -149,6 +154,12 @@ const LeagueSectionsV2 = ({ data, section, onSection, showTabs, actionSlot, look
             ))}
           </div>
           <LeagueTabs {...panel} data={data} activeTab={standingsView} onTabChange={noop} hideTabBar />
+          {standingsView === "standings" && !data.playoffs && !data.summary.archived ? (
+            <p className="sched-note">
+              The top {PLAYOFF_SIZE} go into the end-of-season playoffs. Players with {PLAYOFF_MIN_MATCHES}+ matches get
+              the places first.
+            </p>
+          ) : null}
         </div>
       ) : null}
 

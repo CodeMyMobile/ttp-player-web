@@ -9,6 +9,8 @@ import type { ProposalRow } from "../../utils/leagueArrange";
 
 import type { NextMoveContext } from "./nextMove";
 import type { LeagueLadderRow } from "../../pages/leagueLadder";
+import type { PlayoffBracket } from "../../api/leagues";
+import type { ViewerPlayoffState } from "../../utils/leaguePlayoffs";
 
 // Re-export the next-move contract so consumers import everything from one place.
 export type {
@@ -204,6 +206,8 @@ export interface LeagueData {
   arrangeableOpponentIds?: string[];
   /** Fixtures with times proposed and none picked yet (utils/leagueArrange). */
   proposals?: ProposalRow[];
+  /** The playoff bracket and where the viewer stands in it; absent until the playoffs start. */
+  playoffs?: { bracket: PlayoffBracket; viewer: ViewerPlayoffState; viewerId: string | null };
   hero: ViewerHero;
   /** Input for computeNextMove — the viewing player's live context. */
   nextMoveContext: NextMoveContext;

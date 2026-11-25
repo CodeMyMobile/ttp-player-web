@@ -14,6 +14,7 @@ import type { FormatChip } from "./scoreGridRules";
 import { isHomeV2Enabled } from "../../utils/featureFlags";
 import { getAwaitingScores } from "../../api/awaitingScores";
 import { ANALYTICS_EVENTS, track } from "../../utils/analytics";
+import { roundName } from "../../utils/leaguePlayoffs";
 import type { ScoreControls } from "./Scoreboard";
 import { ReviewCard } from "./ReviewCard";
 import { SentCard } from "./SentCard";
@@ -87,7 +88,9 @@ function LeagueFixturePicker({
             .filter((fixture) => fixture.status !== "confirmed")
             .map((fixture) => (
               <option key={fixture.id} value={fixture.id}>
-                #{fixture.matchNumber} {fixture.player1Name} vs {fixture.player2Name}
+                {fixture.playoffRound
+                  ? `${roundName(fixture.playoffRound)}: ${fixture.player1Name} vs ${fixture.player2Name}`
+                  : `#${fixture.matchNumber} ${fixture.player1Name} vs ${fixture.player2Name}`}
               </option>
             ))}
         </select>
@@ -102,7 +105,11 @@ function LeagueFixturePicker({
             <Avatar name={opponentName} color="bg-sky-100 text-sky-700" size="h-9 w-9" />
             <div className="min-w-0">
               <div className="text-sm font-bold text-slate-900 truncate">{opponentName}</div>
-              <div className="text-[11px] font-semibold text-violet-600">League match #{selectedFixture.matchNumber}</div>
+              <div className="text-[11px] font-semibold text-violet-600">
+                {selectedFixture.playoffRound
+                  ? `Playoff ${roundName(selectedFixture.playoffRound).toLowerCase()}`
+                  : `League match #${selectedFixture.matchNumber}`}
+              </div>
             </div>
           </div>
         ) : null}

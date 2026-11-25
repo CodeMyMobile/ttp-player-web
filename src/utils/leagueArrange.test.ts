@@ -93,3 +93,12 @@ test("court chips: shared courts first, then the opponent's, then yours, four at
   );
   assert.deepEqual(courtChips([], [], "Ana"), []);
 });
+
+test("an open playoff match against the opponent comes before a regular-season one", () => {
+  const fixtures = [
+    { id: 1, league_id: 4, player1_id: 10, player2_id: 20, status: "scheduled" },
+    { id: 2, league_id: 4, player1_id: 20, player2_id: 10, status: "scheduled", stage: "playoff" },
+  ];
+  assert.equal(fixtureAgainst(fixtures, 20)?.id, 2);
+  assert.equal(fixtureAgainst([fixtures[0]], 20)?.id, 1);
+});

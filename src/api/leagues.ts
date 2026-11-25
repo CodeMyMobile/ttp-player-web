@@ -130,15 +130,52 @@ export interface LeagueFixture {
   scheduled_match?: FixtureScheduledMatch | null;
   id: number | string;
   league_id: number | string;
-  player1_id?: number | string;
-  player2_id?: number | string;
+  // Null on a playoff match whose players aren't decided yet.
+  player1_id?: number | string | null;
+  player2_id?: number | string | null;
   player1_name?: string | null;
   player2_name?: string | null;
   status?: string;
   score?: string | null;
   played_date?: string | null;
   match_number?: number;
+  // Playoffs (ttp-api #475): "regular" or "playoff"; a playoff row has a round (1 quarter-final,
+  // 2 semi-final, 3 final), a slot in that round and each player's seed.
+  stage?: "regular" | "playoff" | string;
+  playoff_round?: number | null;
+  bracket_slot?: number | null;
+  seed1?: number | null;
+  seed2?: number | null;
+  winner_id?: number | string | null;
+  match_result_id?: number | string | null;
   [key: string]: unknown;
+}
+
+export interface PlayoffMatch {
+  id: number | string;
+  match_number?: number;
+  playoff_round: number;
+  bracket_slot: number;
+  player1_id: number | string | null;
+  player2_id: number | string | null;
+  player1_name?: string | null;
+  player2_name?: string | null;
+  player1_picture?: string | null;
+  player2_picture?: string | null;
+  seed1: number | null;
+  seed2: number | null;
+  status: string;
+  winner_id: number | string | null;
+  score?: string | null;
+  played_date?: string | null;
+  match_result_id?: number | string | null;
+}
+
+export interface PlayoffBracket {
+  started_at: string;
+  champion_id: number | string | null;
+  completed_at: string | null;
+  rounds: Array<{ round: number; name: string; matches: PlayoffMatch[] }>;
 }
 
 export interface LeagueMatchSuggestion {
@@ -450,17 +487,24 @@ export const getLeaguePlayers = ({
     },
   });
 
+/**
+ * The league's fixtures. Regular-season rows only unless `stage` says otherwise: playoff
+ * matches (ttp-api #475) share the endpoint, and every season count ("5 of 8 played",
+ * still to play, the pace line) is about the regular season.
+ */
 export const getLeagueFixtures = ({
   leagueId,
   token,
   status,
   mine,
+  stage = "regular",
   signal,
 }: {
   leagueId: number | string;
   token?: string;
   status?: string;
   mine?: boolean;
+  stage?: "regular" | "playoff" | "all";
   signal?: AbortSignal;
 }) =>
   request<{ league: League; fixtures: LeagueFixture[] }>(`/leagues/${leagueId}/fixtures`, {
@@ -470,6 +514,26 @@ export const getLeagueFixtures = ({
       status,
       mine,
     },
+  }).then((res) => ({ ...res, fixtures: fixturesInStage(res?.fixtures ?? [], stage) }));
+
+export const fixtureStage = (fixture: Pick<LeagueFixture, "stage">) => fixture.stage || "regular";
+
+export const fixturesInStage = (fixtures: LeagueFixture[], stage: "regular" | "playoff" | "all") =>
+  stage === "all" ? fixtures : fixtures.filter((fixture) => fixtureStage(fixture) === stage);
+
+/** The playoff bracket, round by round; `bracket` is null until an admin starts the playoffs. */
+export const getLeaguePlayoffs = ({
+  leagueId,
+  token,
+  signal,
+}: {
+  leagueId: number | string;
+  token?: string;
+  signal?: AbortSignal;
+}) =>
+  request<{ league_id: number; bracket: PlayoffBracket | null }>(`/leagues/${leagueId}/playoffs`, {
+    token,
+    signal,
   });
 
 export const createLeagueMatchNeed = ({
