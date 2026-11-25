@@ -384,9 +384,49 @@ const AppNav = ({
     );
   };
 
-  const handlePlaceSelected = (place) => {
+  // Text typed without tapping a suggestion (Enter, or straight to Apply) comes back from
+  // Google with no geometry, so look it up as an address instead of refusing it.
+  const geocodeSearchText = async (text) => {
+    const Geocoder = window.google?.maps?.Geocoder;
+    if (!text || !Geocoder) return null;
+    try {
+      const { results } = await new Geocoder().geocode({ address: text, componentRestrictions: { country: "US" } });
+      const place = results?.[0];
+      // Text it can't place comes back as the whole country (or a state): no use for distance.
+      const tooBroad = place?.types?.some((type) => type === "country" || type === "administrative_area_level_1");
+      return place && !tooBroad ? place : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const readPlace = (place, fallbackLabel) => {
+    const latitude = place?.geometry?.location?.lat?.();
+    const longitude = place?.geometry?.location?.lng?.();
+    const label = place?.formatted_address || place?.name || fallbackLabel;
+    if (!label || typeof latitude !== "number" || Number.isNaN(latitude) || typeof longitude !== "number" || Number.isNaN(longitude)) {
+      return null;
+    }
+    return { label, latitude, longitude, area: readPlaceArea(place) };
+  };
+
+  const handlePlaceSelected = async (place) => {
     if (!place) {
       setLocationError("Please choose a location from the suggestions.");
+      return;
+    }
+
+    if (!place.geometry) {
+      const text = place.name || locationSearchTerm;
+      const requestVersion = locationRequestVersionRef.current + 1;
+      locationRequestVersionRef.current = requestVersion;
+      const found = readPlace(await geocodeSearchText(text), text);
+      if (locationRequestVersionRef.current !== requestVersion) return;
+      if (!found) {
+        setLocationError(`We couldn't find "${text}". Pick a place from the suggestions.`);
+        return;
+      }
+      setDraftLocationSelection(found);
       return;
     }
 
@@ -452,7 +492,24 @@ const AppNav = ({
     draft: { location: draftLocation, radiusMiles: searchRadius },
   });
 
-  const applyDraft = () => {
+  // Typed text that hasn't become the draft yet (no suggestion tapped).
+  const pendingSearchText =
+    locationSearchTerm.trim() && locationSearchTerm.trim() !== (draftLabel || "").trim() ? locationSearchTerm.trim() : "";
+
+  const applyDraft = async () => {
+    if (pendingSearchText) {
+      const requestVersion = locationRequestVersionRef.current + 1;
+      locationRequestVersionRef.current = requestVersion;
+      const found = readPlace(await geocodeSearchText(pendingSearchText), pendingSearchText);
+      if (locationRequestVersionRef.current !== requestVersion) return;
+      if (!found) {
+        setLocationError(`We couldn't find "${pendingSearchText}". Pick a place from the suggestions.`);
+        return;
+      }
+      storeLocationRadius(searchRadius);
+      commitLocationSelection(found);
+      return;
+    }
     if (!draftLocation) return;
     storeLocationRadius(searchRadius);
     commitLocationSelection({
@@ -843,6 +900,10 @@ const AppNav = ({
                 className="app-nav__location-search-input"
                 value={locationSearchTerm}
                 onChange={(event) => {
+                  // Typing wins over a current-location lookup still in flight, which would
+                  // otherwise replace the text when it lands.
+                  locationRequestVersionRef.current += 1;
+                  if (locationState === "locating") setLocationState("prompt");
                   setLocationSearchTerm(event.target.value);
                   if (locationError) setLocationError("");
                 }}
@@ -895,9 +956,9 @@ const AppNav = ({
                 type="button"
                 className={`app-nav__location-apply${isFirstRun ? " app-nav__location-apply--primary" : ""}`}
                 onClick={applyDraft}
-                disabled={isFirstRun ? !draftLocation : !hasDraftChanges}
+                disabled={isFirstRun ? !draftLocation && !pendingSearchText : !hasDraftChanges && !pendingSearchText}
               >
-                {isFirstRun ? (draftLocation ? "Done" : "Choose a location") : "Apply"}
+                {isFirstRun ? (draftLocation || pendingSearchText ? "Done" : "Choose a location") : "Apply"}
               </button>
             </div>
           </div>
