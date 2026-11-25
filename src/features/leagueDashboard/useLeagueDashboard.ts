@@ -43,7 +43,7 @@ import { deriveNtrp, deriveUtr } from "../../utils/ratingConversions";
 import { viewerPlayoffState } from "../../utils/leaguePlayoffs";
 import { byNewestPlayed, playedAtMs } from "./resultRows"
 import { computeNextMove } from "./nextMove";
-import { deriveSeasonEnrichment, weeksRemaining } from "../../utils/leagueSeason";
+import { deriveSeasonEnrichment, seasonEndLabel, weeksRemaining } from "../../utils/leagueSeason";
 import { fixtureAgainst, proposalRows } from "../../utils/leagueArrange";
 import type {
   LeagueData,
@@ -510,7 +510,7 @@ const buildDashboard = (
     : { label: `${viewerMatchesPlayed} of ${MIN_MATCHES} minimum matches`, pct: seasonPct };
 
   // Summary (active league) — override the switcher status with the viewer's rank.
-  const seasonEnd = shortDate(league.deadline);
+  const seasonEnd = seasonEndLabel(league);
   const summary: LeagueSummary = {
     ...summaryFromLeague(league),
     sub: [
